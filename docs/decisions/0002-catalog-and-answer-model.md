@@ -13,26 +13,35 @@ state and agentic metadata live.
 
 - The catalog is **user-owned configuration**, not baked into clerk's repo. It
   lists **sources**, not templates.
-- **One catalog entry = one git repo + one optional `vcs_ref`.** This is forced
-  by copier's `1 template = 1 git repository` rule: copier's update model reads
-  version info from **repo-wide git tags**, so registering one monorepo as N
-  independent template sources causes tag-namespace collisions and breaks
-  `copier update`/`recopy`. clerk's extraction layer MUST NOT enumerate a repo's
-  subdirectories as separate templates.
-- **A repo that uses a templated `_subdirectory` for variant selection is still
-  ONE catalog entry** — the variant is a *question answer*, not a separate
-  template. clerk's catalog entry for such a repo includes the variant-selecting
-  question; it does not split the repo. (`_subdirectory` is a template-internal
-  setting; clerk only reads it during discovery to find where the template files
-  live — it never sets it from outside.)
-- **Source reference format is APM-style**: `gituser/gitrepo/filepath#tagorsha`.
-  Expose all three pin kinds — exact tag, exact sha, and branch.
+- **One catalog entry = one git repo (`gituser/gitrepo`), NOT a subpath.** This
+  is forced by copier's `1 template = 1 git repository` rule. VERIFIED: copier's
+  version resolver (`get_latest_tag`, `_vcs.py`) lists tags via `git ls-remote`
+  and **silently discards any tag that is not PEP 440-parseable**. There is NO
+  tag prefix/glob/pattern filter anywhere in copier. So a monorepo with
+  per-component prefixed tags (`lang-python-v1.2.0`) is unusable — copier finds
+  zero valid versions. Each template must be its own repo with clean `v1.2.0`
+  tags. (Authoring still happens in one monorepo; a CI step fans out per-template
+  repos — see [[0006-release-and-split-model]].)
+- **Catalog holds SOURCES, not pinned refs.** Do NOT store a `#ref` per entry as
+  a mandatory pin — that duplicates copier's per-project pin and defeats the
+  `update` flow. The reproduce pin lives in the generated project's answers file
+  (`_commit`); clerk honors it via `vcs_ref=VcsRef.CURRENT` (see
+  [[0001-copier-as-engine]]). An explicit `vcs_ref` is an **optional** per-source
+  override for teams standardizing a version — not the model.
+- Locator form: `gituser/gitrepo` (+ optional `@ref` override). No subpath
+  segment (each template is a repo root).
+- **A repo using a templated `_subdirectory` for variant selection is still ONE
+  catalog entry** — the variant is a *question answer*, not a separate template.
+  (`_subdirectory` is template-internal; clerk only reads it during discovery to
+  locate the template files.)
 - **Freshness is manual**: an explicit `just catalog` / CLI invocation refreshes;
   CI is just one caller of the same entrypoint, never a dependency.
 - **Merge / id collisions: full-id always** (`catalog/template`). No
-  unnamespaced first-wins convenience lookup.
-- Clerk may ship an **optional, swappable** reference catalog; the engine works
-  against any user-supplied sources with zero reference templates.
+  unnamespaced first-wins convenience lookup. Support one OR more catalog
+  pointers (URLs); clerk ships an **optional, swappable** reference catalog and
+  works against any user-supplied sources with zero reference templates.
+- **Non-goal: no git submodules.** Templates are fetched by ref (copier's
+  `git clone --mirror`), never nested as submodules in clerk or in the catalog.
 
 ## Decision — answer model (supersedes the sidecar idea)
 
@@ -55,14 +64,21 @@ state and agentic metadata live.
   `_commit`, so an answers file points at *its own* template at its own pin —
   users bring their own templates and never depend on clerk's repo at reproduce
   time.
-- Agent-authored answers must be replayed with `recopy` (full re-render), not
-  `update` (smart 3-way merge), because copier's docs forbid hand-editing the
-  answers file and `update`'s diff assumes prompt-captured answers.
-- No `catalog.yml` artifact: the list of source repos + refs is itself persisted
-  as answers in the repos-collector template (see
+- **`_src_path` must be the SPLIT (per-template) repo URL, never the authoring
+  monorepo** (verified gotcha). Because the split rewrites commit SHAs, a project
+  generated from a split repo must always be reproduced/updated from that same
+  split repo — mixing the monorepo and split repo makes `update` follow the wrong
+  tags. clerk always sources from split repos.
+- Agent-authored answers are replayed with `recopy` + `vcs_ref=VcsRef.CURRENT`
+  (faithful reproduce), not `update` (smart 3-way merge, reserved for intentional
+  upgrades) — copier forbids hand-editing the answers file and `update`'s diff
+  assumes prompt-captured answers.
+- No `catalog.yml` artifact: source repos are persisted as answers in the
+  repos-collector template (see
   [[0003-selector-template-and-runtime-injection]]); the available-template
   catalog is discovered by clerk at runtime and injected via `--data`.
 
 ## Related
 
-- [[0001-copier-as-engine]], [[0003-selector-template-and-runtime-injection]].
+- [[0001-copier-as-engine]], [[0003-selector-template-and-runtime-injection]],
+  [[0006-release-and-split-model]].

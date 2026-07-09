@@ -40,8 +40,9 @@ conductor.
   as a fallback escape hatch.
 - **Trust is configured, not blanket-flagged.** clerk does NOT default
   `unsafe=True`. Instead users add a `trust:` list to copier's `settings.yml`
-  (macOS: `~/Library/Application Support/copier/settings.yml`), passed to the API
-  via the `settings` param. Trailing-slash entries match as **prefixes** (trust
+  (verified path via platformdirs on macOS: `~/.config/copier/settings.yml` —
+  NOT `~/Library/Application Support/...`; override with `COPIER_SETTINGS_PATH`),
+  passed to the API via the `settings` param. Trailing-slash entries match as **prefixes** (trust
   all templates under an org path, e.g. `- https://github.com/your-org/`);
   no-slash entries match **exactly**. This bounds trust by source, cleaner than
   a per-invocation catchall.
@@ -65,12 +66,22 @@ conductor.
   is therefore **process-deterministic** (same frozen answers + same pinned
   refs → same commands executed), **not** output-byte-deterministic — tasks like
   `apm install` touch network/external state.
-- **Reproduce uses `run_recopy`, not `run_update`.** `recopy` re-applies the
-  pinned ref from the committed answers and fires tasks (`update` does the smart
+- **Reproduce uses `run_recopy` WITH an explicit `vcs_ref`.** VERIFIED against
+  source: bare `run_recopy()` (no `vcs_ref`) resolves the LATEST tag and silently
+  upgrades — it does NOT auto-replay the recorded `_commit`. To reproduce the
+  original version faithfully clerk MUST pass `vcs_ref=VcsRef.CURRENT` (which
+  reads the `_commit` from the committed answers file) or the literal
+  `vcs_ref=answers["_commit"]`. `recopy` fires tasks; `update` does the smart
   3-way merge, which assumes prompt-captured answers — wrong for agent-authored
-  ones). Note: `_copier_operation` is `'copy'` for BOTH first copy and recopy, so
-  a task cannot distinguish them via that variable — gate first-run-only work
-  with a `when:` condition or a sentinel file instead.
+  ones, so it is reserved for intentional upgrades. Note: `_copier_operation` is
+  `'copy'` for BOTH first copy and recopy, so a task cannot distinguish them via
+  that variable — gate first-run-only work with a `when:` condition or a sentinel
+  file instead.
+- **Three operations, three version behaviors** (all source-verified):
+  `run_copy` (init) → latest tag (or optional explicit `vcs_ref`); `run_recopy`
+  (faithful reproduce) → `vcs_ref=VcsRef.CURRENT` (recorded `_commit`, no drift);
+  `run_update` (intentional upgrade) → FROM `_commit` → TO latest. This preserves
+  copier's living-template model for init/upgrade while keeping reproduce exact.
 - **Secrets are injected per-invocation, never persisted.** Secret questions
   (`secret: true` / `_secret_questions`) are NOT written to `.copier-answers.yml`.
   clerk inspects `Template.secret_questions` before running, fetches the values
