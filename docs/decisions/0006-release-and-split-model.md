@@ -32,25 +32,26 @@ Key verified constraints:
    between components).
 3. **Fan-out CI** (after release-please tags): for each released component, strip
    the prefix → `vX.Y.Z`, push `templates/<name>/` to its own read-only repo
-   `clerk-mod-<name>`, and create the clean annotated `vX.Y.Z` tag there.
+   `copier-clerk/clerk-mod-<name>`, and create the clean annotated `vX.Y.Z` tag
+   there.
    **Mechanism = snapshot mirror, NOT history-preserving split.** VERIFIED: copier
    only needs the correct tree at each tag + a PEP440 tag — it diffs tree-at-old
    vs tree-at-new on update and never walks intermediate history. So the fan-out
    is just `cp subdir → commit → tag → push`; history-preserving tooling
    (splitsh-lite, `git subtree split`, `git-filter-repo`, copybara) solves a
    problem clerk does not have and is rejected as over-engineering.
-   - **RECOMMENDED: hand-rolled ~25-line GitHub Actions workflow** (matrix over
+   - **DECIDED: hand-rolled ~25-line GitHub Actions workflow** (matrix over
      `templates/<name>`): checkout monorepo at the release tag → clone target
-     `clerk-mod-<name>` (PAT auth) → replace contents with `templates/<name>/.` →
-     commit (skip if no diff) → `git tag -a vX.Y.Z` → push HEAD + tags. Zero
-     external deps, no history-rewrite edge cases, fits clerk's "own the thin
-     layer" ethos.
-   - **Fallback: `danharrin/monorepo-split-github-action`** (maintained
-     continuation of symplify, v2.4.5 2026-05) — same snapshot-mirror strategy,
-     pre-packaged with a matrix input surface; SHA-pin it. Take this only if the
-     packaged ergonomics beat owning 25 lines.
-   - Two edge cases either way: skip-commit-when-no-diff, and PAT scoping (token
-     that can push to the `clerk-mod-*` repos).
+     `copier-clerk/clerk-mod-<name>` (PAT auth) → replace contents with
+     `templates/<name>/.` → commit (skip if no diff) → `git tag -a vX.Y.Z` → push
+     HEAD + tags. Zero external deps, no history-rewrite edge cases, fits clerk's
+     "own the thin layer" ethos. NOT adopting a third-party split action.
+   - (For reference only, not adopted: `danharrin/monorepo-split-github-action`
+     is the maintained symplify continuation doing the identical snapshot-mirror
+     logic — the hand-roll is a ~25-line de-obfuscation of it, so we own it
+     rather than pin an external action.)
+   - Two edge cases: skip-commit-when-no-diff, and PAT scoping (token that can
+     push to the `copier-clerk/clerk-mod-*` repos).
    - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
      mirror for a paper trail; rejected. The split repos are generated read-only
      mirrors (nothing to review — the content derives from an already-reviewed,
@@ -67,8 +68,10 @@ Key verified constraints:
      direction), copybara (JDK/Bazel/Starlark — disproportionate for ~24 `cp`s).
 4. **Catalog** is published from the monorepo (a JSON index of `clerk-mod-*`
    repos + latest `v*`). clerk reads it (one or more catalog pointers).
-5. **Consumers/clerk always source from the split repos** (`gh:org/clerk-mod-X`),
-   never the monorepo — see the `_src_path` gotcha in [[0002-catalog-and-answer-model]].
+5. **Consumers/clerk always source from the split repos**
+   (`https://github.com/copier-clerk/clerk-mod-<name>.git` — expanded https form,
+   per the trust contract in [[0001-copier-as-engine]]), never the monorepo — see
+   the `_src_path` gotcha in [[0002-catalog-and-answer-model]].
 
 ## OPEN — per-repo release tool choice
 

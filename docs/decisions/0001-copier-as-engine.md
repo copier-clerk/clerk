@@ -56,18 +56,25 @@ conductor.
     cover: a template whose `_external_data` paths traverse **outside** the
     destination directory (per-template opt-in in the catalog entry, never
     global).
-  - **Trust matching (VERIFIED, `_settings.py:135-149`): NO wildcards/globs.**
+  - **Trust matching (VERIFIED, `_settings.py:135-149`): NO wildcards/globs (yet).**
     Two branches only — entry ending `/` → prefix (`startswith`); else exact
-    (`==`). A literal `*` is just a character. ONE trailing-slash prefix trusts a
-    whole org: `trust: ["https://github.com/srobroek/"]` covers all ~24
-    `clerk-mod-*` repos. So per-repo trust is NOT required (though allowed).
+    (`==`). A literal `*` is just a character. Both grains are supported and fine:
+    - **Org prefix (one entry, recommended):**
+      `trust: ["https://github.com/copier-clerk/"]` — the trailing slash makes it
+      a prefix that covers every `copier-clerk/clerk-mod-*` repo in a single line.
+    - **Per-repo exact (also fine):** list each
+      `https://github.com/copier-clerk/clerk-mod-lang-python` (no trailing slash →
+      exact). More entries, tighter scope; a legitimate choice.
+    - If copier ever adds glob/pattern support, revisit to allow a single
+      `.../copier-clerk/clerk-mod-*` style entry. Not available today.
   - **CONTRACT — trust matches the RAW url clerk passes, before `gh:`→`https`
     expansion** (the shortcut expands only at clone time; the trust check never
     sees the expanded form). Therefore **clerk MUST invoke copier with fully
-    expanded `https://<host>/<org>/<repo>.git` URLs**, and its "add source to
-    trust" onboarding MUST write the matching `https://<host>/<org>/` prefix
-    derived from that same form. A `gh:` trust entry will NOT match an https
-    invocation and vice-versa — mismatched forms make trust silently fail.
+    expanded `https://github.com/copier-clerk/<repo>.git` URLs**, and its "add
+    source to trust" onboarding MUST write the matching
+    `https://github.com/copier-clerk/` prefix (or the exact per-repo url) derived
+    from that same form. A `gh:` trust entry will NOT match an https invocation
+    and vice-versa — mismatched forms make trust silently fail.
   - Trust governs the Python API identically: `run_copy(settings=...)`, or
     `SettingsModel.from_file()` when `settings` is omitted. `unsafe=True` is the
     only bypass.
