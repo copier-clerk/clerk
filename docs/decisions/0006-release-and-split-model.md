@@ -104,6 +104,42 @@ tags via `include-component-in-tag: false`).
 prefixed tags in monorepo mode, the split step still strips `<name>-` → `vX.Y.Z`.
 The split is independent of the release tool (no tool does multi-repo publishing).
 
+### Verified cocogitto v7 behavior + REQUIRED config (source-checked)
+
+Release isolation is correct — a commit touching only `packages/A/**` bumps and
+tags ONLY package A; B/C get no tag, no version commit, no changelog change
+(path-based detection in `filters.rs`; unchanged packages skipped in
+`monorepo.rs`). Per-package versions are independent (each tracked by its own
+`<name>-v*` tag), so A can be v2.3.0 while B is v1.0.5. But two settings are
+MANDATORY, because the defaults would misbehave for us:
+
+- **`generate_mono_repository_global_tag = false`** — by DEFAULT cog also creates
+  an umbrella plain `vX.Y.Z` tag on every release. Disable it: we want pure
+  isolated per-package tags and no PEP440-parseable umbrella tag in the monorepo.
+- **`tag_prefix = "v"`** + default `-` separator → `<name>-vX.Y.Z` (the format the
+  fan-out strips).
+- Config lives under `[monorepo.packages]` (v7 breaking change; older `[packages]`
+  in some docs is stale — declare each template with its `path`).
+- `public_api = false` can exclude a package from influencing any global version,
+  but it still gets its own tag.
+
+### Fan-out MUST detect the changed set (avoid release amplification)
+
+`cocogitto-action` exposes NO "which packages bumped" output (only `version` +
+`stdout`). So the fan-out workflow MUST compute the newly-released set itself and
+push ONLY those split repos — otherwise every release re-pushes all 24 modules as
+spurious empty releases. Robust method: **`git tag --points-at HEAD` after the
+bump** (the new per-package tags land on the bump commit) → strip prefix → fan out
+exactly those. (Alternative: parse `cog bump --dry-run` stdout, which prints each
+changed package's tag.)
+
+### If cocogitto's tag-detection scripting proves fragile
+
+release-please isolates equally well and needs NO "which bumped" scripting (its
+per-component release PRs make the changed set explicit) and never forces an
+umbrella tag. It remains the drop-in fallback if the `git tag --points-at HEAD`
+approach becomes a maintenance burden.
+
 ## Risks
 
 - The fan-out is hand-rolled (no external split action to track). Its risk is the
