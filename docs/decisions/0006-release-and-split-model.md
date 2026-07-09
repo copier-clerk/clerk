@@ -123,15 +123,39 @@ MANDATORY, because the defaults would misbehave for us:
 - `public_api = false` can exclude a package from influencing any global version,
   but it still gets its own tag.
 
-### Fan-out MUST detect the changed set (avoid release amplification)
+### Fan-out is a later STEP in the same CI job — NOT inside a cog hook
 
-`cocogitto-action` exposes NO "which packages bumped" output (only `version` +
-`stdout`). So the fan-out workflow MUST compute the newly-released set itself and
-push ONLY those split repos — otherwise every release re-pushes all 24 modules as
-spurious empty releases. Robust method: **`git tag --points-at HEAD` after the
-bump** (the new per-package tags land on the bump commit) → strip prefix → fan out
-exactly those. (Alternative: parse `cog bump --dry-run` stdout, which prints each
-changed package's tag.)
+VERIFIED (cog v7.0.0 source): per-package `post_bump_hooks` DO fire only for
+bumped packages and expose `{{package}}` + `{{version}}` (use `v{{version}}` for
+the clean split tag; `{{version_tag}}` is the prefixed monorepo form) — so a hook
+*could* drive the fan-out. We DON'T, because **post_bump hooks have NO rollback**
+(docs: "There is no rollback procedure for post-bump hook"): a failing fan-out
+hook leaves the version commit + all package tags created locally, aborts the
+remaining packages' hooks, and skips global post_bump. Fan-out to ~24 downstream
+repos is inherently flaky (network/PAT/remote conflicts) and must not be able to
+half-finish the release.
+
+DECISION — one CI job, fan-out as later steps (no separate job needed):
+1. `cog bump --auto` — commits + creates `<name>-vX.Y.Z` tags (cog never pushes).
+2. `git push --follow-tags` — monorepo release finalized.
+3. `git tag --points-at HEAD | grep -E '^.+-v'` — the changed set is exactly the
+   new package tags on the bump commit (no hook, no dry-run parsing needed; the
+   `cocogitto-action` exposes no "bumped packages" output, so derive it here).
+4. For each: strip prefix → `cp + commit + tag vX.Y.Z + push` to
+   `copier-clerk/clerk-mod-<name>`.
+A fan-out failure fails the workflow AFTER the monorepo release is safely done;
+re-run steps 3-4 alone against existing tags (idempotent, testable in isolation,
+PAT scoped to the fan-out steps only).
+
+OPTIONAL — `pre_bump_hooks` as preflight: validate mirror repos reachable + PAT
+valid BEFORE bumping. pre_bump DOES roll back (stash-and-exit), so this is the one
+place cog's "abort the bump" semantics are an asset — fail fast before any tag
+exists. Not required for MVP.
+
+Config gotchas (verified): package hooks run with CWD = `packages/<name>` (not
+repo root) — use an absolute script path; put a single fan-out entry in global
+`post_package_bump_hooks` if ever hook-driving (not per-package ×24); v7 config
+key is `[monorepo.packages.<name>]` (older docs show stale `[packages.<name>]`).
 
 ### If cocogitto's tag-detection scripting proves fragile
 
