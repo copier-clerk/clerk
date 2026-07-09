@@ -46,6 +46,10 @@ state and agentic metadata live.
 - Agent-authored answers must be replayed with `recopy` (full re-render), not
   `update` (smart 3-way merge), because copier's docs forbid hand-editing the
   answers file and `update`'s diff assumes prompt-captured answers.
+- No `catalog.yml` artifact: the list of source repos + refs is itself persisted
+  as answers in the repos-collector template (see
+  [[0003-selector-template-and-runtime-injection]]); the available-template
+  catalog is discovered by clerk at runtime and injected via `--data`.
 
 ## Related
 

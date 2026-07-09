@@ -27,22 +27,38 @@ conductor.
   selects modules and authors answers (the *inputs*); a thin orchestrator for
   multi-module enablement + topological ordering; and the agentic-ecosystem
   wiring copier has no concept of (APM / MCP / SpecKit / ADR).
-- **copier runs WITHOUT `--trust`** — pure file renderer, no template `_tasks`.
-  All action-taking (installs, shell) stays in clerk's controlled orchestrator.
+- **copier runs WITH `--trust`, in BOTH init and reproduce.** Template `_tasks`
+  and `migrations` are needed (e.g. `specify init`, `apm install`), including at
+  reproduce when a module was added/changed. `--trust` blast radius is bounded:
+  clerk drives **one template per `copier` invocation**, so trust is scoped to a
+  single pinned, user-selected template's tasks per run — not a whole bundle.
 - **copier is invoked via its Python API / `uvx`**, never vendored. Only `uv`
   remains a hard prerequisite; copier's 13-dep tree is fetched ephemerally.
-- **The reproduce path is agent-free**: `copier recopy --defaults` (or a
-  `just reproduce`) run by a human or CI, replaying the committed answers with
-  no agent involvement.
+- **The reproduce invariant is "no AGENT", NOT "no side effects".** Reproduce
+  (`copier recopy` / `just reproduce`, run by a human or CI) replays the
+  committed answers and MAY run tasks, but no LLM/agent participates. Reproduce
+  is therefore **process-deterministic** (same frozen answers + same pinned
+  refs → same commands executed), **not** output-byte-deterministic — tasks like
+  `apm install` touch network/external state.
+
+## Constraint — determinism discipline
+
+Because tasks run at reproduce, byte-identity holds only as far as pins hold.
+Everything a task consumes MUST be pinned: module `#ref` (tag or sha), `apm.lock`,
+and tool versions (incl. the copier version, `copier>=9.16,<10`). Unpinned inputs
+make reproduce drift; this is the accepted bargain for supporting `_tasks`.
 
 ## Consequences
 
 - Strict "stdlib-only" is given up (copier pulls jinja2, pydantic v2,
   questionary, plumbum, …), accepted because it is fetched ephemerally, not
   vendored.
-- Determinism now rides on copier + Jinja rather than a hand-rolled canonical
-  serializer. Reproduce byte-stability requires pinning the copier version
-  (see repo dependency pin `copier>=9.16,<10`).
+- Determinism now rides on copier + Jinja + the pinned task inputs rather than a
+  hand-rolled canonical serializer. See the determinism-discipline constraint
+  above.
+- Open verification (before build): confirm against copier source whether
+  `recopy` fires `_tasks`/`migrations` the same way `copy`/`update` do, so the
+  reproduce-runs-tasks assumption holds for the chosen replay command.
 - The agentic layer (APM/MCP/SpecKit) has no off-the-shelf analog and stays
   bespoke — this is clerk's distinctive value.
 

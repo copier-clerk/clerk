@@ -34,27 +34,50 @@ runtime-supplied catalog. This was verified against copier v9.16.0 **source**.
 
 ## Decision
 
-- **The primary interview mechanism is a copier selector-template**, driven by a
-  `multiselect` "which modules?" question with per-module follow-ups gated by
-  `when:` and narrowed by dynamic `choices`.
+- **Two-template meta flow.** (1) A *repos-collector* template asks the user for
+  one or more source github repos; those repo URLs + refs persist in its
+  `.copier-answers.yml` (re-answering updates them — no `catalog.yml` file). (2)
+  clerk extracts + verifies the templates found in those repos, then invokes a
+  *selector* template with the discovered catalog injected via
+  `run_copy(data={"catalog": [...]})`. Extraction is clerk's job, NOT a copier
+  task (copier cannot run a command mid-questionnaire).
+- **Selection is one or more `multiselect` questions.** Grouping (skills / mcp /
+  bundles vs plain templates) is by template metadata or filename when there are
+  many; a single group when few. The skills/agents/bundles/mcp multiselect is
+  **internal to the apm module template**, reusing copier's own multiselect
+  there — it is NOT the meta-template's concern.
 - **The catalog is injected at runtime via `run_copy(data={"catalog": [...]})`**
-  (equivalently `--data`). The agent fetches the live catalog from the
-  user-owned sources (per [[0002-catalog-and-answer-model]]) and passes it
-  in-memory. No sidecar, no CI catalog generator, no template mutation.
-- **`_external_data` is the documented fallback** for the case where the catalog
-  is materialized as a YAML file in the destination directory before copier runs.
+  (equivalently `--data`) — source-verified in scope from question 1. No sidecar,
+  no CI catalog generator, no template mutation.
+- **`_external_data` is NOT part of the core design.** clerk drives every run and
+  threads one module's answers into the next via `--data`, so cross-template
+  answer sharing does not need `_external_data`. It remains only as an optional
+  nicety for standalone per-module `copier update` runs done WITHOUT clerk.
 - **This supersedes the sidecar recommendation** from earlier design notes.
 
-## Residue not expressible as copier answers (kept minimal)
+## Dependencies + ordering — hidden answer, clerk-generated DAG
 
-Three concerns are not questions and ride along inside the injected catalog data
-or clerk's orchestrator, **not** in `copier.yml` (unknown `_`-prefixed keys are
-only silently tolerated today with no forward contract — do not rely on them):
+- Each module declares its edges as a **hidden computed answer** (`when: false`)
+  in its own `copier.yml`: `depends_on` / `run_after` / `run_before`. This travels
+  with the template at its pinned ref and is statically readable from `copier.yml`
+  at selection time. (Note: a `when: false` answer is not written to the answers
+  file, but its default is in `copier.yml`, so clerk parses it directly — it never
+  needs to be persisted.)
+- **clerk builds a DAG from these declarations and drives the copier invocations
+  in topological order.** Modules with no edges run in any order; edges force
+  sequence. There is NO separate "ordering template" — ordering is a pure function
+  clerk computes, not a user step or artifact.
+- This also orders the imperative task-bearing runs (a module whose `_tasks` must
+  run after another's) since clerk sequences the whole graph.
+
+## Residue not expressible as plain copier questions (kept minimal)
+
+Carried inside the injected catalog data or the hidden `depends_on` answers,
+**not** in unknown `_`-prefixed keys (only silently tolerated today, no forward
+contract):
 1. `id -> gituser/repo/path#ref` locator map — this *is* the catalog the agent
    injects.
-2. Application / topological order — clerk orchestrator logic.
-3. per-module "agent-phase vs pure-render" routing flag — carried in the catalog
-   entry.
+2. Dependency edges — the hidden `depends_on` answers above; clerk builds the DAG.
 
 ## Consequences
 
