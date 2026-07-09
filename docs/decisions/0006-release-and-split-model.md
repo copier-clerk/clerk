@@ -51,6 +51,17 @@ Key verified constraints:
      packaged ergonomics beat owning 25 lines.
    - Two edge cases either way: skip-commit-when-no-diff, and PAT scoping (token
      that can push to the `clerk-mod-*` repos).
+   - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
+     mirror for a paper trail; rejected. The split repos are generated read-only
+     mirrors (nothing to review — the content derives from an already-reviewed,
+     already-released monorepo tag), so a PR is a rubber-stamp that makes the
+     release two-phase and stall-prone (24 PRs to merge before anything is
+     consumable) and complicates tagging (tag must land on the merged commit). A
+     PR also does NOT add history — granularity comes from the split *strategy*
+     (snapshot vs history-preserving), not from PR-vs-push. If per-commit history
+     in mirrors is ever wanted, switch the split strategy, do not add PRs. The
+     monorepo history + release changelog already provide the audit trail; the
+     mirror commit message references the monorepo release.
    - Rejected/dead: `git-subsplit` (abandoned since 2018), `meta`/`git-xargs`
      (multi-repo managers, wrong shape), `git-subrepo` (vendoring, wrong
      direction), copybara (JDK/Bazel/Starlark — disproportionate for ~24 `cp`s).

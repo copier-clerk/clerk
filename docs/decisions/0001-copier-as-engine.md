@@ -56,6 +56,21 @@ conductor.
     cover: a template whose `_external_data` paths traverse **outside** the
     destination directory (per-template opt-in in the catalog entry, never
     global).
+  - **Trust matching (VERIFIED, `_settings.py:135-149`): NO wildcards/globs.**
+    Two branches only — entry ending `/` → prefix (`startswith`); else exact
+    (`==`). A literal `*` is just a character. ONE trailing-slash prefix trusts a
+    whole org: `trust: ["https://github.com/srobroek/"]` covers all ~24
+    `clerk-mod-*` repos. So per-repo trust is NOT required (though allowed).
+  - **CONTRACT — trust matches the RAW url clerk passes, before `gh:`→`https`
+    expansion** (the shortcut expands only at clone time; the trust check never
+    sees the expanded form). Therefore **clerk MUST invoke copier with fully
+    expanded `https://<host>/<org>/<repo>.git` URLs**, and its "add source to
+    trust" onboarding MUST write the matching `https://<host>/<org>/` prefix
+    derived from that same form. A `gh:` trust entry will NOT match an https
+    invocation and vice-versa — mismatched forms make trust silently fail.
+  - Trust governs the Python API identically: `run_copy(settings=...)`, or
+    `SettingsModel.from_file()` when `settings` is omitted. `unsafe=True` is the
+    only bypass.
 - **`_tasks` run in BOTH init and reproduce** — needed for `specify init`,
   `apm install`, etc. VERIFIED: `run_recopy` delegates to `run_copy` internally,
   which fires `_tasks`. Migrations are **update-only** and out of scope for
