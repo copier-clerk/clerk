@@ -1,6 +1,6 @@
 # 0006 — central authoring monorepo, fan-out to per-template repos
 
-- Status: accepted (release tool: OPEN — see Decision)
+- Status: accepted
 - Date: 2026-07-09
 
 ## Context
@@ -27,11 +27,11 @@ Key verified constraints:
 
 1. **Source monorepo** holds all templates under `templates/<name>/`, each with
    its own `copier.yml`. All authoring + review happens here.
-2. **release-please manifest mode** tags each component in the monorepo as
-   `<name>-v<X.Y.Z>` (KEEP the prefix here — it is release-please's discriminator
-   between components).
-3. **Fan-out CI** (after release-please tags): for each released component, strip
-   the prefix → `vX.Y.Z`, push `templates/<name>/` to its own read-only repo
+2. **cocogitto (monorepo mode)** tags each component in the monorepo as
+   `<name>-v<X.Y.Z>` (KEEP the prefix here — it disambiguates components; the
+   fan-out strips it). See the DECIDED release-tooling section below.
+3. **Fan-out CI** (after the component tag lands): for each released component,
+   strip the prefix → `vX.Y.Z`, push `templates/<name>/` to its own read-only repo
    `copier-clerk/clerk-mod-<name>`, and create the clean annotated `vX.Y.Z` tag
    there.
    **Mechanism = snapshot mirror, NOT history-preserving split.** VERIFIED: copier
@@ -73,28 +73,41 @@ Key verified constraints:
    per the trust contract in [[0001-copier-as-engine]]), never the monorepo — see
    the `_src_path` gotcha in [[0002-catalog-and-answer-model]].
 
-## OPEN — per-repo release tool choice
+## DECIDED — release tooling
 
-Both options need the SAME separate split step; the choice is only the tagging
-mechanism in each split repo (or the monorepo pre-split):
+There are two release contexts; the decision is deliberately uniform on
+**cocogitto** to keep one tool across the whole family.
 
-- **release-please per repo** — proven (already used in this repo's roadmap
-  extension), Google-maintained (v17.10.2, 2026-06), review-gated via a Release
-  PR, `include-component-in-tag: false` → `v1.2.0`. Cost: config+workflow per
-  repo (template these files so they are generated, not hand-written).
-- **cocogitto per repo** — already in clerk's pre-commit stack; `cog bump --auto`
-  computes version, updates CHANGELOG, and tags on merge (no Release PR),
-  `tag_prefix = "v"` → `v1.2.0`. Lighter ceremony; loses the changelog-review gate.
+- **Authoring monorepo (`copier-clerk/clerk-templates`)** — cocogitto in monorepo
+  mode tags each package as `<name>-vX.Y.Z` (the prefix disambiguates components
+  and is exactly what the fan-out step strips). This replaces the earlier
+  release-please assumption. `cog` generates each package's CHANGELOG.
+- **Split repos (`copier-clerk/clerk-mod-*`) and the clerk tool repo
+  (`copier-clerk/clerk`)** — cocogitto single-package: `cog bump --auto` computes
+  the version, updates `CHANGELOG.md`, and tags `vX.Y.Z` (`tag_prefix = "v"`,
+  clean PEP440 for copier) on merge, via `cocogitto/cocogitto-action`.
 
-Lean: cocogitto for lower solo-maintainer ceremony (tag-on-merge, one fewer tool),
-unless the changelog-review gate is wanted → release-please. To be decided before
-implementing the release pipeline.
+**Rationale:** cocogitto is already in clerk's pre-commit stack (`cocogitto-verify`),
+so it is one tool for verify + release across every repo — no second releaser to
+learn or maintain. It gives native changelogs (committed `CHANGELOG.md`, and the
+changelog body can be piped into `gh release create` for GitHub Release notes),
+and clean `v*` tags copier consumes directly.
+
+**Accepted trade-off:** cocogitto tags **on merge to main** (no Release-PR review
+gate). For a solo maintainer optimizing low ceremony this is preferred over
+release-please's merge-a-Release-PR flow; the cost is that release notes are not
+reviewed in a PR before they publish. If a changelog-review gate is ever wanted,
+release-please remains the drop-in alternative (it produces the same `v1.2.0`
+tags via `include-component-in-tag: false`).
+
+**Note on the fan-out interaction:** because cocogitto (like release-please) uses
+prefixed tags in monorepo mode, the split step still strips `<name>-` → `vX.Y.Z`.
+The split is independent of the release tool (no tool does multi-repo publishing).
 
 ## Risks
 
-- `symplify/monorepo-split-github-action` is a solo-maintainer PHP-in-Docker
-  action (~119 stars) — SHA-pin it; the split logic is ~150 lines that could be
-  vendored if it goes stale.
+- The fan-out is hand-rolled (no external split action to track). Its risk is the
+  ~25 lines of workflow bash we own + PAT scoping — legible and low.
 - copier's PEP 440 hard requirement is load-bearing and has no relaxation knob;
   re-verify `get_latest_tag` on major copier upgrades in case a tag-filter is ever
   added (that alone could retire the split).

@@ -23,8 +23,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/srobroek/clerk"
-Repository = "https://github.com/srobroek/clerk"
+Homepage = "https://github.com/copier-clerk/clerk"
+Repository = "https://github.com/copier-clerk/clerk"
 
 [project.scripts]
 clerk = "clerk.cli:main"
