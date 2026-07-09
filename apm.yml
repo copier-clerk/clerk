@@ -1,0 +1,26 @@
+name: clerk
+version: 0.1.0
+description: >-
+  An agentic conductor for copier. The clerk fills in the paperwork
+  (per-module answer files); copier makes the copies. Reproduce is agent-free.
+  This apm.yml declares the project-scoped agentic layer used to BUILD clerk
+  (spec-driven workflow, structure/toolchain steering, dependency + secret
+  scanning). The global layer provides the always-on packages (coder,
+  challenger, verify, sniff, debate, handover, etc.).
+author: Sjors Robroek
+license: Apache-2.0
+target: claude,codex
+includes: auto
+dependencies:
+  apm:
+    # SpecKit mechanism (v5: workflow gates come from speckit-gate on PyPI; the
+    # mcp-speckit-memory dependency was dropped upstream and is intentionally
+    # NOT used here).
+    - srobroek/agentic-packages/packages/speckit#>=5.0.0 <6.0.0
+    # Opt-in steering documenting clerk's own conventions for contributors.
+    - srobroek/agentic-packages/packages/steering-project-structure#>=1.0.0 <2.0.0
+    - srobroek/agentic-packages/packages/steering-toolchain-defaults#>=2.0.0 <3.0.0
+    # Clerk carries a real dependency tree (copier + transitive deps); scan it.
+    - srobroek/agentic-packages/packages/dep-audit#>=1.0.0 <2.0.0
+    # Secret scanning skill (complements the pre-commit gitleaks hook).
+    - srobroek/agentic-packages/packages/secrets-scan#>=1.0.0 <2.0.0
