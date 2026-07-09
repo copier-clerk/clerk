@@ -30,6 +30,23 @@ questions, and receives a rendered, version-controlled, **reproducible** project
 running the reproduce command later regenerates that project faithfully with no
 assistant in the loop.
 
+## Clarifications
+
+### Session 2026-07-09
+
+- Q: Faithful reproduce pins to a movable version label (the engine records the tag
+  name, not the immutable revision); should this slice record the immutable revision
+  too? → A: Document-only. clerk documents the limitation and the template-author
+  contract declares published version labels immutable; no immutable revision is
+  recorded and no label-moved check is added in this slice.
+- Q: Reproduce runs against an already-generated project; does it overwrite rendered
+  files in place, require a clean destination, or warn before clobbering? → A:
+  Overwrite-in-place as a fixed invariant. Reproduce always overwrites rendered files
+  (local edits to rendered files revert), leaves write-once and unrelated files
+  untouched, and never prompts. (Verified: the engine's non-interactive overwrite is
+  the only viable mode — without it the engine blocks on an interactive overwrite
+  prompt.) Respecting local edits is deferred to the upgrade operation, spec 006.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate a reproducible project from one template (Priority: P1)
@@ -240,9 +257,10 @@ answer (expect a problem report and no files produced).
   marks as write-once are not overwritten. (Reconcile/merge behavior is out of scope
   for this slice.)
 - **Reproduce onto an existing tree**: reproduce always runs against an
-  already-generated project, overwriting rendered files, and re-runs the
-  post-generation action against existing state; the example action MUST be safe to
-  re-run (initializing already-initialized version control is a no-op).
+  already-generated project, overwriting rendered files in place per FR-015a (local
+  edits to rendered files revert; write-once and unrelated files untouched), and
+  re-runs the post-generation action against existing state; the example action MUST
+  be safe to re-run (initializing already-initialized version control is a no-op).
 - **Discovery of an untrusted source**: inspection MUST succeed on an untrusted source
   (per FR-004a it executes no template code), so discovery never requires trust; only
   generation/reproduce of an action-taking template does.
@@ -335,6 +353,13 @@ answer (expect a problem report and no files produced).
 - **FR-015**: The system MUST provide a reproduce operation that regenerates a project
   from its recorded answers at the **recorded template version**, with no assistant or
   language-model step involved.
+- **FR-015a**: Reproduce MUST overwrite the previously-rendered files in place and MUST
+  NOT prompt for confirmation (non-interactive by invariant, per FR-011). Local edits
+  to rendered files are therefore reverted to the template output; files the template
+  marks write-once and files the template never renders are left untouched. Respecting
+  local edits (a smart merge) is out of scope for this slice and belongs to the upgrade
+  operation (roadmap spec 006). The SC-002 byte-comparison is performed on the
+  in-place project tree after reproduce.
 - **FR-016**: During inspection and before generation, the system MUST determine
   whether a template carries the mechanism required to record its own answers, and
   MUST refuse to generate from a template that does not, reporting it as not
@@ -354,9 +379,9 @@ answer (expect a problem report and no files produced).
 - **FR-017a**: Faithful reproduce is only as immutable as the recorded version pin.
   When the recorded version is a movable label rather than an immutable revision, a
   re-published label can change reproduced bytes without error. This slice MUST
-  document that limitation and MAY additionally record the immutable revision
-  alongside the version label so a future check can detect a moved label. The
-  template-author contract treats published version labels as immutable.
+  document that limitation, and the template-author contract MUST treat published
+  version labels as immutable. This slice does NOT record the immutable revision and
+  does NOT add a label-moved check (deferred; see Clarifications 2026-07-09).
 - **FR-018**: Post-generation actions declared by the template MUST run both at
   generation and at reproduce (so a reproduced project is complete), and the example
   template's action MUST be self-contained (require no network) **and produce no
