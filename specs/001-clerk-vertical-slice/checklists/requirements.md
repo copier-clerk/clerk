@@ -85,3 +85,30 @@ Deferred deliberately (not blocking): standardizing "the deterministic tool" vs 
 system" across phase-boundary FRs (cosmetic); reconciling the constitution's
 "pre-expansion URL" wording with the ADR's canonical-form directive (a plan-time note,
 spec is unambiguous via FR-022).
+
+## YAGNI re-scope to lean model (applied 2026-07-09, constitution v2.0.0)
+
+A project-level pushback ("does this justify a Python tool, or a skill + thin glue?")
+reframed clerk from a published tool into **a skill + copier templates + minimal
+deterministic glue**. Verified via the copier CLI that init/reproduce/trust are each a
+single command, so the wrapper's value is only cross-template coordination (roadmap
+003+), not slice 1. Spec edits:
+
+- FR-004/FR-006/SC-008: dropped the pydantic seam + committed JSON-Schema + drift gate;
+  the handoff is a documented plain-YAML answers doc validated by copier's own
+  `--pretend` dry run (Constitution VIII).
+- FR-025/SC-009: dropped the standing deprecated-surface adapter + contract test;
+  discovery is a static `copier.yml`/file-tree parse (no Jinja env, no Template/Worker),
+  so there is nothing to contain this slice. Adapter is conditional on a future need
+  (Constitution IV, roadmap Q3).
+- FR-010: error surfacing no longer mandates a typed clerk-error hierarchy; a helper MAY
+  type them, a bare recipe MAY surface copier's own message + exit code — must be legible.
+- FR-014: message_after_copy is surfaced (copier already prints it), not structured-
+  captured via the deprecated surface.
+- Overview / Key Entities / FR-024: reframed to skill + template + glue; no uvx/PyPI
+  application; copier driven primarily via its CLI.
+
+The reproduce, trust, answers-file-contract, determinism, and template-author
+requirements are unchanged — those are the substance the lean model still delivers.
+plan.md was rewritten to the lean structure (no package/pydantic/adapter). This spec
+supersedes the v1 tool-centric framing; constitution + roadmap bumped to v2.0.0.

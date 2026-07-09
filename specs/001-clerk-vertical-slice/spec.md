@@ -20,9 +20,18 @@ agent, rendered once, and later regenerated faithfully with no agent involved.
 The work is split at a fixed boundary. An **assistant (phase 1)** does only the
 judgment work — inspecting the template, presenting its questions to a person,
 collecting answer values, and obtaining consent to trust a source. A
-**deterministic tool (phase 2)** does everything mechanical — validating the
-collected inputs, driving copier to render, and reproducing the result. The
-assistant is never involved when a project is reproduced.
+**deterministic phase 2** — copier's own command-line interface, plus a little glue
+for what it and the assistant cannot do directly — does everything mechanical:
+validating the collected inputs (via copier's dry run), driving copier to render,
+and reproducing the result. The assistant is never involved when a project is
+reproduced.
+
+clerk here is **an assistant skill + one example copier template + minimal
+deterministic glue** — not a standalone application. copier already performs init,
+reproduce, and trust refusal each as a single command; clerk adds the conducting
+procedure, the template, and only the small pieces copier does not expose directly
+(static template inspection, a dry-run check, and a version-pinned reproduce
+recipe).
 
 Success for this slice is a single, demonstrable journey: a person points the
 assistant at the example template, answers a handful of project-identity
@@ -228,8 +237,8 @@ answer (expect a problem report and no files produced).
 2. **Given** an input set missing a required answer, **When** check mode runs,
    **Then** it reports the problem in a structured form and produces no files.
 3. **Given** any input problem surfaced by the engine, **When** it reaches the person
-   or assistant, **Then** it is presented as a typed, structured clerk error, not a
-   raw engine stack trace.
+   or assistant, **Then** it is presented with a clear, actionable message and a
+   non-zero exit — not a bare, context-free stack trace.
 
 ---
 
@@ -282,25 +291,32 @@ answer (expect a problem report and no files produced).
 - **FR-003**: The inspection description MUST include the template's declared
   dependency-ordering values, the template's available versions, whether the template
   takes post-generation actions, and whether the template is reproducible per FR-016.
-- **FR-004**: The inspection description MUST conform to a published, versioned
-  contract that consumers can validate against.
+- **FR-004**: The inspection description MUST have a **documented, stable shape** the
+  agent skill can rely on (documented in prose with examples — not a machine-enforced
+  schema). It is authored for the assistant to read, not for a separate program to
+  validate against.
 - **FR-004a**: Inspection MUST be safe to run against a source that has not been
-  trusted: it MUST read only static template metadata and MUST NOT render any
-  template-controlled string, construct the engine's rendering environment, or load
-  any template-declared extension — any of which can execute template-authored code.
-  Consequently, question defaults (which may be template expressions) MUST be reported
-  as their raw, un-rendered form and flagged as un-rendered. Inspection MUST NOT
-  require trust.
+  trusted: it MUST read only static template metadata (the template configuration and
+  the cloned file listing) and MUST NOT render any template-controlled string,
+  construct the engine's rendering environment, or load any template-declared
+  extension — any of which can execute template-authored code. Consequently, question
+  defaults (which may be template expressions) MUST be reported as their raw,
+  un-rendered form and flagged as un-rendered. Inspection MUST NOT require trust.
 
 **Inputs handoff (the phase-1 → phase-2 boundary)**
 
-- **FR-005**: The system MUST accept a single, self-contained inputs document,
-  authored in phase 1, describing the source and version to use, the answer values
-  to apply (including any clerk-supplied values such as the generation date), and the
-  trust decision for the run.
-- **FR-006**: The inputs document MUST conform to a published, versioned contract
-  that phase 1 can validate against and that phase 2 validates on receipt, rejecting a
-  malformed document before any generation begins.
+- **FR-005**: The deterministic phase MUST accept a single, self-contained inputs
+  document, authored in phase 1, describing the source and version to use, the answer
+  values to apply (including any clerk-supplied values such as the generation date),
+  and the trust decision for the run. The document MUST be a **documented plain-text
+  format** (the engine's own answers/data-file shape wherever possible) that the
+  assistant can author and a human can read.
+- **FR-006**: Validation of the inputs MUST reuse the engine's own capabilities — a
+  dry run and the engine's answer validation (FR-008) — rather than a bespoke
+  re-implemented validator or a machine-enforced input schema. A malformed or
+  incomplete inputs document MUST be caught (by that dry run) before any files are
+  produced. (A typed/schema-validated handoff is explicitly NOT required for this
+  slice and is introduced only if a non-assistant program ever consumes the handoff.)
 - **FR-007**: The system MUST inject the current date as an ordinary answer value at
   generation time (so it is frozen into the recorded answers and replayed on
   reproduce), rather than relying on the template to read the clock.
@@ -317,9 +333,13 @@ answer (expect a problem report and no files produced).
   validate answers it never reached.
 - **FR-009**: The system MUST NOT re-implement the engine's own question validation;
   it MUST rely on the engine to validate answers and surface the results.
-- **FR-010**: The system MUST translate every engine-surfaced input problem —
-  including the missing-required-answer case — into a typed, structured clerk error,
-  never leaking a raw engine error to the person or assistant.
+- **FR-010**: Every engine-surfaced input problem — including the
+  missing-required-answer case (which the engine raises as a plain value error, not a
+  typed engine error) — MUST be surfaced to the person or assistant with a clear,
+  actionable message and a non-zero exit. Where a helper wraps the engine it MAY map
+  these to its own error type; a bare recipe MAY surface the engine's own message and
+  exit code directly. Either way the outcome MUST be legible, not a bare stack trace
+  swallowed or shown without context.
 
 **Generation (init)**
 
@@ -339,14 +359,12 @@ answer (expect a problem report and no files produced).
   throwaway test fixture template carrying one secret question and one hidden
   dependency-ordering value, so the guarantees are verified in this slice rather than
   merely asserted.
-- **FR-014**: When the template provides an after-generation message, the system MUST
-  capture it as a structured field with answer values **resolved**. Because the
-  resolved message is not available on the engine's public return value after a
-  generation completes (the fetched template is cleaned up), capturing it is a
-  contained-surface operation and MUST occur inside the single containment point of
-  FR-025 (capturing the resolved message during the run, or re-resolving the raw
-  message template with the known answers) — never by reading the post-run return
-  value's fetched-template reference.
+- **FR-014**: When the template provides an after-generation message, it MUST reach
+  the person/assistant as post-step guidance. The engine already renders this message
+  to its output stream during generation, so surfacing it is sufficient for this
+  slice; capturing it as a separately-structured field is NOT required here (doing so
+  would require the engine's deprecated surface, which this slice does not otherwise
+  touch — deferred until a consumer needs the structured form).
 
 **Reproducibility contract**
 
@@ -415,22 +433,26 @@ answer (expect a problem report and no files produced).
 
 **Assistant procedure (phase 1)**
 
-- **FR-024**: The system MUST ship an assistant-facing procedure that documents how to
-  inspect a template, present its questions and collect answer values, author a valid
-  inputs document (pointing at the published contract), explain the code-execution
-  implication of trust and obtain consent before recording it, run check mode and then
-  generation, and hand off — establishing that the assistant authors inputs only and is
-  never in the reproduce path.
+- **FR-024**: clerk MUST ship an assistant-facing procedure (the skill — clerk's
+  primary deliverable) documenting how to inspect a template, present its questions and
+  collect answer values, author a valid inputs document (referencing its documented
+  format), explain the code-execution implication of trust and obtain consent before
+  recording it, run the dry-run check and then generation, and hand off — establishing
+  that the assistant authors inputs only and is never in the reproduce path.
 
-**Engine-coupling containment (cross-cutting, per constitution)**
+**Engine coupling (cross-cutting, per constitution)**
 
-- **FR-025**: All use of the engine's non-public internals MUST be confined to a single
-  containment point, guarded by a test that fails when the engine's internal shape
-  drifts; everywhere else the system MUST use only the engine's supported public
-  surface.
-- **FR-026**: The system MUST pin the engine to a compatible version range so the
-  supported behavior and the contained internals cannot change under it without an
-  explicit upgrade.
+- **FR-025**: The deterministic phase MUST prefer the engine's supported public
+  surface — its command-line interface and public functions — and MUST prefer static
+  parsing of the template configuration and file tree for inspection (which executes
+  no template code). This slice MUST NOT use the engine's non-public internals at all;
+  because static parsing suffices for the example template, NO containment adapter and
+  NO internal-shape drift test are required here. IF a future need forces use of the
+  engine's non-public internals, that use MUST be confined to a single containment
+  point guarded by a drift test — but that is conditional, not a standing requirement
+  of this slice.
+- **FR-026**: The project MUST pin the engine to a compatible version range so its
+  supported behavior cannot change under it without an explicit upgrade.
 
 **Delivery hygiene in this slice**
 
@@ -504,11 +526,12 @@ answer (expect a problem report and no files produced).
 - **SC-007**: The whole mechanical loop (inspect, check, generate, reproduce, trust
   refusal) is demonstrable and testable without any assistant or language model, and —
   except one clearly-marked live-source smoke check — runs without network access.
-- **SC-008**: The published contracts for the inputs document and the inspection
-  description are validated in the build; a drift between a contract and its
-  authoritative definition fails the build.
-- **SC-009**: A drift in the engine's contained internals is caught by a failing test
-  rather than by wrong runtime behavior.
+- **SC-008**: An incomplete or malformed inputs document is caught by the engine's own
+  dry run before any files are produced — no bespoke input-schema validator is needed
+  or present; the dry run is the gate.
+- **SC-009**: The deterministic phase uses no engine internals in this slice (inspection
+  is a static parse), so there is no containment adapter to drift; a test asserts
+  inspection executes no template code and requires no trust.
 - **SC-010**: The generation date is frozen at generation time and replayed on
   reproduce: a project generated on one date and reproduced on a later date renders
   the original date, not the reproduce-day date, 100% of the time.
@@ -546,7 +569,13 @@ answer (expect a problem report and no files produced).
 - **Reproduce is process-deterministic, not necessarily byte-identical in the world.**
   Post-generation actions may touch state outside the render; byte comparison for the
   determinism check excludes such externally-sourced state.
-- **The engine is the copier scaffolding engine, used as a pinned library dependency.**
-  clerk delegates all rendering, answer recording, version pinning, and the
-  reproduce cycle to it, and drives it only through its supported public surface except
-  at the single contained containment point.
+- **The engine is the copier scaffolding engine, used as a pinned dependency and driven
+  primarily through its command-line interface.** clerk delegates all rendering, answer
+  recording, version pinning, and the reproduce cycle to it, and drives it only through
+  its supported public surface (its CLI / public functions), inspecting templates by
+  static configuration parsing. This slice touches none of the engine's non-public
+  internals.
+- **clerk is a skill + a template + minimal glue, not a published application.** The
+  deliverables are the assistant procedure, the example template, and the small
+  deterministic helper(s)/recipes that do only what the engine's CLI and the assistant
+  cannot do directly. No standalone tool is published for this slice.

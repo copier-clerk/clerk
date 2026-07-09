@@ -1,35 +1,38 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (template / unratified) → 1.0.0
-Bump rationale: First ratification. Establishes the full principle set from the
-six accepted ADRs (docs/decisions/0001-0006) and the grilling session.
+Version change: 1.0.0 → 2.0.0
+Bump rationale: MAJOR — the project's nature was redefined after a YAGNI review.
+clerk is NOT a published Python tool; it is a skills bundle + a copier template
+family + a little deterministic glue. This redefines Principle I, replaces the
+Principle VIII pydantic-seam mandate, and softens Principles II and IV (the
+deprecated-surface adapter becomes conditional, not a standing requirement).
 
-Modified principles: n/a (initial adoption)
-Added sections:
-  - I.    clerk Is a Conductor, Not a Scaffolder
-  - II.   Two-Phase Boundary, CLI Seam (NON-NEGOTIABLE)
-  - III.  Reproduce Is Faithful and Agent-Free (NON-NEGOTIABLE)
-  - IV.   Drive copier's Stable API Only; Isolate Deprecated Surface
-  - V.    Determinism Discipline via Pinning
-  - VI.   Template-Author Contract (Enforced at Discovery)
-  - VII.  Hardening Is a Per-Step Mandate
-  - VIII. Machine-Checkable Seam Contracts
-  - Additional Constraints (copier facts, verified)
-  - Development Workflow & Quality Gates
-  - Governance
-Removed sections: none
+Modified principles:
+  - I.   "Conductor, Not a Scaffolder" → "clerk Is Skills + Templates + Minimal Glue"
+         (redefined: no published package / no uvx clerk premise)
+  - II.  "Two-Phase Boundary, CLI Seam" → "Two-Phase Boundary; the Skill Conducts,
+         Deterministic Helpers Execute" (seam is skill↔helper/CLI-of-copier, not a
+         packaged pydantic API)
+  - IV.  "Drive copier's Stable API Only; Isolate Deprecated Surface" → "Prefer
+         copier's CLI + Static Config; Contain Any Deprecated Surface IF Used"
+         (adapter is conditional on actually touching Template/Worker)
+  - VII. Scope reworded to helpers + templates + generated reproduce recipes
+  - VIII."Machine-Checkable Seam Contracts" (pydantic models + committed JSON
+         Schema drift test) → "Documented, Dry-Run-Validated Handoff" (no pydantic
+         mandate; validation is copier's own dry run)
+Unchanged in substance: III (faithful agent-free reproduce), V (determinism +
+trust), VI (template-author contract).
+Removed sections: none (VIII repurposed, not deleted).
 
 Templates requiring updates:
   ✅ .specify/memory/constitution.md (this file)
-  ✅ .specify/templates/plan-template.md — Constitution Check gate aligned (see below)
-  ⚠  .specify/templates/spec-template.md — no principle-driven change required;
-     re-verify at first /speckit.specify
-  ⚠  .specify/templates/tasks-template.md — hardening-per-step (VII) should map to
-     mandatory determinism/error-taxonomy/contract-test task rows; verify at first
-     /speckit.tasks
-  ✅ README.md — bare `copier recopy` reproduce claim flagged for correction in
-     spec 001 (violates Principle III)
+  ✅ .specify/memory/roadmap.md — revised in the same change (lean model)
+  ✅ specs/001-clerk-vertical-slice/{spec,plan}.md — rewritten to lean shape
+  ⚠  .specify/templates/plan-template.md — Constitution Check reads this file
+     dynamically; no edit needed
+  ✅ README.md / pyproject.toml — reproduce + trust + "never runs tasks" claims
+     corrected under spec 001 (FR-027); the uvx/PyPI framing is dropped
 
 Follow-up TODOs: none deferred.
 -->
@@ -37,176 +40,204 @@ Follow-up TODOs: none deferred.
 # clerk Constitution
 
 clerk is an agentic conductor for [copier](https://copier.readthedocs.io). copier
-is the deterministic render + reproduce engine; clerk is the thin agentic layer
-that decides *what* to render and authors the *inputs*, then hands off to copier.
-Every principle below is source-verified against copier 9.16.0 and derives from
-the six architecture decisions in `docs/decisions/0001-0006`, which are binding.
+is the deterministic render + reproduce engine; clerk decides *what* to render,
+authors the *inputs*, and — where copier alone cannot coordinate — computes the
+small deterministic facts (ordering, dependency edges, defaults) needed to drive
+it. clerk is delivered as **an agent skill + a family of copier templates + a
+little deterministic glue**, not as a standalone application. Every principle
+below is source-verified against copier 9.16.0 and derives from the architecture
+decisions in `docs/decisions/`, which are binding.
 
 ## Core Principles
 
-### I. clerk Is a Conductor, Not a Scaffolder
+### I. clerk Is Skills + Templates + Minimal Glue
 
-clerk is exactly three things and nothing more: (1) a **skills bundle** — the
-agent-facing `SKILL.md` procedures; (2) the **minimal deterministic tools** those
-skills need; and (3) a **thin wrapper** that manages copier via its Python API.
-clerk MUST NOT render files itself, and MUST NOT embed an agent loop (no Claude
-Agent SDK or equivalent runs in-process). copier owns all rendering, the committed
-answers file, git-ref pinning, and the reproduce/update cycle. Any capability that
-copier already provides MUST be delegated to copier, never re-implemented.
+clerk is, in order of weight: (1) **an agent skill** — the `SKILL.md` procedure
+that conducts the non-deterministic work; (2) **a family of copier templates**
+(`clerk-mod-*`) — the actual reusable product; and (3) **minimal deterministic
+glue** — small helpers and scripts for the few things copier and an agent cannot
+do directly (dependency-edge parsing, topological ordering, writing/reading
+defaults, dry-run validation, and per-project reproduce recipes). clerk is NOT a
+published general-purpose application: there is no requirement for a `uvx clerk`
+PyPI tool, and glue MUST NOT grow into a re-implementation of what copier already
+provides. New glue is justified only by a capability copier lacks (chiefly
+cross-template coordination); when in doubt, prefer a copier invocation, a
+template feature, or a documented agent step over new code.
 
-Rationale: clerk's only durable value is the agentic layer copier structurally
-lacks. Re-implementing copier's engine relocates its hard problems into clerk and
-dilutes the boundary that makes the system testable and trustworthy.
+Rationale: an audit of the full roadmap found that copier already owns the whole
+single-template lifecycle; clerk's durable value is the conducting skill, the
+templates, and a thin sliver of coordination logic — not a wrapper around copier's
+CLI.
 
-### II. Two-Phase Boundary, CLI Seam (NON-NEGOTIABLE)
+### II. Two-Phase Boundary; the Skill Conducts, Deterministic Helpers Execute (NON-NEGOTIABLE)
 
-Work is split at a CLI seam into a non-deterministic phase and a deterministic
-phase. The **agent (phase 1)** performs ONLY non-deterministic work: discover and
-present templates, collect the human's selection, author answer *values*, and
-explain/obtain consent for trust. It then hands the deterministic core a **frozen
-JSON run-spec**. The **core (phase 2)** deterministically validates → drives copier
-→ reproduces, with ZERO agent or LLM involvement. Everything mechanical MUST be
-testable without an LLM. The agent is NEVER in the reproduce path.
+Work is split into a non-deterministic phase and a deterministic phase. The
+**skill (phase 1)** does only judgment work: inspect a template, present its
+questions, collect answer values, and explain/obtain consent for trust. It then
+produces a **frozen set of inputs** (a documented plain-text handoff — e.g. a
+copier `--data-file` / answers document plus the source, ref, and trust decision).
+The **deterministic phase 2** — a copier invocation, optionally wrapped by a small
+helper — validates and executes with ZERO agent/LLM involvement. Everything
+mechanical MUST be runnable and testable without an LLM (shell and/or small Python
+helpers, exercised by hermetic tests). The agent is NEVER in the reproduce path.
 
-Rationale: confining the LLM to genuinely non-deterministic judgment makes the
-whole mechanical surface unit-testable and keeps reproduce trustworthy.
+Rationale: confining the LLM to genuine judgment keeps the mechanical surface
+deterministic and testable, whether that surface is a shell recipe or a helper
+function.
 
 ### III. Reproduce Is Faithful and Agent-Free (NON-NEGOTIABLE)
 
-`reproduce` MUST call `run_recopy(vcs_ref=VcsRef.CURRENT, defaults=True,
-overwrite=True)` — a byte-faithful replay of the committed answers at the recorded
-`_commit`. Bare `recopy` (no `vcs_ref`) silently resolves the LATEST tag and
-UPGRADES; it MUST NEVER be exposed. Moving to a newer template version is a
-DISTINCT, explicit `clerk upgrade` verb backed by `run_update`. `_tasks` run at
-BOTH init and reproduce; migrations are update-only. Reproduce is
-process-deterministic (same pinned inputs → same commands executed), not
-necessarily byte-identical output, because tasks may touch external state.
+Reproduce MUST replay the committed answers at the recorded revision:
+`copier recopy --vcs-ref=:current: --defaults --overwrite` (equivalently
+`run_recopy(vcs_ref=VcsRef.CURRENT, defaults=True, overwrite=True)`). Bare
+`recopy` (no `vcs_ref`) silently resolves the LATEST tag and UPGRADES; it MUST
+NEVER be used. Moving to a newer template version is a DISTINCT, explicit
+operation (`copier update`). For a multi-template project, reproduce order is
+frozen at generation time into a per-project reproduce recipe (an ordered list of
+`copier recopy` commands), so reproduce needs no live ordering computation and no
+agent. `_tasks` run at both init and reproduce; migrations are update-only.
+Reproduce is process-deterministic (same pinned inputs → same commands), not
+necessarily byte-identical in the world, because tasks may touch external state.
 
 Rationale: faithful reproduce is clerk's headline guarantee and the reason the
-pinning discipline exists; a reproduce that drifts to "latest" makes CI
-drift-detection and disaster-recovery meaningless.
+pinning discipline exists; freezing the order into the project keeps reproduce
+both deterministic and clerk-free.
 
-### IV. Drive copier's Stable API Only; Isolate Deprecated Surface
+### IV. Prefer copier's CLI + Static Config; Contain Any Deprecated Surface IF Used
 
-clerk MUST use ONLY copier's verified-stable public surface: `run_copy`,
-`run_recopy`, `run_update`, `copier.errors.*`, `Settings`, `Phase`, `VcsRef`.
-`copier.Template` and `copier.Worker` are deprecated-as-internal ("will become
-inaccessible in the future"; verified: no copier v10 exists, the deprecation is
-warnings-only and unscheduled). Any use of deprecated/internal copier surface —
-today: template introspection during discovery, and reading `message_after_copy`
-— is PERMITTED ONLY inside a SINGLE clerk adapter module, guarded by a contract
-test that fails CI if copier's internal shape drifts. copier is pinned
-`copier>=9.16,<10`.
+The deterministic phase MUST prefer copier's supported public surface: the
+`copier` CLI (`copy` / `recopy` / `update` with `--data` / `--data-file` /
+`--vcs-ref` / `--defaults` / `--overwrite` / `--trust`) or the public functions
+`run_copy` / `run_recopy` / `run_update` plus `copier.errors`, `Settings`,
+`Phase`, `VcsRef`. Template inspection MUST prefer **static parsing of `copier.yml`
+and the cloned file tree** (which executes no template code and is safe on
+untrusted sources) over programmatic introspection. IF, and only if, a helper
+genuinely needs copier's deprecated/internal surface (`Template` / `Worker`), that
+use MUST be confined to a single containment point guarded by a drift test — but
+this adapter is not a standing requirement; a slice that reads `copier.yml`
+statically needs none. copier is pinned `copier>=9.16,<10`.
 
-Rationale: one quarantined adapter converts an unbounded "deprecated API
-everywhere" risk into a single, contract-tested migration point when copier 10
-eventually lands.
+Rationale: the cheapest correct discovery is a YAML read; the deprecated Template
+object is only worth its containment cost when static parsing genuinely cannot do
+the job (e.g. resolving `!include`/inheritance for arbitrary third-party
+templates), which is a later concern, not a day-one mandate.
 
-### V. Determinism Discipline via Pinning
+### V. Determinism Discipline via Pinning; Trust by Source
 
 Because `_tasks` run at reproduce, byte-stability holds only as far as inputs are
-pinned. clerk MUST pin the template `#ref` (tag or sha), the copier version,
-`apm.lock`, and tool versions. FORBIDDEN in clerk-driven templates: `jinja2_time`
-(`{% now %}`) and the random filters — both nondeterministic. The current date
-MUST be injected as an answer (`data={"today": ...}`) and referenced as
-`{{ today }}`, so it freezes into the answers file and reproduce replays the
-original date. Trust MUST be configured via copier `settings.yml` `trust:`
-(a prefix matching the RAW, pre-expansion URL), NEVER blanket `unsafe=True`. The
-deterministic core MUST NEVER auto-write trust: it raises a structured
-`UntrustedSource` error; only the agent writes the prefix on explicit human
-consent. Reproduce/CI never prompts and MUST fail loudly if trust is absent.
+pinned: template `#ref`, the copier version, `apm.lock`, and tool versions.
+FORBIDDEN in clerk-authored templates: `jinja2_time` (`{% now %}`) and the random
+filters. The current date MUST be injected as an answer (e.g. `--data today=…`)
+and referenced as `{{ today }}`, so it freezes into the answers file. Trust MUST
+be configured via copier `settings.yml` `trust:` (a prefix matching the raw
+pre-expansion URL — so clerk MUST use fully-expanded `https://` URLs for both
+fetch and trust storage), NEVER blanket `unsafe=True`. The deterministic phase
+MUST NEVER write trust: it surfaces copier's trust refusal (or clerk's own
+`UntrustedSource`), and trust is recorded only by an explicit consent action.
+Unattended reproduce/CI never prompts and MUST fail loudly if trust is absent.
 
 Rationale: reproduce determinism is only as strong as its least-pinned input;
-trust grants code execution, so consent must stay with a human and out of the
+trust grants code execution, so consent stays with a human and out of the
 non-interactive path.
 
 ### VI. Template-Author Contract (Enforced at Discovery)
 
 Every clerk-consumable template MUST: (a) ship a
 `{{ _copier_conf.answers_file }}.jinja` file — VERIFIED: without it copier writes
-NO `.copier-answers.yml` and the project is unreproducible; clerk MUST REFUSE to
-render a template lacking it; (b) be one git repo = one template with clean PEP 440
-tags (`vX.Y.Z`) — copier silently discards non-PEP440 tags; (c) declare dependency
-edges as `when: false` hidden answers (`depends_on` / `run_after` / `run_before`),
-statically read from `copier.yml`; (d) use copier's NEW `_migrations` format (the
-`before`/`after` dict form is deprecated and warns). clerk's discovery step MUST
-verify (a) and (b) and refuse non-conforming templates with a structured error.
+NO `.copier-answers.yml` and the project is unreproducible; discovery MUST detect
+its absence (statically) and refuse; (b) be one git repo = one template with clean
+PEP 440 tags (`vX.Y.Z`) — copier silently discards non-PEP-440 tags; (c) declare
+dependency edges as `when: false` hidden answers (`depends_on` / `run_after` /
+`run_before`), statically read from `copier.yml`; (d) use copier's NEW
+`_migrations` format (the `before`/`after` dict form is deprecated). Published
+version labels are treated as immutable.
 
-Rationale: these are copier's real, verified constraints; enforcing them at
-discovery turns silent unreproducibility into a loud, early failure.
+Rationale: these are copier's real, verified constraints; enforcing (a) and
+version-resolvability at discovery turns silent unreproducibility into a loud,
+early failure.
 
 ### VII. Hardening Is a Per-Step Mandate
 
 Hardening is NOT a trailing phase. EVERY spec MUST land, as part of its own
-definition-of-done: (a) its determinism checks (e.g. reproduce byte/drift
-assertions where applicable); (b) its error-taxonomy mapping — copier raises both
-`copier.errors.*` AND a bare `builtins.ValueError` for the missing-required-question
-case, and both MUST be caught and translated to typed clerk errors; (c) its
-adapter/seam contract tests. No spec is complete with any of these deferred.
+definition-of-done and scaled to what it actually ships: (a) its determinism
+checks (e.g. a reproduce byte/drift assertion where a render is involved); (b) its
+error surfacing — copier raises both `copier.errors.*` AND a bare
+`builtins.ValueError` for the missing-required-question case, and both MUST be
+surfaced clearly (a helper that wraps copier translates them; a bare shell recipe
+surfaces copier's own message and exit code); (c) tests for any glue it adds
+(helpers unit-tested; templates exercised by an init+reproduce integration test;
+a drift test only if a deprecated-surface adapter exists). No spec is complete with
+its own hardening deferred.
 
 Rationale: deferred hardening becomes never-done hardening; folding it into each
-spec's DoD keeps the determinism and error guarantees continuously true.
+spec's DoD keeps the guarantees continuously true, without mandating ceremony a
+given slice doesn't need.
 
-### VIII. Machine-Checkable Seam Contracts
+### VIII. Documented, Dry-Run-Validated Handoff
 
-The phase-1 ↔ phase-2 artifacts — the agent-authored **run-spec** and the
-**discover output** the agent reads — MUST be defined as pydantic v2 models.
-pydantic is a DIRECT clerk dependency (not merely copier-transitive). The model is
-the single source of truth: it validates in the core (typed fast-fail before copier
-runs) AND emits a committed JSON Schema via `model_json_schema()`. A contract test
-MUST fail CI if the committed schema drifts from the model. `SKILL.md` points the
-agent at the committed schema.
+The phase-1 → phase-2 handoff (the frozen inputs the skill produces) MUST be a
+**documented, plain-text format** the skill can author and a human can read
+(copier's own answers/`--data-file` shape wherever possible, extended only as
+coordination requires). Validation MUST reuse copier's own capabilities — chiefly a
+**dry run** (`--pretend`) and copier's answer validation — rather than a bespoke
+re-implementation. Heavier machinery (typed models, generated JSON Schemas,
+schema-drift tests) is NOT required and MUST NOT be introduced until a genuine
+non-agent program consumes the handoff; until then the documented format plus a
+dry run is the contract. `SKILL.md` documents the format.
 
-Rationale: a machine-checkable seam lets the core reject a malformed handoff
-deterministically and gives the agent a precise, testable contract instead of
-prose.
+Rationale: the handoff's only consumer today is the agent (which reads plain
+text natively) and copier (which validates natively); a pydantic/JSON-Schema layer
+would stabilize a contract for consumers that do not yet exist — the YAGNI the
+project's own review flagged.
 
 ## Additional Constraints (copier facts, verified against 9.16.0)
 
-- **Answer precedence** (verified): `data=` (highest) > `.copier-answers.yml` last
-  execution > `user_defaults=` > `settings.yml` `defaults:` > template `copier.yml`
-  default. clerk injects fixed/derived values via `data=` and user-changeable
-  defaults via `user_defaults=`.
-- **Three operations, three version behaviors:** `run_copy` (init) → latest tag or
-  explicit `vcs_ref`; `run_recopy` (faithful reproduce) → `VcsRef.CURRENT`;
-  `run_update` (upgrade) → from `_commit` to latest.
-- **`data=` answers ARE persisted** to `.copier-answers.yml` even when never
-  interactively asked (verified) — but only if the answers-file template exists
-  (Principle VI). `when: false` hidden answers are NOT persisted and are read from
-  `copier.yml` at discovery.
+- **Answer precedence** (verified): `--data` / `data=` (highest) > answers-file
+  last execution > `user_defaults=` > `settings.yml` `defaults:` > template
+  `copier.yml` default.
+- **Three operations, three version behaviors:** `copy` (init) → latest tag or
+  explicit ref; `recopy --vcs-ref=:current:` (faithful reproduce); `update`
+  (upgrade) → from recorded revision to latest.
+- **`--data` answers ARE persisted** to `.copier-answers.yml` even when never
+  interactively asked — but only if the answers-file template exists (VI).
+  `when: false` hidden answers are NOT persisted; read them from `copier.yml`.
+- **Discovery via static parse is safe**; building copier's Jinja environment
+  imports template-declared extensions (code execution) and is NOT trust-gated —
+  so discovery MUST NOT build the environment or render template strings.
 - **Catalog holds SOURCES, not pinned refs.** The reproduce pin lives in the
-  generated project's answers file (`_commit`). `_src_path` MUST be the split
-  (per-template) repo, never the authoring monorepo.
-- **`_tasks`/migrations/`_jinja_extensions` are all trust-gated.** A trusted source
-  is the sanctioned enabler; `unsafe=True` is reserved for the narrow
-  `_external_data`-outside-destination case only, opt-in per template.
+  generated project's answers file. `_src_path` MUST be the split (per-template)
+  repo, never the authoring monorepo.
+- **`_tasks`/migrations/`_jinja_extensions` are trust-gated.** A trusted source is
+  the sanctioned enabler; `unsafe=True` is reserved for the narrow
+  `_external_data`-outside-destination case only.
 
 ## Development Workflow & Quality Gates
 
-- Work is spec-driven via SpecKit. The constitution and the six ADRs gate every
-  spec; a `Constitution Check` in each plan MUST confirm compliance with Principles
-  I–VIII or justify deviation against the "thin conductor" ethos.
-- The roadmap decomposes delivery into dependency-ordered specs; the first spec is
-  a tight single-module vertical slice. Breadth (catalog, DAG, secrets, defaults,
-  upgrade/migrations, agentic-ecosystem module, release/fan-out, project-setup port)
-  is captured as roadmap placeholder specs, not built up front.
-- Every change runs `just test` (pytest), `just types` (mypy strict), and
-  `just lint` (pre-commit) before merge. Adapter and seam contract tests
-  (Principles IV, VIII) are blocking.
-- Dependencies are added via the package-manager CLI (`uv add`), not manifest
-  edits.
+- Work is spec-driven via SpecKit. This constitution and the ADRs gate every spec;
+  each plan's `Constitution Check` MUST confirm compliance with Principles I–VIII
+  or justify a deviation against the "skills + templates + minimal glue" ethos.
+- The roadmap decomposes delivery into dependency-ordered specs; the first is a
+  tight single-template slice. Coordination code (ordering/DAG, catalog parsing)
+  appears only when a spec genuinely needs it, with evidence, not speculatively.
+- Every change runs the project's checks before merge: template/loop integration
+  tests, and — for any Python glue — `pytest`, `mypy`, and lint. Tests are
+  hermetic and offline except clearly-marked live smoke checks.
+- Dependencies (if any Python glue needs them) are added via the package-manager
+  CLI (`uv add`), not manifest edits; glue stays dependency-light by default.
 
 ## Governance
 
-This constitution supersedes ad-hoc practice. The six ADRs in `docs/decisions/`
-are the architectural source of truth and are binding; this constitution encodes
-their cross-cutting invariants. Amending a principle REQUIRES updating the
-governing ADR in the same change. All specs and PRs MUST verify compliance with
-Principles I–VIII; complexity beyond them MUST be justified in writing against the
-"clerk is a thin conductor" ethos, or be rejected.
+This constitution supersedes ad-hoc practice. The ADRs in `docs/decisions/` are
+the architectural source of truth and are binding; where an ADR predates this
+v2.0.0 reframing (e.g. references to a `uvx`-runnable tool, a pydantic seam, or a
+mandatory adapter), THIS constitution governs, and the ADR MUST be reconciled in
+the same change that relies on it. Amending a principle REQUIRES updating the
+governing ADR. All specs and PRs MUST verify compliance with Principles I–VIII;
+complexity beyond them MUST be justified in writing against the "skills + templates
++ minimal glue" ethos, or be rejected.
 
-Versioning of this document follows semantic versioning: MAJOR for
-backward-incompatible principle removals or redefinitions, MINOR for a new
-principle or materially expanded guidance, PATCH for clarifications and wording.
+Versioning: MAJOR for backward-incompatible principle removals or redefinitions,
+MINOR for a new principle or materially expanded guidance, PATCH for
+clarifications.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
+**Version**: 2.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
