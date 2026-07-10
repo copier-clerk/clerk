@@ -24,11 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
 from copier import run_copy, run_recopy
 from copier._types import VcsRef
 from copier.errors import CopierError, UnsafeTemplateError
 
 from clerk import discovery, trust
+from clerk.catalog import TemplateRecord
 from clerk.errors import (
     ClerkError,
     InvalidRunSpecError,
@@ -189,3 +191,210 @@ def reproduce(dest: str, *, answers_file: Path | None = None) -> RunResult:
     except CopierError as exc:
         raise _translate(exc) from exc
     return RunResult(dest=dest, src="<recorded>", ref=":current:", pretend=False)
+
+
+# ---------------------------------------------------------------------------
+# Multi-template paths (spec 003)
+# ---------------------------------------------------------------------------
+
+
+def init_many(
+    selection: list[tuple[TemplateRecord, dict[str, Any]]],
+    dest: str,
+    *,
+    today: str | None = None,
+    check: bool = False,
+) -> list[RunResult]:
+    """Apply (or preflight-check) a multi-template selection in dependency order.
+
+    ``selection`` is a list of ``(record, answers)`` pairs where ``answers`` is the
+    per-layer answer dict from the run-spec.  Earlier layers' answers are threaded
+    into later layers via the accumulating ``data=`` dict (ADR-0003: ``data=``, not
+    ``_external_data``).
+
+    For each layer in topological order (stable full_id tie-break):
+    1. Pre-checks trust + reproducibility (same guards as single-template ``init``).
+    2. Runs ``run_copy`` with the accumulated answers merged with the layer's own
+       answers, using a layer-specific ``answers_file`` name.
+    3. Merges the written answers file back into the accumulator for later layers.
+
+    ``check=True`` (all-gaps preflight, C-10): runs every layer with ``pretend=True``,
+    collects errors across ALL layers, and raises a single aggregated
+    ``InvalidRunSpecError`` naming every missing/invalid answer — never stops at the
+    first failing layer.  Writes nothing.
+
+    N=1 behaves identically to single-template ``init`` (uniform loop, spec 010).
+    """
+    from clerk import ordering  # local import avoids circular at module load
+
+    records = [r for r, _ in selection]
+    answers_map: dict[str, dict[str, Any]] = {r.full_id: a for r, a in selection}
+    plan = ordering.layer_plan(records)
+    accumulated: dict[str, Any] = _with_today({}, today)
+
+    if not check:
+        results: list[RunResult] = []
+        for record, af_name in plan:
+            _require_reproducible(record.source, record.ref)
+            _require_trust_if_action_taking(record.source, record.ref)
+            data = {**accumulated, **answers_map.get(record.full_id, {})}
+            try:
+                run_copy(
+                    record.source,
+                    dest,
+                    data=data,
+                    vcs_ref=record.ref,
+                    answers_file=af_name,
+                    defaults=True,
+                    overwrite=True,
+                    quiet=True,
+                    pretend=False,
+                )
+            except UnsafeTemplateError as exc:
+                raise UntrustedSourceError(
+                    suggest_prefix(record.source), source=record.source
+                ) from exc
+            except ValueError as exc:
+                raise InvalidRunSpecError(f"invalid or incomplete answers: {exc}") from exc
+            except CopierError as exc:
+                raise _translate(exc) from exc
+            results.append(RunResult(dest=dest, src=record.source, ref=record.ref, pretend=False))
+            _merge_layer_answers(accumulated, dest, af_name)
+        return results
+
+    # check=True: all-gaps preflight — run all layers, collect all errors.
+    errors: list[str] = []
+    for record, af_name in plan:
+        _require_reproducible(record.source, record.ref)
+        _require_trust_if_action_taking(record.source, record.ref)
+        data = {**accumulated, **answers_map.get(record.full_id, {})}
+        try:
+            run_copy(
+                record.source,
+                dest,
+                data=data,
+                vcs_ref=record.ref,
+                answers_file=af_name,
+                defaults=True,
+                overwrite=True,
+                quiet=True,
+                pretend=True,
+            )
+        except UnsafeTemplateError as exc:
+            raise UntrustedSourceError(suggest_prefix(record.source), source=record.source) from exc
+        except ValueError as exc:
+            errors.append(f"{record.full_id}: {exc}")
+        except CopierError as exc:
+            errors.append(f"{record.full_id}: {exc}")
+        # pretend=True writes nothing — thread what we have so later layers get the
+        # best possible coverage even in preflight mode.
+    if errors:
+        raise InvalidRunSpecError(
+            "preflight found missing or invalid answers:\n" + "\n".join(f"  - {e}" for e in errors)
+        )
+    return [RunResult(dest=dest, src=r.source, ref=r.ref, pretend=True) for r, _ in plan]
+
+
+def _merge_layer_answers(accumulated: dict[str, Any], dest: str, af_name: str) -> None:
+    """Read the just-written answers file and merge its user-visible answers into ``accumulated``.
+
+    copier writes the answers file with ``_``-prefixed metadata keys (``_src_path``,
+    ``_commit``, ``_answers_file``, ``_template``) plus the answered question values.
+    We merge only the non-``_``-prefixed answers so that subsequent layers can
+    reference earlier layers' answers via ``data=`` threading (ADR-0003).
+    """
+    af_path = Path(dest) / af_name
+    if not af_path.is_file():
+        return
+    try:
+        raw = yaml.safe_load(af_path.read_text()) or {}
+    except Exception:  # noqa: BLE001 — best-effort; missing answers just don't thread
+        return
+    if not isinstance(raw, dict):
+        return
+    for k, v in raw.items():
+        if not k.startswith("_"):
+            accumulated[k] = v
+
+
+def reproduce_many(dest: str) -> list[RunResult]:
+    """Recompute the multi-layer order from committed state and reproduce each layer.
+
+    Algorithm (spec 003 recompute-not-freeze contract):
+    1. Enumerate committed ``.copier-answers*.yml`` files.
+    2. For each file, read the recorded ``_src_path`` + ``_commit`` (the exact
+       source and pinned commit copier wrote at init time).
+    3. Re-discover each template at its pinned commit to re-read its edges.
+    4. Rebuild the DAG + topo-sort (same stable full_id tie-break) → the
+       recomputed order.
+    5. Drive ``reproduce(dest, answers_file=<that file>)`` per layer in that order.
+
+    Fails loudly per-layer if a source is unreachable (reproduce/CI never silently
+    skips a layer).  N=1 behaves identically to single-template ``reproduce`` (uniform
+    loop, spec 010 invariant).
+    """
+    from clerk import ordering  # local import avoids circular at module load
+
+    answers_files = enumerate_answers_files(dest)
+    if not answers_files:
+        raise ClerkError(f"no .copier-answers*.yml at {dest!r}; nothing to reproduce")
+
+    # Build minimal TemplateRecord-like objects from each answers file's metadata,
+    # and simultaneously collect their edges by re-discovering at the pinned commit.
+    records: list[TemplateRecord] = []
+    edges_by_basename: dict[str, dict[str, Any]] = {}
+    file_by_basename: dict[str, Path] = {}
+
+    for af_path in answers_files:
+        try:
+            raw = yaml.safe_load(af_path.read_text()) or {}
+        except Exception as exc:  # noqa: BLE001
+            raise ClerkError(f"could not read answers file {af_path}: {exc}") from exc
+        if not isinstance(raw, dict):
+            raise ClerkError(f"answers file {af_path} did not parse to a mapping")
+
+        src_path = raw.get("_src_path")
+        commit = raw.get("_commit")
+        if not src_path:
+            raise ClerkError(
+                f"answers file {af_path!r} has no _src_path; cannot reproduce this layer"
+            )
+        if not commit:
+            raise ClerkError(
+                f"answers file {af_path!r} has no _commit; cannot reproduce this layer"
+            )
+
+        # Re-discover at the pinned commit to re-read edges (recompute, not freeze).
+        disc = discovery.discover(str(src_path), str(commit))
+
+        # Reconstruct a minimal TemplateRecord: full_id derived from source basename
+        # (matches the pattern catalog.py uses: catalog/basename — but here we use
+        # a synthetic "_recorded/<basename>" so the full_id tie-break is consistent).
+        basename = str(src_path).rstrip("/").rsplit("/", 1)[-1]
+        if basename.endswith(".git"):
+            basename = basename[:-4]
+        full_id = f"_recorded/{basename}"
+
+        record = TemplateRecord(
+            full_id=full_id,
+            source=str(src_path),
+            ref=str(commit),
+            versions=disc.versions,
+            reproducible=disc.reproducible,
+            has_tasks=disc.has_tasks,
+            questions=[q.key for q in disc.questions],
+        )
+        records.append(record)
+        edges_by_basename[basename] = disc.dependency_edges
+        file_by_basename[basename] = af_path
+
+    # Recompute order (same DAG build + topo-sort as init).
+    plan = ordering.layer_plan_from_edges(records, edges_by_basename)
+
+    results: list[RunResult] = []
+    for record, _af_name in plan:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        af_path = file_by_basename[basename]
+        result = reproduce(dest, answers_file=af_path)
+        results.append(result)
+    return results

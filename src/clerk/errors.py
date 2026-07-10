@@ -56,3 +56,12 @@ class CatalogError(ClerkError):
     at ``validate``; any CRUD precondition that cannot be met. The CLI maps this
     to exit code 1 (same as other ``ClerkError`` subclasses).
     """
+
+
+class OrderingError(ClerkError):
+    """A dependency DAG for the selected templates is invalid.
+
+    Raised for: a dependency cycle (names the cycle members), a dangling edge
+    (names the missing dependency), or a basename collision among selected
+    templates (names the colliding basename). Always raised before any write.
+    """

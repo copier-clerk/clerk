@@ -31,6 +31,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 # When run directly (./scripts/clerk.py or python scripts/clerk.py), Python inserts the
 # script's own directory at sys.path[0], which makes `import clerk` resolve to this
@@ -45,7 +46,8 @@ if _src not in sys.path:
 import yaml  # noqa: E402
 
 from clerk import __version__, catalog, discovery, runner, trust  # noqa: E402
-from clerk.errors import ClerkError, UntrustedSourceError  # noqa: E402
+from clerk.catalog import TemplateRecord  # noqa: E402
+from clerk.errors import ClerkError, InvalidRunSpecError, UntrustedSourceError  # noqa: E402
 
 
 def _today() -> str:
@@ -57,6 +59,75 @@ def _load_run_spec(path: str) -> runner.RunSpec:
     raw = Path(path).read_text()
     data = yaml.safe_load(raw)  # JSON is valid YAML, so this accepts both
     return runner.RunSpec.from_mapping(data)
+
+
+def _load_multi_run_spec(
+    path: str,
+) -> tuple[str, list[tuple[TemplateRecord, dict[str, Any]]]]:
+    """Parse a multi-template run-spec → (dest, [(record, answers), …]).
+
+    Expected shape::
+
+        dest: "./my-project"
+        selection:
+          - full_id: "catalog/template-name"
+            source:  "https://…"
+            ref:     "v1.0.0"       # optional
+            answers: {key: value}   # optional
+
+    Returns the dest string and a list of (TemplateRecord, answers) pairs in
+    the order the selection was listed.  The ordering module will reorder them.
+    """
+    raw = Path(path).read_text()
+    data = yaml.safe_load(raw)
+    if not isinstance(data, dict):
+        raise InvalidRunSpecError("multi run-spec must be a mapping")
+    dest = data.get("dest")
+    if not dest:
+        raise InvalidRunSpecError("multi run-spec missing required field: dest")
+    selection_raw = data.get("selection")
+    if not isinstance(selection_raw, list) or not selection_raw:
+        raise InvalidRunSpecError("multi run-spec 'selection' must be a non-empty list")
+
+    result: list[tuple[TemplateRecord, dict[str, Any]]] = []
+    for i, entry in enumerate(selection_raw):
+        if not isinstance(entry, dict):
+            raise InvalidRunSpecError(f"selection[{i}] must be a mapping")
+        full_id = entry.get("full_id")
+        source = entry.get("source")
+        if not full_id:
+            raise InvalidRunSpecError(f"selection[{i}] missing 'full_id'")
+        if not source:
+            raise InvalidRunSpecError(f"selection[{i}] missing 'source'")
+        ref = entry.get("ref") or None
+        answers = entry.get("answers") or {}
+        if not isinstance(answers, dict):
+            raise InvalidRunSpecError(f"selection[{i}] 'answers' must be a mapping")
+
+        # Derive a minimal TemplateRecord from the run-spec entry.
+        # discovery.list_versions is called by layer_plan anyway; use a stub ref here.
+        # We pass the ref from the run-spec (may be None → latest resolved by copier).
+        record = TemplateRecord(
+            full_id=str(full_id),
+            source=str(source),
+            ref=str(ref) if ref else "",
+            versions=[],
+            reproducible=True,  # validated by init_many per-layer
+            has_tasks=False,
+            questions=[],
+        )
+        result.append((record, dict(answers)))
+    return str(dest), result
+
+
+def _is_multi_run_spec(path: str) -> bool:
+    """Return True if the run-spec at ``path`` uses the multi-template ``selection`` shape."""
+    try:
+        raw = Path(path).read_text()
+        data = yaml.safe_load(raw)
+        return isinstance(data, dict) and "selection" in data
+    except Exception:  # noqa: BLE001
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -71,26 +142,30 @@ def _cmd_discover(args: argparse.Namespace) -> int:
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
-    spec = _load_run_spec(args.run_spec)
-    result = runner.init(spec, today=_today(), check=args.check)
-    if result.pretend:
-        print(f"OK: inputs valid for {spec.source} (no files written).")
+    if _is_multi_run_spec(args.run_spec):
+        dest, selection = _load_multi_run_spec(args.run_spec)
+        results = runner.init_many(selection, dest, today=_today(), check=args.check)
+        if results and results[0].pretend:
+            layer_ids = ", ".join(r.src for r in results)
+            print(f"OK: inputs valid for {len(results)} layer(s) [{layer_ids}] (no files written).")
+        else:
+            print(f"OK: generated {dest} from {len(results)} layer(s).")
     else:
-        print(f"OK: generated {spec.dest} from {spec.source}.")
+        spec = _load_run_spec(args.run_spec)
+        result = runner.init(spec, today=_today(), check=args.check)
+        if result.pretend:
+            print(f"OK: inputs valid for {spec.source} (no files written).")
+        else:
+            print(f"OK: generated {spec.dest} from {spec.source}.")
     return 0
 
 
 def _cmd_reproduce(args: argparse.Namespace) -> int:
     dest = args.dest
-    answers_files = runner.enumerate_answers_files(dest)
-    if not answers_files:
-        print(
-            f"error: no .copier-answers*.yml at {dest!r}; nothing to reproduce",
-            file=sys.stderr,
-        )
-        return 1
-    for answers_file in answers_files:
-        runner.reproduce(dest, answers_file=answers_file)
+    try:
+        runner.reproduce_many(dest)
+    except ClerkError:
+        raise
     print(f"OK: reproduced {dest} faithfully at its recorded commit.")
     return 0
 
