@@ -273,7 +273,7 @@ def init_many(
                 record.source,
                 dest,
                 data=data,
-                vcs_ref=record.ref,
+                vcs_ref=record.ref or None,
                 answers_file=af_name,
                 defaults=True,
                 overwrite=True,
