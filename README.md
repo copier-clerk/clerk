@@ -92,6 +92,32 @@ lists.
 The skill (step 0 of `skills/clerk/SKILL.md`) manages the catalog on the user's
 behalf: ensure → list → pick → validate → init.
 
+## Multi-template
+
+Select several templates from the catalog and clerk applies them in dependency
+order — no manual sequencing. Each template declares its `depends_on`/`run_after`/
+`run_before` edges in its `copier.yml`; clerk builds the DAG, validates it (refuses
+cycles, dangling edges, and basename collisions before writing anything), and runs
+one `copier copy` per layer in topological order, threading earlier layers' answers
+into later ones.
+
+Each layer commits its own `.copier-answers.<basename>.yml`. At reproduce, clerk
+enumerates those files, fetches each template at its pinned `_commit`, re-reads the
+edges, and **recomputes** the same order — no frozen recipe file is committed to the
+project. Pinned commits → identical edges → identical order, so reproduce is
+deterministic and agent-free.
+
+The copier-only-by-hand fallback (`copier recopy … -a <each answers file>` in
+recomputed order) works for any number of layers — nothing about the project requires
+clerk to reproduce.
+
+N=1 is the degenerate case: a single-template project runs the same path with a
+one-node DAG, no special-casing.
+
+See `skills/clerk/SKILL.md` (multi-template section) and
+`specs/003-multi-template/contracts/ordering.md` for the run-spec shape, edge
+semantics, and ordering algorithm.
+
 ## Design decisions
 
 - [0001 — copier is the engine; clerk is the conductor](docs/decisions/0001-copier-as-engine.md)

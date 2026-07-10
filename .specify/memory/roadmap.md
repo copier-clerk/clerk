@@ -203,7 +203,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   No clerk artifact written into generated projects (010 invariant holds). The
   `SKILL.md` documents the catalog-manage → list → pick → validate → init flow.
 
-### 003 — Multi-template enablement + dependency ordering  [status: planned]
+### 003 — Multi-template enablement + dependency ordering  [status: implemented]
 
 - **Description:** Select many templates and run them in correct dependency order.
 - **Outcome:** clerk computes a topological order from declared edges and drives one
@@ -224,6 +224,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   project-committed clerk recipe/DAG artifact (rejected — spec 010).
 - **Depends on:** 002; delivery contract from 010.
 - **Governed by:** ADR-0003; C-07, C-10, C-11; spec 010.
+- **Completed 2026-07-10** (branch `003-multi-template`, merged into main):
+  `src/clerk/ordering.py` — DAG build from `depends_on`/`run_after`/`run_before`
+  edges; topo-sort with stable tie-break by **basename** (basename is the portable
+  edge identity inside `copier.yml`; consistent between init and reproduce, which
+  reconstructs synthetic `_recorded/<basename>` full-ids); `OrderingError` on cycle,
+  dangling edge, or basename collision. `runner.init_many` threads answers via
+  `data=` (ADR-0003); `runner.reproduce_many` recomputes order from committed
+  `.copier-answers*.yml` + pinned template fetches — no recipe file read or written.
+  All-gaps preflight: `--check` collates errors across all layers in one pass.
+  N=1 unchanged (uniform loop, spec 010). Q-004 resolved: ordering glue is a small
+  helper (one module, pure functions); no crystallized tool needed.
 
 ### 004 — Global per-template defaults  [status: planned]
 
