@@ -47,3 +47,12 @@ class NotReproducibleError(ClerkError):
 
 class InvalidRunSpecError(ClerkError):
     """The inputs document is malformed or incomplete (surfaced before any render)."""
+
+
+class CatalogError(ClerkError):
+    """A catalog operation failed.
+
+    Raised for: missing or malformed catalog file; unknown or ambiguous full-id
+    at ``validate``; any CRUD precondition that cannot be met. The CLI maps this
+    to exit code 1 (same as other ``ClerkError`` subclasses).
+    """

@@ -44,7 +44,7 @@ if _src not in sys.path:
 
 import yaml  # noqa: E402
 
-from clerk import __version__, discovery, runner, trust  # noqa: E402
+from clerk import __version__, catalog, discovery, runner, trust  # noqa: E402
 from clerk.errors import ClerkError, UntrustedSourceError  # noqa: E402
 
 
@@ -93,6 +93,93 @@ def _cmd_reproduce(args: argparse.Namespace) -> int:
         runner.reproduce(dest, answers_file=answers_file)
     print(f"OK: reproduced {dest} faithfully at its recorded commit.")
     return 0
+
+
+def _cmd_catalog(args: argparse.Namespace) -> int:  # noqa: PLR0911
+    """Dispatch catalog sub-verbs."""
+    cat_path = Path(args.catalog) if args.catalog else catalog.catalog_path()
+    verb = args.catalog_cmd
+
+    if verb == "init":
+        name: str = args.name or "default"
+        created = catalog.init_catalog(cat_path, name=name)
+        if created:
+            print(f"created: {cat_path}")
+        else:
+            print(f"notice: catalog already exists (untouched): {cat_path}")
+        return 0
+
+    if verb == "add":
+        added = catalog.add_source(cat_path, args.source, name=args.name)
+        if added:
+            print(f"added: {args.source}")
+        else:
+            print(f"already present (no-op): {args.source}")
+        return 0
+
+    if verb == "remove":
+        removed = catalog.remove_source(cat_path, args.source, name=args.name)
+        if removed:
+            print(f"removed: {args.source}")
+        else:
+            print(f"not found (no-op): {args.source}")
+        return 0
+
+    if verb in ("list", "refresh"):
+        if not cat_path.is_file():
+            print(
+                f"error: no catalog at {cat_path!r}. "
+                f"Run 'catalog init' or 'catalog add <source>' first.",
+                file=sys.stderr,
+            )
+            return 1
+        listing = catalog.build_listing(cat_path)
+        if getattr(args, "json", False):
+            print(json.dumps(listing.to_dict(), indent=2))
+        else:
+            _print_catalog_table(listing)
+        return 0
+
+    if verb == "validate":
+        if not cat_path.is_file():
+            print(
+                f"error: no catalog at {cat_path!r}. "
+                f"Run 'catalog init' or 'catalog add <source>' first.",
+                file=sys.stderr,
+            )
+            return 1
+        records = catalog.validate_selection(cat_path, list(args.full_ids))
+        for rec in records:
+            print(f"ok: {rec.full_id} ({rec.source} @ {rec.ref})")
+        return 0
+
+    return 2
+
+
+def _print_catalog_table(listing: catalog.FullListing) -> None:
+    """Human-readable table for ``catalog list``."""
+    if not listing.catalogs:
+        print("(empty catalog)")
+        return
+    for cl in listing.catalogs:
+        print(f"catalog: {cl.name}")
+        if cl.templates:
+            for t in cl.templates:
+                versions_str = ", ".join(t.versions[-3:])  # show up to 3 newest
+                if len(t.versions) > 3:
+                    versions_str = f"… {versions_str}"
+                tasks_flag = " [tasks]" if t.has_tasks else ""
+                print(f"  {t.full_id}{tasks_flag}")
+                print(f"    source:    {t.source}")
+                print(f"    ref:       {t.ref}")
+                print(f"    versions:  {versions_str}")
+                print(f"    questions: {', '.join(t.questions) or '(none)'}")
+        else:
+            print("  (no usable templates)")
+        if cl.unusable:
+            print("  unusable:")
+            for u in cl.unusable:
+                print(f"    - {u.source}: {u.reason}")
 
 
 def _cmd_trust(args: argparse.Namespace) -> int:
@@ -144,6 +231,58 @@ def _build_parser() -> argparse.ArgumentParser:
     p_repro = sub.add_parser("reproduce", help="Faithfully reproduce an existing project.")
     p_repro.add_argument("dest", nargs="?", default=".", help="Project directory (default: cwd).")
     p_repro.set_defaults(func=_cmd_reproduce)
+
+    p_catalog = sub.add_parser("catalog", help="Manage the user-owned source catalog.")
+    p_catalog.add_argument(
+        "--catalog",
+        metavar="PATH",
+        default=None,
+        help="Override the catalog file path (default: CLERK_CATALOG_PATH or platformdirs).",
+    )
+    catalog_sub = p_catalog.add_subparsers(dest="catalog_cmd", required=True)
+
+    p_cat_init = catalog_sub.add_parser(
+        "init", help="Create the catalog file if absent (idempotent)."
+    )
+    p_cat_init.add_argument("--name", default=None, help="Name for the initial catalog pointer.")
+    p_cat_init.set_defaults(func=_cmd_catalog)
+
+    p_cat_add = catalog_sub.add_parser("add", help="Add a source to the catalog.")
+    p_cat_add.add_argument("source", help="Source locator (gituser/gitrepo or URL, optional @ref).")
+    p_cat_add.add_argument(
+        "--name", default=None, help="Catalog pointer name (default: sanitized source basename)."
+    )
+    p_cat_add.set_defaults(func=_cmd_catalog)
+
+    p_cat_remove = catalog_sub.add_parser("remove", help="Remove a source from the catalog.")
+    p_cat_remove.add_argument("source", help="Source locator to remove.")
+    p_cat_remove.add_argument(
+        "--name", default=None, help="Catalog pointer name (default: sanitized source basename)."
+    )
+    p_cat_remove.set_defaults(func=_cmd_catalog)
+
+    p_cat_list = catalog_sub.add_parser(
+        "list", help="List all templates (static discovery, deterministic)."
+    )
+    p_cat_list.add_argument(
+        "--json", action="store_true", dest="json", help="Emit machine-readable JSON."
+    )
+    p_cat_list.set_defaults(func=_cmd_catalog)
+
+    p_cat_refresh = catalog_sub.add_parser(
+        "refresh",
+        help="Re-discover all sources (same as list; explicit freshness trigger).",
+    )
+    p_cat_refresh.add_argument(
+        "--json", action="store_true", dest="json", help="Emit machine-readable JSON."
+    )
+    p_cat_refresh.set_defaults(func=_cmd_catalog)
+
+    p_cat_validate = catalog_sub.add_parser(
+        "validate", help="Validate one or more full-ids against the discovered catalog."
+    )
+    p_cat_validate.add_argument("full_ids", nargs="+", metavar="full-id", help="Full template ids.")
+    p_cat_validate.set_defaults(func=_cmd_catalog)
 
     p_trust = sub.add_parser("trust", help="Manage trusted template sources.")
     trust_sub = p_trust.add_subparsers(dest="trust_cmd", required=True)
