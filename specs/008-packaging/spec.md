@@ -26,7 +26,8 @@ APM already provides the whole publishing mechanism — this spec **uses** it, i
 not invent one:
 - **`apm pack`** builds distributable artifacts from a `marketplace:` block in
   `apm.yml`, emitting **both** a Claude Code marketplace and a **Codex** marketplace
-  natively (`marketplace.claude.output` / `marketplace.codex.output`), with release
+  natively (`marketplace.outputs.claude` → `.claude-plugin/marketplace.json` /
+  `marketplace.outputs.codex` → `.agents/plugins/marketplace.json`), with release
   gates (`--check-versions`, `--check-clean`).
 - **`apm publish`** uploads the package to a registry; **`apm marketplace`** manages
   the authoring config and consumer discovery.
@@ -44,9 +45,10 @@ brew, mise).
    block to `apm.yml`; build with `apm pack`; publish with `apm publish`. No
    hand-rolled manifest, no bespoke publish script. (ADR-0006: "distribute the SKILL
    via APM marketplace"; spec 010: "no PyPI `clerk` package.")
-2. **Ship BOTH a Claude and a Codex marketplace.** `apm pack -m claude,codex` emits
-   both from one config (`marketplace.claude.output` + `marketplace.codex.output`).
-   Codex is a first-class native target — not a separate hand-built manifest.
+2. **Ship BOTH a Claude and a Codex marketplace.** `apm pack --marketplace=claude,codex`
+   emits both from one config (`marketplace.outputs.{claude,codex}`). Codex is a
+   first-class native target — not a separate hand-built manifest. (Codex requires
+   each package to declare `category:`.)
 3. **clerk's own code is VENDORED into the package** (self-contained). The package
    bundles `src/clerk/*.py` alongside `scripts/clerk.py` under the skill dir, so
    `import clerk.*` resolves from the installed skill with no PyPI dependency. A
@@ -101,13 +103,18 @@ in that project.
 
 The same, for Codex — a Codex marketplace is built and installable.
 
-**Independent Test**: `apm pack -m codex` produces a valid Codex marketplace
-manifest at the configured `marketplace.codex.output`; `apm marketplace validate`
-passes; installing from it lands the clerk skill in a Codex project.
+**Independent Test**: `apm pack --marketplace=codex` produces a valid Codex
+marketplace manifest at `.agents/plugins/marketplace.json`; `apm marketplace
+validate` passes; installing from it lands the clerk skill in a Codex project.
 
 **Acceptance Scenarios**:
-1. **Given** the `marketplace:` block, **When** `apm pack -m claude,codex`, **Then**
-   both a Claude and a Codex marketplace artifact are produced and validate.
+1. **Given** the `marketplace:` block with `outputs.codex` enabled and the package's
+   `category:` set, **When** `apm pack --marketplace=claude,codex`, **Then** both a
+   Claude (`.claude-plugin/marketplace.json`) and a Codex
+   (`.agents/plugins/marketplace.json`) artifact are produced and validate.
+2. **Given** `outputs.codex` enabled but a package missing `category:`, **When**
+   `apm pack`, **Then** it hard-errors ("packages must define 'category'") — the
+   clerk package MUST set `category:` to satisfy the Codex target.
 
 ### US3 — Build + publish is a documented, gated command (Priority: P2)
 
@@ -146,12 +153,18 @@ detected manager (uv/pipx/pip/brew), exit non-zero — deterministic, no LLM.
 
 ### Functional Requirements
 
-- **FR-001**: `apm.yml` MUST gain a `marketplace:` block (via `apm marketplace init`
-  + `apm marketplace package add`) declaring the clerk skill package, with **both**
-  `marketplace.claude.output` and `marketplace.codex.output` configured.
-- **FR-002**: `apm pack -m claude,codex` MUST build both marketplace artifacts; the
-  outputs MUST pass `apm marketplace validate`. The build MUST be reproducible from
-  the committed `apm.yml` + lockfile.
+- **FR-001**: `apm.yml` MUST gain a `marketplace:` block (via `apm marketplace init`)
+  declaring the clerk skill package with **both** `marketplace.outputs.claude` and
+  `marketplace.outputs.codex` enabled (verified schema: a nested `outputs:` map, NOT
+  `marketplace.claude/codex`). Enabling `codex` REQUIRES every package to declare
+  `category:` (`apm pack` hard-errors otherwise) — the clerk package MUST set one
+  (e.g. `category: Productivity`). `license:` MUST be present (else SBOM
+  NOASSERTION). The clerk package uses a local-path `source: ./packages/clerk` (it
+  ships itself, not a remote tag).
+- **FR-002**: `apm pack --marketplace=claude,codex` MUST build both marketplace
+  artifacts (`.claude-plugin/marketplace.json` + `.agents/plugins/marketplace.json`);
+  the outputs MUST pass `apm marketplace validate`. The build MUST be reproducible
+  from the committed `apm.yml` + lockfile.
 - **FR-003**: The clerk package MUST bundle the SKILL, `scripts/clerk.py`, and a
   **vendored copy of `src/clerk/*.py`** so that `import clerk.*` resolves from the
   installed skill location with **no PyPI `clerk` dependency**. A documented
@@ -192,7 +205,7 @@ detected manager (uv/pipx/pip/brew), exit non-zero — deterministic, no LLM.
 
 - **SC-001**: The clerk skill installs into a fresh Claude Code project from the
   built marketplace, and `scripts/clerk.py --help` runs there (its modules resolve).
-- **SC-002**: `apm pack -m claude,codex` produces a Claude AND a Codex marketplace,
+- **SC-002**: `apm pack --marketplace=claude,codex` produces a Claude AND a Codex marketplace,
   both passing `apm marketplace validate`.
 - **SC-003**: With a required dep missing, invocation prints an environment-aware
   install suggestion and exits cleanly (no traceback); `clerk doctor` reports the

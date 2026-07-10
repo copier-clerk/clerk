@@ -17,7 +17,7 @@ and pack/validate gate are part of this spec's definition-of-done.
 ## Design decisions this task list assumes (resolved; flagged for review)
 
 - Distribution uses APM's own tooling (`apm pack`/`publish`/`marketplace`) — verified
-  against the live CLI. Both Claude + Codex outputs are native (`apm pack -m claude,codex`).
+  against the live CLI. Both Claude + Codex outputs are native (`apm pack --marketplace=claude,codex`).
 - clerk's core is **vendored** (`src/clerk/*` copied into the package skill dir via
   `just vendor`, drift-checked) — NO PyPI `clerk` (spec 010). Q-008a = vendored
   modules, not single-file amalgamation.
@@ -49,20 +49,20 @@ and pack/validate gate are part of this spec's definition-of-done.
 
 ## Phase 2: APM package layout + marketplace block (US1/US2)
 
-- [ ] T005 [US1] Add the `marketplace:` block to `apm.yml`: `apm marketplace init --name clerk --owner copier-clerk`, then `apm marketplace package add` for the clerk skill package. Configure BOTH `marketplace.claude.output` (dist/claude/marketplace.json) and `marketplace.codex.output` (dist/codex/marketplace.json) + a versioning strategy. Add `type: hybrid` + codex-relevant `tags` if missing. Reconcile the block to whatever schema `apm marketplace init` scaffolds (the CLI is authoritative).
-- [ ] T006 [US1] Create `.claude-plugin/plugin.json` (match the secrets-scan reference: name/version/description/author/license/`skills: "./.apm/skills"`).
-- [ ] T007 [US1] `just vendor` recipe: copy `src/clerk/*.py` (incl. `_preflight.py`) into the packaged skill dir `.apm/skills/clerk/scripts/clerk/`, and place `scripts/clerk.py` + the source `SKILL.md` at `.apm/skills/clerk/`. `just check-vendor`: regenerate to a temp path and diff vs the committed vendored copy; exit non-zero on drift. Gitignore or commit the generated `.apm/skills/clerk/` per the vendoring choice (document which; if committed, check-vendor guards it; if generated-at-pack, ensure pack runs vendor first).
-- [ ] T008 [P] [US2] Confirm `apm pack -m claude,codex --dry-run` reports both a Claude and a Codex artifact; `apm marketplace validate` passes on each. Capture the exact commands in the contract if the CLI's real output differs from the assumed shape.
+- [ ] T005 [US1] Add the `marketplace:` block to `apm.yml` via `apm marketplace init --name clerk --owner copier-clerk`, then edit per the VERIFIED schema in contracts/packaging.md: `marketplace.outputs.{claude,codex}` (nested map — claude on by default, ENABLE codex), `build.tagPattern`, and a `packages:` entry for clerk with `source: ./packages/clerk` (local), `version`, and **`category: Productivity`** (HARD requirement — `apm pack` errors if codex is enabled and any package lacks `category`). Ensure top-level `license:` is set (else SBOM NOASSERTION). Outputs write to the profile defaults `.claude-plugin/marketplace.json` + `.agents/plugins/marketplace.json` — commit both.
+- [ ] T006 [US1] Create `packages/clerk/.claude-plugin/plugin.json` (match the secrets-scan reference: name/version/description/author/license/`skills: "./.apm/skills"`) and `packages/clerk/apm.yml` (package metadata: name/version/description/`type: hybrid`/`target: all`/`includes: auto`/`license`).
+- [ ] T007 [US1] `just vendor` recipe: copy `src/clerk/*.py` (incl. `_preflight.py`) into `packages/clerk/.apm/skills/clerk/scripts/clerk/`, and place `scripts/clerk.py` + the source `SKILL.md` at `packages/clerk/.apm/skills/clerk/`. `just check-vendor`: regenerate to a temp path and diff vs the committed vendored copy; exit non-zero on drift. Commit the generated tree (check-vendor guards it) OR generate-at-pack (ensure `just pack` runs `vendor` first) — document which.
+- [ ] T008 [P] [US2] Confirm `apm pack --marketplace=claude,codex --dry-run` reports BOTH a Claude (`.claude-plugin/marketplace.json`) and a Codex (`.agents/plugins/marketplace.json`) artifact; `apm marketplace validate` passes on each. (Verified in the spike; re-confirm against the real package layout.)
 
-**Checkpoint**: `apm.yml` has a valid claude+codex marketplace block; `apm pack -m claude,codex --dry-run` succeeds; vendored layout builds + drift-checks.
+**Checkpoint**: `apm.yml` has a valid `outputs.{claude,codex}` block with the clerk package's `category` set; `apm pack --marketplace=claude,codex --dry-run` succeeds; vendored layout builds + drift-checks.
 
 ---
 
 ## Phase 3: Build/release recipes + CI gate (US3)
 
-- [ ] T009 [US3] `justfile`: `just pack` (`apm pack -m claude,codex`), `just release` (`just vendor` → `just check-vendor` → `apm pack -m claude,codex --check-versions --check-clean` → document the `apm publish` step as deferred/optional pending the registries feature). Recipes are the documented, gated release path.
-- [ ] T010 [P] [US3] `.github/workflows/pack.yml` (NEW, minimal — NOT the fan-out pipeline): on PR, run `just check-vendor` + `apm pack -m claude,codex --dry-run` + `apm marketplace validate`. A build gate only.
-- [ ] T011 [P] [US3] `tests/loop/test_packaging.py` (NEW): assert `apm.yml` parses and has a marketplace block with claude+codex outputs; `apm pack -m claude,codex --dry-run` exits 0 (guard/skip if `apm` unavailable in the test env); vendored-drift check passes; `clerk doctor` subprocess exit codes. Mark apm-CLI-dependent parts so they skip cleanly where apm isn't installed.
+- [ ] T009 [US3] `justfile`: `just pack` (`apm pack --marketplace=claude,codex`), `just release` (`just vendor` → `just check-vendor` → `apm pack --marketplace=claude,codex --check-versions --check-clean` → document the `apm publish` step as deferred/optional pending the registries feature). Recipes are the documented, gated release path.
+- [ ] T010 [P] [US3] `.github/workflows/pack.yml` (NEW, minimal — NOT the fan-out pipeline): on PR, run `just check-vendor` + `apm pack --marketplace=claude,codex --dry-run` + `apm marketplace validate`. A build gate only.
+- [ ] T011 [P] [US3] `tests/loop/test_packaging.py` (NEW): assert `apm.yml` parses and has a marketplace block with claude+codex outputs; `apm pack --marketplace=claude,codex --dry-run` exits 0 (guard/skip if `apm` unavailable in the test env); vendored-drift check passes; `clerk doctor` subprocess exit codes. Mark apm-CLI-dependent parts so they skip cleanly where apm isn't installed.
 
 **Checkpoint**: `just release` is a documented gated sequence; CI validates pack + vendor on PR.
 
@@ -79,7 +79,7 @@ and pack/validate gate are part of this spec's definition-of-done.
 
 ## Phase 5: Gate + closeout
 
-- [ ] T014 Full gate on the branch: `uv run ruff check src/ tests/ scripts/ && uv run ruff format --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing 001/010/002 tests still pass (the preflight addition + shim change must not regress single/multi init/reproduce or catalog). `apm pack -m claude,codex --dry-run` + `apm marketplace validate` green.
+- [ ] T014 Full gate on the branch: `uv run ruff check src/ tests/ scripts/ && uv run ruff format --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing 001/010/002 tests still pass (the preflight addition + shim change must not regress single/multi init/reproduce or catalog). `apm pack --marketplace=claude,codex --dry-run` + `apm marketplace validate` green.
 - [ ] T015 Update `.specify/memory/roadmap.md`: split the 008 entry — mark the **packaging** half `implemented` (skill installable via claude+codex marketplaces; vendored core; dep preflight; gated apm pack/publish path); record the **fan-out / authoring-lifecycle** half as a distinct deferred entry (008b or folded into 009's prerequisites) with its ADR-0006 scope intact. Confirm 009's dependency notes still read correctly.
 - [ ] T016 Open the PR (title = user-facing changelog entry, no spec IDs; `## Spec Context` body per the hook); push via `dgit push`. Do NOT merge without the user's go-ahead.
 
@@ -100,7 +100,7 @@ and pack/validate gate are part of this spec's definition-of-done.
 
 - SC-001 — clerk installs into a fresh Claude project + `clerk.py --help` runs there
   (T005–T007 layout; smoke in T011/manual).
-- SC-002 — `apm pack -m claude,codex` yields both, validating (T005/T008/T011).
+- SC-002 — `apm pack --marketplace=claude,codex` yields both, validating (T005/T008/T011).
 - SC-003 — missing dep → environment-aware suggestion + clean exit; `doctor` same
   (T001–T004).
 - SC-004 — gated release sequence catches version/tree drift (T009/T010).
