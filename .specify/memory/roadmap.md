@@ -175,7 +175,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   topo-sort), so nothing clerk-specific need be committed to a project. Deps stay
   in each template's `copier.yml` (versioned); no catalog dep-cache.
 
-### 002 — Catalog + runtime injection  [status: planned]
+### 002 — Catalog + runtime injection  [status: implemented]
 
 - **Description:** Point clerk at user-owned source repos and present the available
   templates.
@@ -190,6 +190,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Scope (out):** dependency ordering / multi-template execution (003).
 - **Depends on:** 001.
 - **Governed by:** ADR-0002/0003; C-04, C-06, C-11.
+- **Completed 2026-07-10** (branch `002-catalog`): catalog = user-owned TOML
+  (`~/.config/clerk/catalog.toml`, overridable via `CLERK_CATALOG_PATH` or
+  `--catalog PATH`) managed by `scripts/clerk.py catalog` verbs (`init`, `add`,
+  `remove`, `list`, `refresh`, `validate`). Discovery is deterministic and
+  LLM-free (reuses `src/clerk/discovery.py`; no template code executed). Templates
+  identified by full-id `<catalog>/<template>`; `catalog validate` is the
+  selection gate (exit 0 = valid; non-zero = unknown/ambiguous). ADR-0003's
+  two-template meta-flow (repos-collector template + selector template) superseded:
+  replaced by the plain catalog file + agent presentation + `validate` gate. The
+  `--data catalog=[…]` render-scope fact is retained for spec 007's apm module.
+  No clerk artifact written into generated projects (010 invariant holds). The
+  `SKILL.md` documents the catalog-manage → list → pick → validate → init flow.
 
 ### 003 — Multi-template enablement + dependency ordering  [status: planned]
 

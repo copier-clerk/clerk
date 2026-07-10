@@ -64,11 +64,39 @@ cd <project> && copier recopy --vcs-ref=:current: --defaults --overwrite
 See [`specs/010-delivery-reshape/contracts/invocation.md`](specs/010-delivery-reshape/contracts/invocation.md)
 for the full surface, exit codes, and the copier-only fallback.
 
+## Catalog
+
+The catalog is **user-owned configuration**: a plain TOML file listing the source
+repos you want to scaffold from. clerk depends on no first-party hub; you bring
+your own templates.
+
+```sh
+uv run scripts/clerk.py catalog init                       # create the catalog file if absent
+uv run scripts/clerk.py catalog add gituser/gitrepo        # add a source (idempotent)
+uv run scripts/clerk.py catalog add gituser/mod@v2.1.0     # with a display-version override
+uv run scripts/clerk.py catalog remove gituser/gitrepo     # remove a source (idempotent)
+uv run scripts/clerk.py catalog list                       # show usable templates + flag unusable sources
+uv run scripts/clerk.py catalog list --json                # machine-readable listing
+uv run scripts/clerk.py catalog validate demo/my-template  # gate: exit 0 if valid, non-zero if unknown/ambiguous
+```
+
+Pass `--catalog PATH` between `catalog` and the subverb to target a non-default
+file (e.g. `catalog --catalog PATH list`); the default location follows the same
+`platformdirs`/`CLERK_CATALOG_PATH` resolution as `trust.py`. Templates are identified by a **full-id** `<catalog>/<template>`
+(where `<catalog>` is the pointer name, defaulting to a sanitized source
+basename). The listing is deterministic — same sources at the same pins produce
+identical output. A source that is unusable (no PEP 440 tag, bad `copier.yml`,
+unreachable) is reported per-source with a reason; the rest of the catalog still
+lists.
+
+The skill (step 0 of `skills/clerk/SKILL.md`) manages the catalog on the user's
+behalf: ensure → list → pick → validate → init.
+
 ## Design decisions
 
 - [0001 — copier is the engine; clerk is the conductor](docs/decisions/0001-copier-as-engine.md)
 - [0002 — user-owned catalog; copier answers carry the state](docs/decisions/0002-catalog-and-answer-model.md)
-- [0003 — selector-template + runtime catalog injection](docs/decisions/0003-selector-template-and-runtime-injection.md)
+- [0003 — selector-template + runtime catalog injection](docs/decisions/0003-selector-template-and-runtime-injection.md) *(superseded in part by spec 002 — two-template flow replaced by catalog file + validation gate; `--data catalog=[…]` render-scope fact retained)*
 - [0004 — rendering behavior, file handling, and jinja extensions](docs/decisions/0004-rendering-and-extensions.md)
 - [0005 — global per-module defaults via `user_defaults=`](docs/decisions/0005-global-per-module-defaults.md)
 - [0006 — central authoring monorepo, fan-out to per-template repos](docs/decisions/0006-release-and-split-model.md)
