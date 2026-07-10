@@ -8,8 +8,9 @@ and at reproduce (recompute-not-freeze, spec 003 / Constitution III).
 Identity: nodes are keyed by **basename** (the repo name, i.e. the last
 component of the full_id) within a valid selection — the portable name a
 template author uses inside their ``copier.yml`` when naming a sibling template.
-Full_id (``catalog/basename``) is used only as a **tie-break key** for the
-stable topological sort (lexicographic; globally unique per spec 002).
+The tie-break for the stable topological sort is lexicographic by **basename**
+(unique within a valid selection after the collision check; identical across the
+init and reproduce paths, which reconstruct full_ids differently).
 
 Validation (raised before any sort or return):
 
@@ -128,8 +129,10 @@ def topo_sort(
     """Topologically sort ``records`` given the dependency graph.
 
     Stable tie-break: among constraint-free nodes (no ordering constraint between
-    them), order lexicographically by ``full_id``.  This guarantees a total,
-    deterministic order independent of the input list order.
+    them), order lexicographically by **basename** (not full_id).  Basename is
+    unique within a valid selection (collision check has already run) and is the
+    same component at both init and reproduce (reproduce rebuilds full_ids as
+    ``_recorded/<basename>``), ensuring init order == reproduce order (SC-002/SC-003).
 
     Raises ``OrderingError`` if a cycle is detected (names the cycle members).
     """
@@ -149,7 +152,7 @@ def topo_sort(
 
     result: list[TemplateRecord] = []
     while ts.is_active():
-        ready_basenames = sorted(ts.get_ready(), key=lambda b: by_basename[b].full_id)
+        ready_basenames = sorted(ts.get_ready())  # basename is already unique within selection
         for b in ready_basenames:
             result.append(by_basename[b])
             ts.done(b)
