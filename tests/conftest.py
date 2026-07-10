@@ -283,3 +283,180 @@ def multi_source_catalog(tmp_path: Path) -> MultiSourceCatalog:
         usable_2=usable_2,
         unusable=unusable,
     )
+
+
+# --------------------------------------------------------------------------- #
+# T002: multi-template fixtures for spec 003                                  #
+# --------------------------------------------------------------------------- #
+
+
+# copier.yml for a template that writes to a specific output file and has a
+# required question.  Each multi-template fixture uses a named subdirectory so
+# copier resolves the answers-file to `.copier-answers.<basename>.yml`.
+def _make_single_layer_yml(required_question: str = "project_name") -> str:
+    return dedent(
+        f"""\
+        {required_question}:
+          type: str
+        _subdirectory: template
+        """
+    )
+
+
+def _make_dependent_layer_yml(
+    depends_on_basename: str, required_question: str = "project_name"
+) -> str:
+    """copier.yml for a template that declares ``depends_on`` pointing to another layer."""
+    return dedent(
+        f"""\
+        {required_question}:
+          type: str
+        depends_on:
+          type: yaml
+          default: ["{depends_on_basename}"]
+          when: false
+        _subdirectory: template
+        """
+    )
+
+
+@dataclass(frozen=True)
+class MultiTemplateSet:
+    """Handles for the five multi-template fixture groups (spec 003 / T002).
+
+    All repos are local-git and therefore hermetic (offline).
+    """
+
+    # (a) A — no edges, writes template/a_out.txt
+    tpl_a: TemplateRepo
+    # (b) B — depends_on A, writes template/b_out.txt
+    tpl_b: TemplateRepo
+    # (c) C — no edges, writes template/c_out.txt (disjoint from D)
+    tpl_c: TemplateRepo
+    # (c) D — no edges, writes template/d_out.txt (disjoint from C)
+    tpl_d: TemplateRepo
+    # (d) E — depends_on F (part of a cycle with F)
+    tpl_e: TemplateRepo
+    # (d) F — depends_on E (part of a cycle with E)
+    tpl_f: TemplateRepo
+    # (e) collision_1 and collision_2 share basename "mymod" under different parents
+    collision_1: TemplateRepo
+    collision_2: TemplateRepo
+
+
+def _make_record(full_id: str, repo: TemplateRepo):  # returns TemplateRecord (imported lazily)
+    """Build a minimal TemplateRecord from a local fixture repo.
+
+    Imported lazily to avoid the circular-at-module-load issue (catalog imports
+    discovery which is fine, but this helper is only needed at runtime).
+    """
+    from clerk.catalog import TemplateRecord
+
+    return TemplateRecord(
+        full_id=full_id,
+        source=repo.url,
+        ref=repo.tag,
+        versions=[repo.tag],
+        reproducible=True,
+        has_tasks=False,
+        questions=["project_name"],
+    )
+
+
+@pytest.fixture
+def multi_template_set(tmp_path: Path) -> MultiTemplateSet:
+    """Build all multi-template fixture repos for spec 003 tests.
+
+    Returns a :class:`MultiTemplateSet` with all repos under ``tmp_path``.
+    """
+    tpl_a = build_template_repo(
+        tmp_path / "tpl-a",
+        files={
+            "copier.yml": _make_single_layer_yml("project_name"),
+            "template/a_out.txt.jinja": "a={{ project_name }}\n",
+        },
+    )
+    tpl_b = build_template_repo(
+        tmp_path / "tpl-b",
+        files={
+            "copier.yml": _make_dependent_layer_yml("tpl-a", "project_name"),
+            "template/b_out.txt.jinja": "b={{ project_name }}\n",
+        },
+    )
+    tpl_c = build_template_repo(
+        tmp_path / "tpl-c",
+        files={
+            "copier.yml": _make_single_layer_yml("project_name"),
+            "template/c_out.txt.jinja": "c={{ project_name }}\n",
+        },
+    )
+    tpl_d = build_template_repo(
+        tmp_path / "tpl-d",
+        files={
+            "copier.yml": _make_single_layer_yml("project_name"),
+            "template/d_out.txt.jinja": "d={{ project_name }}\n",
+        },
+    )
+    # Cycle pair: E depends_on F, F depends_on E.
+    tpl_e = build_template_repo(
+        tmp_path / "tpl-e",
+        files={
+            "copier.yml": _make_dependent_layer_yml("tpl-f", "project_name"),
+            "template/e_out.txt.jinja": "e={{ project_name }}\n",
+        },
+    )
+    tpl_f = build_template_repo(
+        tmp_path / "tpl-f",
+        files={
+            "copier.yml": _make_dependent_layer_yml("tpl-e", "project_name"),
+            "template/f_out.txt.jinja": "f={{ project_name }}\n",
+        },
+    )
+    # Basename-collision pair: two repos named "mymod" under different parent dirs.
+    collision_1 = build_template_repo(
+        tmp_path / "org1" / "mymod",
+        files={
+            "copier.yml": _make_single_layer_yml("project_name"),
+            "template/col1_out.txt.jinja": "col1={{ project_name }}\n",
+        },
+    )
+    collision_2 = build_template_repo(
+        tmp_path / "org2" / "mymod",
+        files={
+            "copier.yml": _make_single_layer_yml("project_name"),
+            "template/col2_out.txt.jinja": "col2={{ project_name }}\n",
+        },
+    )
+    return MultiTemplateSet(
+        tpl_a=tpl_a,
+        tpl_b=tpl_b,
+        tpl_c=tpl_c,
+        tpl_d=tpl_d,
+        tpl_e=tpl_e,
+        tpl_f=tpl_f,
+        collision_1=collision_1,
+        collision_2=collision_2,
+    )
+
+
+def make_multi_run_spec(
+    dest: Path,
+    layers: list[tuple[str, TemplateRepo, dict]],
+) -> dict:
+    """Return a multi-template run-spec dict (suitable for JSON/YAML serialisation).
+
+    ``layers`` is a list of ``(full_id, repo, answers)`` triples.  The selection
+    is emitted in the order given; the ordering module will reorder it.
+    """
+    return {
+        "dest": str(dest),
+        "selection": [
+            {
+                "full_id": full_id,
+                "source": repo.url,
+                "ref": repo.tag,
+                "answers": answers,
+            }
+            for full_id, repo, answers in layers
+        ],
+    }
