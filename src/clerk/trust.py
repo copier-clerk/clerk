@@ -98,6 +98,19 @@ def _read_raw(path: Path) -> dict[str, Any]:
     return loaded
 
 
+def suggest_prefix(source: str) -> str:
+    """Suggest an org-level trailing-slash prefix to trust for ``source``.
+
+    For https URLs, proposes the owner path (``…/<owner>/``) so one entry covers
+    a whole org's ``clerk-mod-*`` repos; falls back to the exact source otherwise.
+    """
+    if "://" in source:
+        head, _, tail = source.rpartition("/")
+        if head and tail:
+            return head + "/"
+    return source
+
+
 def _write_raw(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=True, default_flow_style=False))

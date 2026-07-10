@@ -35,6 +35,7 @@ from clerk.errors import (
     NotReproducibleError,
     UntrustedSourceError,
 )
+from clerk.trust import suggest_prefix
 
 
 @dataclass(frozen=True)
@@ -106,18 +107,7 @@ def _require_trust_if_action_taking(source: str, ref: str | None) -> None:
     """
     desc = discovery.discover(source, ref)
     if (desc.has_tasks or desc.jinja_extensions) and not trust.is_trusted(source):
-        raise UntrustedSourceError(_suggest_prefix(source), source=source)
-
-
-def _suggest_prefix(source: str) -> str:
-    """Suggest an org-level trailing-slash prefix to trust for this source."""
-    # For https URLs, propose the owner path (…/<owner>/) so one entry covers a whole
-    # org's clerk-mod-* repos; otherwise fall back to the exact source.
-    if "://" in source:
-        head, _, tail = source.rpartition("/")
-        if head and tail:
-            return head + "/"
-    return source
+        raise UntrustedSourceError(suggest_prefix(source), source=source)
 
 
 def _translate(exc: CopierError) -> ClerkError:
@@ -148,7 +138,7 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
             pretend=check,
         )
     except UnsafeTemplateError as exc:
-        raise UntrustedSourceError(_suggest_prefix(spec.source), source=spec.source) from exc
+        raise UntrustedSourceError(suggest_prefix(spec.source), source=spec.source) from exc
     except ValueError as exc:
         # copier raises a bare ValueError for a missing required answer (verified).
         raise InvalidRunSpecError(f"invalid or incomplete answers: {exc}") from exc
@@ -157,18 +147,37 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     return RunResult(dest=spec.dest, src=spec.source, ref=spec.ref, pretend=check)
 
 
-def reproduce(dest: str) -> RunResult:
-    """Faithfully reproduce an existing project at its recorded commit (FR-015).
+def enumerate_answers_files(dest: str) -> list[Path]:
+    """Return committed ``.copier-answers*.yml`` files in ``dest``, sorted by name.
 
-    Agent-free: replays ``.copier-answers.yml`` via ``VcsRef.CURRENT`` (never the
-    latest tag) with overwrite-in-place, non-interactive.
+    Finds ``<dest>/.copier-answers.yml`` (the default single-template name) plus any
+    ``<dest>/.copier-answers.*.yml`` files written by multi-template layers. The
+    stable name-sort gives a deterministic iteration order; spec 003 will slot its
+    topo-sort into the caller's loop before this enumeration is consulted for order.
     """
     dst = Path(dest)
-    if not (dst / ".copier-answers.yml").is_file():
-        raise ClerkError(f"no .copier-answers.yml at {dest!r}; nothing to reproduce")
+    files = sorted(dst.glob(".copier-answers*.yml"))
+    return files
+
+
+def reproduce(dest: str, *, answers_file: Path | None = None) -> RunResult:
+    """Faithfully reproduce an existing project at its recorded commit (FR-015).
+
+    Agent-free: replays the answers file via ``VcsRef.CURRENT`` (never the latest
+    tag) with overwrite-in-place, non-interactive. When ``answers_file`` is given,
+    that specific file drives the recopy (multi-layer loop); otherwise the default
+    ``.copier-answers.yml`` is expected.
+    """
+    dst = Path(dest)
+    target = answers_file if answers_file is not None else dst / ".copier-answers.yml"
+    if not target.is_file():
+        raise ClerkError(f"no answers file at {target!r}; nothing to reproduce")
+    # copier requires answers_file to be relative to dst (validated by pydantic).
+    rel_answers = target.relative_to(dst)
     try:
         run_recopy(
             dest,
+            answers_file=rel_answers,
             vcs_ref=VcsRef.CURRENT,
             defaults=True,
             overwrite=True,

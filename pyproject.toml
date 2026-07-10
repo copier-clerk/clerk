@@ -1,7 +1,7 @@
 [project]
 name = "copier-clerk"
 version = "0.1.0"
-description = "An agentic conductor for copier — the clerk fills in the paperwork; copier makes the copies."
+description = "A bundled copier conductor skill — the clerk fills in the paperwork; copier makes the copies."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -32,9 +32,6 @@ dependencies = [
 Homepage = "https://github.com/copier-clerk/clerk"
 Repository = "https://github.com/copier-clerk/clerk"
 
-[project.scripts]
-clerk = "clerk.cli:main"
-
 [dependency-groups]
 dev = [
   "pytest>=8",
@@ -53,6 +50,7 @@ packages = ["src/clerk"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+src = ["src", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
@@ -69,7 +67,9 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src/clerk"]
+files = ["src/clerk", "scripts/clerk.py"]
+mypy_path = ["src"]
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

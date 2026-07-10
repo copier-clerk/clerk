@@ -31,7 +31,7 @@ class UntrustedSourceError(ClerkError):
         super().__init__(
             f"source is not trusted: {source or prefix!r}. It runs template tasks "
             f"(code execution), so it must be trusted first. To allow it, run:\n"
-            f"    clerk trust add {prefix}\n"
+            f"    scripts/clerk.py trust add {prefix}\n"
             f"(this records the prefix in copier's settings.yml; reproduce/CI never "
             f"prompts and will fail here until trust is present)."
         )
