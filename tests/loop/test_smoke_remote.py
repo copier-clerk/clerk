@@ -1,4 +1,4 @@
-"""T034 / US2 — the single LIVE-network smoke test (SC-007).
+"""T022 / US2 — the single LIVE-network smoke test (SC-007).
 
 Every other test in the suite is hermetic: it fetches from a throwaway *local*
 git repo, so the suite runs offline. This one test proves the same loop works
@@ -21,8 +21,10 @@ the repo goes live.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -31,6 +33,8 @@ import yaml
 from clerk import discovery, runner, trust
 
 pytestmark = pytest.mark.network
+
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
 
 # The intended first-party published exemplar. A public repo, so no auth needed
 # for a read-only clone. Overridable for forks / mirrors.
@@ -119,3 +123,122 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
     runner.reproduce(str(dest))
     after = _tree_digest(dest)
     assert before == after
+
+
+def test_live_reproduce_via_clerk_script(_require_remote: str, tmp_path: Path) -> None:
+    """scripts/clerk.py discover/trust/init/reproduce against the live remote."""
+    url = _require_remote
+    settings_path = tmp_path / "settings.yml"
+    env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
+
+    # 1) discover via script
+    r_discover = subprocess.run(
+        [sys.executable, str(_SCRIPT), "discover", url],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r_discover.returncode == 0, f"discover failed: {r_discover.stderr}"
+    payload = json.loads(r_discover.stdout)
+    assert payload["reproducible"] is True
+    assert payload["versions"]
+
+    # 2) trust add --from-source
+    r_trust = subprocess.run(
+        [sys.executable, str(_SCRIPT), "trust", "add", "--from-source", url],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r_trust.returncode == 0, f"trust add failed: {r_trust.stderr}"
+
+    # 3) init via script
+    dest = tmp_path / "proj"
+    run_spec = tmp_path / "run_spec.json"
+    run_spec.write_text(
+        json.dumps(
+            {
+                "source": url,
+                "dest": str(dest),
+                "answers": {
+                    "project_name": "clerk-smoke",
+                    "org": "copier-clerk",
+                    "license": "MIT",
+                    "description": "live-network smoke via script",
+                },
+            }
+        )
+    )
+    r_init = subprocess.run(
+        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r_init.returncode == 0, f"init failed:\nstdout: {r_init.stdout}\nstderr: {r_init.stderr}"
+
+    before = _tree_digest(dest)
+
+    # SC-002: no clerk artifact
+    assert not (dest / "justfile").exists()
+    assert not (dest / "Justfile").exists()
+
+    # 4) corrupt and reproduce via script
+    (dest / "README.md").write_text("CORRUPTED\n")
+    r_repro = subprocess.run(
+        [sys.executable, str(_SCRIPT), "reproduce", str(dest)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r_repro.returncode == 0, (
+        f"reproduce failed:\nstdout: {r_repro.stdout}\nstderr: {r_repro.stderr}"
+    )
+    after = _tree_digest(dest)
+    assert before == after
+
+
+def test_live_copier_only_reproduce_byte_identical(_require_remote: str, tmp_path: Path) -> None:
+    """copier-only-by-hand reproduce matches clerk.py reproduce against the live remote.
+
+    Proves the US1 fallback: `copier recopy --vcs-ref=:current: --defaults --overwrite`
+    in the project dir needs no clerk on PATH (FR-003 / SC-001).
+    """
+    url = _require_remote
+    settings_path = tmp_path / "settings.yml"
+    env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
+
+    trust.add_trust(url)
+
+    dest = tmp_path / "proj"
+    spec = runner.RunSpec(
+        source=url,
+        dest=str(dest),
+        answers={
+            "project_name": "clerk-smoke",
+            "org": "copier-clerk",
+            "license": "MIT",
+            "description": "copier-only fallback test",
+        },
+    )
+    runner.init(spec, today="2026-07-10")
+    before = _tree_digest(dest)
+
+    # corrupt and restore via the copier-only path (no clerk module used here)
+    (dest / "README.md").write_text("CORRUPTED\n")
+    result = subprocess.run(
+        ["copier", "recopy", "--vcs-ref=:current:", "--defaults", "--overwrite"],
+        cwd=str(dest),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"copier recopy failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    after = _tree_digest(dest)
+    assert before == after, (
+        "copier-only reproduce diverges from the recorded state:\n"
+        f"  changed: {[k for k in before if k in after and before[k] != after[k]]}"
+    )
