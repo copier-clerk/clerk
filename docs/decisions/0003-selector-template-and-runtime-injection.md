@@ -1,7 +1,41 @@
 # 0003 — a copier selector-template chooses modules; catalog injected at runtime
 
-- Status: accepted
+- Status: accepted (superseded in part — see below)
 - Date: 2026-07-09
+
+## Superseded in part (spec 002)
+
+Spec 010 reshaped clerk to a **skill-bundled copier wrapper with no committed
+clerk artifacts**. Spec 002 (implemented 2026-07-10) consequently supersedes the
+two-template meta-flow described in the Decision section below:
+
+- **repos-collector template → plain user-owned catalog file.** Sources are
+  managed by `scripts/clerk.py catalog` verbs (`init`/`add`/`remove`/`list`/
+  `validate`) in a user-config TOML file. No copier template whose only job is
+  holding a list; no `.copier-answers.yml` acting as a catalog store. See
+  `specs/002-catalog/spec.md` §"Reconciliation" and
+  `specs/002-catalog/contracts/catalog.md`.
+
+- **selector template → agent presentation + deterministic validation gate.**
+  Template selection is the phase-1 agent's job: it presents the deterministic
+  listing from `catalog list` and collects the user's pick. `catalog validate
+  <full-id>` is the mechanical gate that makes agent selection safe — it accepts
+  only ids present in the discovered catalog (exit 0) and refuses unknown or
+  ambiguous ids (non-zero, listing valid ids). No selector copier template; no
+  multiselect-in-a-template machinery at this layer.
+
+**Retained unchanged from this ADR:**
+
+- The source-verified fact that a runtime-injected `catalog` value is in copier's
+  render scope from question 1 (`--data catalog=[…]` / `run_copy(data=…)`) is
+  **still true and still used** — it is the mechanism spec 007's apm module
+  template uses for its own internal `choices: "{{ catalog }}"` multiselect. That
+  use is explicitly internal to the apm module template and is not built in spec
+  002.
+- The hidden `when:false` dependency edges in each template's `copier.yml`
+  (statically parsed by `discovery.py`). Spec 003 consumes these to build its DAG.
+- ADR-0002 (user-owned catalog of sources; answers carry state; full-id collisions;
+  no submodules) is honored in full and not superseded.
 
 ## Context
 

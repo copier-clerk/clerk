@@ -29,6 +29,83 @@ author *inputs only*.
 
 ## Procedure
 
+### 0. Catalog: ensure, list, pick, validate
+
+> **When this step applies:** whenever the user wants to scaffold from their own
+> template library, or does not yet have a specific `<source>` URL in hand. If the
+> user names a concrete URL/path directly, skip to step 1.
+
+Discovery and validation (sub-steps 0-a through 0-c) are **LLM-free and
+deterministic** — `scripts/clerk.py` drives them. The **pick** (0-b) is your
+judgment per Constitution II: you present the listing and collect the user's
+choice; you do not guess or auto-select without showing the options first.
+
+**0-a. Ensure the catalog exists and contains the user's sources.**
+
+Check whether a catalog already exists:
+
+```sh
+uv run scripts/clerk.py catalog [--catalog PATH] list
+```
+
+If the file is absent or empty, create it and populate it:
+
+```sh
+# Create the catalog file if absent (idempotent — no-op if it already exists):
+uv run scripts/clerk.py catalog [--catalog PATH] init [--name <pointer-name>]
+
+# Add each source the user names (idempotent — duplicate adds are a no-op):
+uv run scripts/clerk.py catalog [--catalog PATH] add <source> [--name <pointer-name>]
+```
+
+`<source>` is a `gituser/gitrepo` locator or a local path; an optional `@ref`
+suffix overrides the display version (`acme/my-template@v2.1.0`). `--name` sets
+the catalog-pointer namespace that appears as the `<catalog>` prefix in full-ids.
+You manage this file on behalf of the user — never ask them to hand-edit it.
+
+**0-b. Present the verified listing and collect the user's pick.**
+
+```sh
+uv run scripts/clerk.py catalog [--catalog PATH] list
+```
+
+The listing is **deterministic** (same sources at same pins → identical output
+every run). Each usable template shows its `full_id` (`<catalog>/<template>`),
+available versions, the `reproducible` flag, and a questions summary. Unusable
+sources (no PEP 440 tag, bad `copier.yml`, unreachable) are reported per-source
+with a reason; the rest of the catalog still lists — one bad source is not a
+whole failure.
+
+Show the user the usable entries. Ask which one they want. The user's choice is
+authoritative — do not substitute your own preference.
+
+For the machine-readable shape (useful when scripting or comparing runs):
+
+```sh
+uv run scripts/clerk.py catalog [--catalog PATH] list --json
+```
+
+See `specs/002-catalog/contracts/catalog.md` for the exact JSON shape, full-id
+semantics, exit codes, and the `unusable` structure.
+
+**0-c. Validate the chosen full-id before proceeding.**
+
+```sh
+uv run scripts/clerk.py catalog [--catalog PATH] validate <full-id>
+```
+
+Exit 0 → the id is valid; extract the resolved `source` and `ref` from the
+listing and hand them to step 1 in place of an inline `<source>`.
+Non-zero → the id is unknown or ambiguous; the error message lists valid ids.
+Present the error to the user and loop back to 0-b.
+
+`validate` is a mechanical gate with no LLM judgment. It refuses:
+- unknown ids (naming the valid ones in the error message);
+- ambiguous bare names that match more than one catalog pointer (requiring the
+  full `<catalog>/<template>` form).
+
+---
+
 ### 1. Inspect the template (no trust needed)
 
 ```sh
@@ -141,5 +218,7 @@ slash commands. They apply to any project clerk has touched:
 
 - `specs/010-delivery-reshape/contracts/invocation.md` — the canonical invocation
   surface, exact commands, and exit codes for the bundled script.
+- `specs/002-catalog/contracts/catalog.md` — catalog file format, listing JSON
+  shape, full-id semantics, exit codes, and `unusable` structure.
 - `specs/001-clerk-vertical-slice/contracts/discovery-output.md` — discover JSON.
 - `specs/001-clerk-vertical-slice/contracts/answers-doc.md` — run-spec format.
