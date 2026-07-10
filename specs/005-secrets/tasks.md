@@ -43,10 +43,25 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 ## Phase 2: Third-party guardrail (US2 — agent never collects a credential)
 
-- [ ] T003 [US2] Extend `skills/clerk/SKILL.md` with a **secrets** step: for ANY `secret: true` question surfaced in discovery's `secret_questions` (third-party sources), the agent MUST NOT ask the user for the value and MUST NOT put it in the run-spec; explain out-of-band supply — copier's masked prompt at the deterministic step, or an env mechanism — and note reproduce/CI uses copier's default (non-prompting, Constitution V). Reference specs/005-secrets/contracts/secrets.md. Must hold on BOTH the single-template and 003 multi-layer (`init_many`) paths.
+- [ ] T003 [US2] Extend `skills/clerk/SKILL.md` with a **secrets** step: for ANY secret question surfaced in discovery's `secret_questions` (third-party sources), the agent MUST NOT ask the user for the value and MUST NOT put it in the run-spec; explain out-of-band supply — copier's masked prompt at the deterministic step, or an env mechanism — and note that a required secret with no value in a non-interactive run FAILS LOUD (Constitution V; NOT silently defaulted). Note that clerk mechanically rejects a secret key in the run-spec (Phase 2b) regardless. Reference specs/005-secrets/contracts/secrets.md. Must hold on BOTH single-template and 003 multi-layer (`init_many`) paths.
 - [ ] T004 [P] [US2] `tests/loop/test_secrets_policy.py` (extend): with a fixture third-party template declaring a `secret: true` question, assert discovery surfaces it in `secret_questions`, and that the documented run-spec authoring path does NOT include the secret key (i.e. a secret question is never a required agent-collected answer in the inputs clerk builds). Cover the multi-layer case once 003's `init_many` is on main.
 
 **Checkpoint**: a third-party secret question is surfaced as "do not collect"; no path threads its value through the agent inputs.
+
+---
+
+## Phase 2b: Mechanical enforcement (US2 — the boundary is code, not prose)
+
+**Depends on 003** (`runner.init_many` multi-layer path). The guard must hold on both paths.
+
+- [ ] T004a [US2] `src/clerk/discovery.py` (FR-003b): populate `secret_questions` from BOTH per-question `secret: true` AND the top-level `_secret_questions: [keys]` list form (copier honors both — verified). Add the list-form parse after the per-question loop; dedupe. So clerk's flag set matches copier's own exclusion set.
+- [ ] T004b [US2] `src/clerk/errors.py`: add `SecretInAnswersError(ClerkError)` — carries the offending KEY name(s), NEVER the value; message names the key + explains secrets are supplied out-of-band, not in the run-spec.
+- [ ] T004c [US2] `src/clerk/runner.py` (FR-003a): in `init` AND `init_many`, before calling copier, compute `set(answers) & secret_questions` for each layer's source (via `discovery`); if non-empty, raise `SecretInAnswersError(keys)` — fail loud, non-zero exit, on BOTH paths. This is the enforced boundary behind the SKILL rule.
+- [ ] T004d [US2] `src/clerk/runner.py` (FR-004): redact secret answer values before wrapping/surfacing copier errors — the current `raise InvalidRunSpecError(f"...{exc}")` at ~line 146 (and the multi-layer error paths) can echo a `validator`-carried secret. For runs involving secret keys, use a generic message / scrub the value from `{exc}` before re-raising.
+- [ ] T004e [US2] `src/clerk/runner.py` (FR-003c): for a required secret question with no value supplied in a non-interactive run, fail loud naming the question rather than proceeding on copier's placeholder default.
+- [ ] T004f [P] [US2] `tests/loop/test_secrets_enforcement.py` (NEW): bypass the SKILL entirely — construct a run-spec that DOES supply a secret key's value → assert `SecretInAnswersError` (single + `init_many` multi-layer), non-zero exit, KEY named but VALUE absent from the message/output; `_secret_questions:` list-form fixture → flagged + rejected the same way; a `validator`-echoing-the-secret fixture → the surfaced error does NOT contain the value; a required secret with no value in non-interactive mode → fails loud, not defaulted.
+
+**Checkpoint**: a secret value in a run-spec is rejected in code (both paths); list-form secrets are caught; no secret leaks through a surfaced error; required-secret-no-value fails loud.
 
 ---
 
@@ -73,6 +88,9 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
   templates can land anytime.
 - **Phase 2 (T003–T004)** depends on 003 for the multi-layer (`init_many`) surface —
   land the guardrail after 003 merges so the test covers both paths.
+- **Phase 2b (T004a–T004f)** is the mechanical enforcement (code) — depends on 003's
+  `init_many`; T004a (discovery) precedes T004c/T004f. This is the security-load-bearing
+  phase: the SKILL rule (Phase 2) is the ergonomic path, Phase 2b is the enforced boundary.
 - **Phase 3 (T005–T006)** builds on the existing secret test; T006 is optional
   template content.
 - **Phase 4** is closeout.
@@ -83,7 +101,14 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
   (T001).
 - SC-002 — SKILL treats a surfaced secret question as "do not collect"; value never
   enters the run-spec (T003/T004).
-- SC-003 — no secret value in answers file / logs / `--pretend` (T005).
-- SC-004 — no store dependency; platform-agnostic (inherent; confirmed in T007 —
-  nothing added to import).
+- SC-003 — no secret value in answers file / logs / `--pretend`; validator-carried
+  secret scrubbed from surfaced errors (T004d/T005).
+- SC-003a — a run-spec supplying a secret key is REJECTED in code, both paths, key
+  named not value (T004c/T004f).
+- SC-003b — discovery flags both `secret: true` and `_secret_questions:` list forms
+  (T004a/T004f).
+- SC-003c — required secret with no value in non-interactive mode fails loud, not
+  defaulted (T004e/T004f).
+- SC-004 — no store dependency, platform-agnostic, no non-secret-field leak scan
+  (inherent; confirmed in T007).
 - SC-005 — runtime-secret pattern via `.env.example` + docs (T002/T006).

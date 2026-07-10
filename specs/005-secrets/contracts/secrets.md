@@ -30,10 +30,29 @@ entry for a source clerk is asked to drive:
   - copier's own **masked interactive prompt** at the deterministic step (the human
     types it into copier directly, not to the agent), OR
   - an environment mechanism the user controls.
-- **Non-interactive reproduce/CI** (Constitution V): clerk never prompts. copier uses
-  the secret question's **required default** (verified: secret questions must have a
-  default). A real secret needed at reproduce must be supplied out-of-band
-  interactively; clerk documents this and never hangs.
+- **Non-interactive reproduce/CI** (Constitution V): clerk never prompts and never
+  hangs. For a **required** secret question with no value supplied, clerk **fails loud**
+  naming the question — it does NOT silently render copier's placeholder default into
+  output (a defaulted credential is not sane). A real secret must be supplied
+  out-of-band interactively.
+
+## Mechanical enforcement (the boundary is code, not this prose)
+
+The SKILL rule above is the ergonomic path; these are the *enforced* guarantees in
+`runner`/`discovery`, which hold regardless of agent behavior:
+
+- **Reject secret keys in the run-spec.** `runner.init` / `init_many` compute
+  `set(answers) & secret_questions` per layer and raise `SecretInAnswersError(keys)` —
+  fail loud, non-zero exit, naming the KEY (never the value) — on BOTH single and
+  multi-layer paths. A secret value cannot flow through even if the agent puts one in.
+- **Recognize both secret forms.** `discovery` flags secrets from per-question
+  `secret: true` AND the top-level `_secret_questions: [keys]` list, matching copier's
+  own exclusion set (else the rejection above has a blind spot).
+- **Redact surfaced errors.** For runs involving secret keys, clerk scrubs secret
+  answer values before wrapping/surfacing copier errors (a template `validator` error
+  can carry the value; `runner` currently forwards `{exc}` verbatim — must be fixed).
+- **Out of scope:** a credential pasted into a *non-secret* field (persists like any
+  answer) is the user's responsibility — clerk does NOT scan for it.
 
 ## Leak rules (any value that DOES reach copier)
 

@@ -39,7 +39,8 @@ log/`--pretend`-leak assertions. `mypy`/`ruff` as usual.
 
 **Target Platform**: dev + CI. No store, no OS-specific anything (the whole point).
 
-**Project Type**: policy + template-content guidance + a guardrail. No new module.
+**Project Type**: policy + a small mechanical guard on the existing discover→run path
+(no new module, no engine) + template-content guidance.
 
 **Constraints**: no secret question in clerk templates; agent never collects a
 credential (Constitution II); never argv, never logs, never `--pretend` output; no
@@ -57,7 +58,7 @@ Evaluated against constitution **v2.1.0**. Initial gate: **PASS**.
 
 | Principle | Gate | How this plan satisfies it |
 |---|---|---|
-| I — Skills + templates + minimal glue | PASS | Adds a lint/test + SKILL wording + template `.env.example` content — no new module, no engine. Strictly *less* than the roadmap's store-inject model. |
+| I — Skills + templates + minimal glue | PASS | Adds a lint/test + SKILL wording + template `.env.example` + a small mechanical guard (secret-key rejection + error redaction + list-form parse + one error type) on the existing discover→run path — no new module, no store engine. Strictly *less* than the roadmap's store-inject model; the guard is the minimum that makes the security invariant real (C-11). |
 | II — Two-phase; agent judges, helpers execute | PASS | The core decision: the agent NEVER handles a credential. Any value reaching copier does so via the deterministic `run_copy(data=…)` path / copier's masked prompt — never the LLM. |
 | III — Faithful, agent-free reproduce | PASS (unaffected) | No secret questions in clerk templates → nothing to re-supply at reproduce. Third-party case uses copier's default (non-prompting). |
 | IV — Prefer CLI + static config | PASS | Policy enforced by static `discovery.secret_questions` read; no new surface. |
@@ -93,10 +94,18 @@ deprecated). No research.md needed.
 ### Source Code (repository root)
 
 ```text
+src/clerk/discovery.py   # EXTEND (FR-003b): populate secret_questions from BOTH per-question
+                         #   `secret: true` AND the top-level `_secret_questions: [keys]` list form.
+src/clerk/errors.py      # EXTEND: add SecretInAnswersError(ClerkError) — carries the KEY, never the value.
+src/clerk/runner.py      # EXTEND (FR-003a/003c/004): init + init_many reject a run-spec supplying a
+                         #   discovery-flagged secret key (SecretInAnswersError, both paths); fail loud on
+                         #   a required secret with no value in non-interactive mode; REDACT secret values
+                         #   before wrapping/surfacing copier errors (currently forwards {exc} verbatim).
 skills/clerk/SKILL.md    # EXTEND: a "secrets" note — for ANY secret question discovery surfaces
                          #   (third-party templates), the agent MUST NOT collect the value or put it
                          #   in the run-spec; explain out-of-band supply (copier's masked prompt at
-                         #   the deterministic step / env). Never argv, never logs.
+                         #   the deterministic step / env). Never argv, never logs. Note clerk rejects
+                         #   a secret key in the run-spec mechanically regardless (FR-003a).
 
 examples/clerk-template-example/   # (optional) demonstrate the runtime-secret pattern:
                          #   a .env.example.jinja + README guidance so the GENERATED project owns its
@@ -114,14 +123,18 @@ tests/
                                         #   discovery surfaces a third-party secret question as secret_questions,
                                         #   and the documented SKILL path treats it as "do not collect".
 
-# NOTE: NO src/clerk/ engine module. discovery.secret_questions already exists; that is the whole
-# mechanism. If 008b/009's authoring lint lands, fold the policy check into it (Q-005a).
+# NOTE: NO secret-store engine, no resolver chain, no injection subsystem, no leak-scan.
+# The additions are small guards on the EXISTING discover→run path (a rejection check + a
+# redaction + a list-form parse + one error type). If 008b/009's authoring lint lands, fold
+# the policy check into it (Q-005a).
 ```
 
-**Structure Decision**: No new module. 005 = a policy test (reusing existing
-discovery), a SKILL guardrail paragraph, an optional `.env.example` template pattern,
-and leak-assertion extensions to the existing secret test. The `discovery.secret_questions`
-field built in slice 001 is the entire detection mechanism.
+**Structure Decision**: No new *module* and no subsystem — the mechanical enforcement
+is a handful of guard lines on the existing `discovery`/`runner` path plus one error
+type (`SecretInAnswersError`), not an engine. 005 = a policy test, a SKILL guardrail
+paragraph, the runner/discovery guards (FR-003a/b/c, FR-004), an optional
+`.env.example` pattern, and leak-assertion extensions to the existing secret test.
+The boundary is enforced in code, not left to SKILL prose (the review's core finding).
 
 ## Dependency on 003
 
