@@ -1,14 +1,15 @@
 ---
 name: clerk
-description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Phase-1 only — you author the inputs; copier (driven by the `clerk` CLI) does all rendering, and reproduce is agent-free.
+description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Portable — the deterministic steps run via the bundled script, no clerk CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/clerk.py`) does all rendering, and reproduce is agent-free.
 ---
 
 # clerk — conduct copier
 
 You are the **phase-1 conductor**. copier is a deterministic scaffolding engine;
-`clerk` is a thin CLI over copier's public API. Your job is to inspect a template,
-help the user answer its questions, obtain trust consent, and hand a frozen
-**run-spec** to the deterministic phase (`clerk init`). You author *inputs only*.
+`scripts/clerk.py` is a thin bundled script over copier's public API. Your job is
+to inspect a template, help the user answer its questions, obtain trust consent, and
+hand a frozen **run-spec** to the deterministic phase (`scripts/clerk.py init`). You
+author *inputs only*.
 
 **The two-phase boundary — do not cross it:**
 
@@ -16,20 +17,22 @@ help the user answer its questions, obtain trust consent, and hand a frozen
   explain + obtain trust consent → write the run-spec → dry-run → generate.
 - Everything after the run-spec is deterministic and LLM-free. **You are NEVER in
   the reproduce path** — reproduce replays committed answers at the recorded commit
-  with no agent (`clerk reproduce` / `just reproduce`). Never offer to "reproduce
-  it for them" by re-authoring answers; point them at `just reproduce`.
+  with no agent (`uv run scripts/clerk.py reproduce`). Never offer to "reproduce
+  it for them" by re-authoring answers; point them at `scripts/clerk.py reproduce`.
 
 ## Prerequisites
 
-- `clerk` on PATH (this repo: `uv run clerk …`), and `git`.
+- `uv` on PATH (to run `scripts/clerk.py`), `copier`, and `git`.
 - The example template's LICENSE task needs `gh` authenticated (`gh auth status`).
+- `scripts/clerk.py` is the bundled script; invoke it as `uv run scripts/clerk.py`
+  or `./scripts/clerk.py` — no `clerk` console command on PATH is needed or expected.
 
 ## Procedure
 
 ### 1. Inspect the template (no trust needed)
 
 ```sh
-clerk discover <source> [--ref REF]
+uv run scripts/clerk.py discover <source> [--ref REF]
 ```
 
 `<source>` is a fetchable locator — an expanded `https://` URL or a local path.
@@ -38,7 +41,7 @@ template code, so it is safe against an untrusted source. From the output, note:
 
 - `reproducible` — if `false`, **stop**: the template ships no answers-file
   template, so a generated project could never be reproduced. `init` will refuse
-  it (US5). Tell the user; do not try to work around it.
+  it. Tell the user; do not try to work around it.
 - `questions` — what you must collect (with `type`, `choices`, `default_raw`,
   `help`, `validator`, `secret`).
 - `has_tasks` / `jinja_extensions` — non-empty means the template executes code,
@@ -49,8 +52,8 @@ template code, so it is safe against an untrusted source. From the output, note:
 
 Show the user each visible question with its help text, type, choices, and
 default. Collect a value for each required question. Respect `validator`/`choices`
-so the values are valid. **Do not** set `today` — clerk injects the generation
-date itself (FR-007). Treat `secret: true` answers as sensitive (see step 4).
+so the values are valid. **Do not** set `today` — the script injects the generation
+date itself. Treat `secret: true` answers as sensitive (see step 4).
 
 ### 3. Explain trust, then obtain explicit consent (only if the template takes actions)
 
@@ -62,16 +65,19 @@ those run. Only trust sources you control or have reviewed."* Obtain an explicit
 yes. Then, and only then:
 
 ```sh
-clerk trust add <prefix>
+uv run scripts/clerk.py trust add <prefix>
+# or, to record the owner-path prefix covering a whole org:
+uv run scripts/clerk.py trust add --from-source <source>
 ```
 
 If you skip this, `init` refuses with exit 3 and prints the exact
-`clerk trust add` command — that refusal is the safety gate working, not an error
-to route around. Never auto-trust; consent is the user's, per turn.
+`scripts/clerk.py trust add` command — that refusal is the safety gate working,
+not an error to route around. Never auto-trust; consent is the user's, per turn.
 
 ### 4. Author the run-spec
 
-Write a run-spec file (JSON/YAML) per `contracts/answers-doc.md`:
+Write a run-spec file (JSON/YAML) per
+`specs/001-clerk-vertical-slice/contracts/answers-doc.md`:
 
 ```yaml
 source: "<source>"
@@ -81,36 +87,59 @@ answers:
   <key>: <value>
 ```
 
-Omit `today` (clerk injects it). For `secret: true` questions, do not hard-code
-the secret into a committed run-spec — in this slice, prompt for it at run time;
-secret injection from a store is a later spec (005). Secrets and hidden `when:false`
-edges are never written to the recorded answers regardless (FR-013).
+Omit `today` (the script injects it). For `secret: true` questions, do not
+hard-code the secret into a committed run-spec — in this slice, prompt for it at
+run time; secret injection from a store is a later spec (005). Secrets and hidden
+`when:false` edges are never written to the recorded answers regardless.
 
 ### 5. Dry-run, then generate
 
 ```sh
-clerk init --run-spec <file> --check   # validates via copier's dry run; writes nothing
-clerk init --run-spec <file>           # generates the project + a `just reproduce` recipe
+uv run scripts/clerk.py init --run-spec <file> --check   # validates via copier's dry run; writes nothing
+uv run scripts/clerk.py init --run-spec <file>           # generates the project
 ```
 
 `--check` surfaces missing/invalid answers (and any trust refusal) without writing.
 Fix anything it reports, then run the real `init`. On success, the project has
 rendered files, an initialized git repo, and a `.copier-answers.yml` recording
-`_src_path` + `_commit` + answers.
+`_src_path` + `_commit` + answers. **No clerk-specific file is written** — the
+`.copier-answers.yml` is the entire reproduce state.
 
 ### 6. Hand off
 
 Tell the user the project is generated and how to reproduce it **without you**:
 
-> Reproduce anytime with `just reproduce` (or `clerk reproduce .`) — it replays
-> the recorded answers at the recorded version, no agent involved.
+> Reproduce anytime with:
+>
+> ```sh
+> # via the bundled script (primary path — ergonomics over copier):
+> uv run scripts/clerk.py reproduce <project-dir>
+>
+> # copier-only fallback (no clerk, no just — works anywhere copier is installed):
+> cd <project-dir> && copier recopy --vcs-ref=:current: --defaults --overwrite
+> # multi-template: repeat with -a <each .copier-answers*.yml> in dependency order
+> ```
+>
+> Both paths replay the recorded answers at the recorded version — no agent involved.
 
 Your job ends here. Do not re-run generation as a substitute for reproduce, and
 do not edit `.copier-answers.yml` by hand (copier forbids it; reproduce/upgrade
 rely on it being copier-authored).
 
+## Reproduce / Update as portable skills
+
+`reproduce` and `update` are **portable skills** (semantic auto-trigger) — not
+slash commands. They apply to any project clerk has touched:
+
+- **Reproduce** — `uv run scripts/clerk.py reproduce [<dest>]` — replays committed
+  answers at the recorded commit, no agent. Equivalent copier-only fallback:
+  `copier recopy --vcs-ref=:current: --defaults --overwrite` (per answers file).
+- **Update** — the intentional upgrade to a newer template version (spec 006);
+  distinct from reproduce.
+
 ## References
 
+- `specs/010-delivery-reshape/contracts/invocation.md` — the canonical invocation
+  surface, exact commands, and exit codes for the bundled script.
 - `specs/001-clerk-vertical-slice/contracts/discovery-output.md` — discover JSON.
 - `specs/001-clerk-vertical-slice/contracts/answers-doc.md` — run-spec format.
-- `specs/001-clerk-vertical-slice/contracts/commands.md` — the four verbs + exit codes.

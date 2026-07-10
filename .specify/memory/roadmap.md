@@ -308,17 +308,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   modules; 009 may instead ship them as separate `clerk-mod-*` repos — kept
   documented. (001 ships only `clerk-template-example`, a demo — not this module.)
 
-### 010 — Delivery reshape: skill-bundled copier wrapper  [status: specced]
+### 010 — Delivery reshape: skill-bundled copier wrapper  [status: implemented]
 
 - **Description:** Reshape clerk's delivery so it is a **pure copier wrapper bundled
   in a portable skill** with **zero clerk-specific artifact committed into generated
   projects** — correcting the transitional CLI/justfile shape 001 shipped to prove
   the loop. Cross-cutting: specs 002–009 must honor it.
 - **Outcome:** no `clerk` console script and no generated justfile; deterministic
-  helpers ship as skill scripts invoked by instructions; a generated project
-  reproduces with **copier alone** (no clerk, no `just`) from its committed answers
-  files; multi-template reproduce **recomputes** order at runtime from committed
-  answers + pinned template fetches (stable tie-break), never a frozen recipe.
+  helpers ship as the bundled `scripts/clerk.py` invoked via `uv run scripts/clerk.py`;
+  a generated project reproduces with **copier alone** (no clerk, no `just`) from its
+  committed answers files; multi-template reproduce **recomputes** order at runtime
+  from committed answers + pinned template fetches (stable tie-break), never a frozen
+  recipe.
 - **Scope (in):** drop `[project.scripts] clerk` + justfile generation; bundle
   discover/init/reproduce/check + the multi-template orchestrator with the skill;
   reproduce/update as **portable skills** (semantic auto-trigger), not slash commands;
@@ -332,7 +333,13 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 001 (verified). Informs/precedes 002–009.
 - **Governed by:** Constitution I/II/III/V/VIII; ADR-0001/0002/0003/0006; C-01, C-02,
   C-11. **Open:** Q-010a (skill namespace `clerk` vs `project-setup:*` — resolve at
-  009), Q-010b (bundled-script runtime), Q-010c (answers-file naming for multi-template).
+  009), Q-010c (answers-file naming for multi-template — resolve at 003).
+- **Completed 2026-07-10** (branch `010-delivery-reshape`): delivery contract realized —
+  `scripts/clerk.py` is the single bundled entrypoint (discover/trust/init/reproduce);
+  `[project.scripts] clerk` removed; justfile generation removed; `cli.py` deleted;
+  SKILL.md, try-clerk.sh, and README updated to the bundled-script surface; copier-only
+  fallback documented. The reproduce-time recompute contract (FR-004) is fixed here;
+  the N>1 ordering implementation is spec 003.
 
 ### DEFERRED — Rewrite / brownfield adoption  [status: deferred]
 
