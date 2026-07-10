@@ -27,19 +27,38 @@ project**. It changes *how the deterministic layer is packaged and invoked* — 
 what it does. The `discover`/`trust`/`init`/`reproduce`/`check` logic and its 35
 tests from 001 survive nearly intact; this is re-packaging, not a rewrite.
 
+The deterministic layer ships as **one bundled orchestration script**,
+`scripts/clerk.py`, run via `./scripts/clerk.py …` or `uv run scripts/clerk.py …`
+(a shebang'd, dependency-light Python script — NOT a `[project.scripts] clerk`
+console entry, NOT a PyPI package). It is scoped to **only what copier cannot do
+itself**: static discovery, trust surfacing, and multi-template dependency
+ordering. For everything copier already owns — single-template `copy` / `recopy` /
+`update` — the skill instructs the agent (or a human, or CI) to invoke **copier
+directly** with the documented command, so `clerk.py` never wraps or
+re-implements copier's single-template surface. A single cohesive orchestration
+entrypoint is preferred over a scatter of bundled one-liners: it gives one
+argparse surface, one place to translate copier's errors, and one unit-testable
+seam, without reading as an installable application.
+
 It is a **cross-cutting spec**: specs 002–009 must honor the delivery shape and the
 reproduce model it establishes. See "What other specs must take into account" below.
 
 ## Motivating decisions (from the 001 debrief)
 
 1. **Everything is a copier wrapper, never a separate tool** (C-01). The deterministic
-   helpers are bundled with the skill as scripts, invoked by documented instructions —
-   not installed as a `clerk` console script, not published to PyPI.
+   coordination is bundled with the skill as **one script, `scripts/clerk.py`**, run
+   `./scripts/clerk.py` / `uv run scripts/clerk.py` and invoked by documented
+   instructions — not installed as a `[project.scripts] clerk` console script, not
+   published to PyPI. The script handles **only the copier-can't work** (discovery,
+   trust, multi-template ordering); the agent invokes copier directly for
+   single-template `copy`/`recopy`/`update`.
 2. **Reproduce MUST work with copier alone.** A generated project's reproducibility
    must never depend on clerk (or `just`) being installed. The committed
    `.copier-answers*.yml` files are the *entire* reproduce state; worst case a human
-   runs the `copier recopy` command(s) by hand. clerk's scripts are **ergonomics +
-   the multi-template orchestrator**, never a hard dependency.
+   runs the `copier recopy` command(s) by hand. `scripts/clerk.py` is **ergonomics +
+   the multi-template orchestrator**, never a hard dependency of a generated project.
+   For a single-template project there is nothing to orchestrate: the documented
+   path is `copier recopy` invoked directly, and `clerk.py` is not required at all.
 3. **No clerk-specific artifact is committed into generated projects.** Drop the
    generated `justfile`. Nothing clerk-authored (no frozen recipe, no DAG file) is
    written into the project — only copier-native answers files.
@@ -100,18 +119,27 @@ running reproduce twice yields byte-identical output, (c) the resolution used on
 the committed answers files + pinned template fetches. Include a case where two
 edge-independent templates write disjoint files → any order is byte-identical.
 
-### US4 — The `clerk` console script and generated justfile are gone (Priority: P1)
+### US4 — No installed console script; orchestration is a bundled script (Priority: P1)
 
-**Independent Test**: `pyproject.toml` declares no `[project.scripts] clerk`; `init`
-writes no `justfile` (nor any clerk-specific file) into the generated project; the
-package is not framed as an installable application.
+The deterministic coordination is a bundled `scripts/clerk.py`, not an installed
+command on PATH and not a generated per-project file.
+
+**Independent Test**: `pyproject.toml` declares no `[project.scripts] clerk`; the
+orchestration is invocable as `./scripts/clerk.py` / `uv run scripts/clerk.py`
+without installing the package; `init` writes no `justfile` (nor any clerk-specific
+file) into the generated project; the package is not framed as an installable
+application.
 
 ## Requirements (Functional)
 
-- **FR-001**: The deterministic helpers (discover, trust, init, reproduce, check, and
-  the multi-template orchestrator) MUST be delivered **bundled with the skill** (skill
-  scripts + invocation instructions), NOT as a `clerk` console script or PyPI package.
-  Remove `[project.scripts] clerk`.
+- **FR-001**: The deterministic coordination (discovery, trust, and the
+  multi-template ordering/orchestration) MUST be delivered **bundled with the skill
+  as a single script `scripts/clerk.py`**, run `./scripts/clerk.py` / `uv run
+  scripts/clerk.py` and invoked by documented instructions — NOT as a
+  `[project.scripts] clerk` console script and NOT as a PyPI package. Remove
+  `[project.scripts] clerk`. The script MUST be scoped to what copier cannot do
+  itself; single-template `copy`/`recopy`/`update` are invoked as copier directly
+  (the skill documents the command), NOT wrapped by the script.
 - **FR-002**: `init` MUST NOT write any clerk-specific artifact into the generated
   project. Remove justfile generation. The only reproduce state is copier's committed
   `.copier-answers*.yml`.
@@ -141,8 +169,9 @@ package is not framed as an installable application.
 This spec sets contracts the rest of the roadmap depends on. Each affected spec:
 
 - **002 (catalog):** the catalog holds **sources, not dependency edges** — do not put
-  version-correct edges there (FR-008). Discovery/parsing helpers are skill-bundled
-  (FR-001), invoked by the skill, not a `clerk` CLI.
+  version-correct edges there (FR-008). Discovery/parsing lives in the skill-bundled
+  `scripts/clerk.py` (FR-001), invoked by the skill — not an installed `clerk`
+  console command.
 - **003 (multi-template + ordering):** THIS is where the runtime-recompute
   orchestrator lands. Build the DAG at init/update **and** recompute it at reproduce
   from committed answers + pinned fetches (FR-004); do **not** "generate the ordered
@@ -172,8 +201,10 @@ This spec sets contracts the rest of the roadmap depends on. Each affected spec:
   (no clerk, no `just`) from its committed answers file(s).
 - **SC-002**: No generated project contains a clerk-specific file (no justfile, no
   frozen recipe, no DAG file).
-- **SC-003**: `pyproject.toml` declares no `clerk` console script; reproduce/update
-  ship as portable skills that auto-trigger on their descriptions.
+- **SC-003**: `pyproject.toml` declares no `[project.scripts] clerk` console script;
+  the orchestration runs as bundled `scripts/clerk.py` (`./scripts/clerk.py` / `uv
+  run scripts/clerk.py`), and reproduce/update ship as portable skills that
+  auto-trigger on their descriptions.
 - **SC-004**: Multi-template reproduce is byte-identical across repeated runs and
   order-correct, computed solely from committed answers + pinned template fetches.
 - **SC-005**: 001's guarantees (faithful reproduce, trust gating, static-safe
@@ -193,9 +224,12 @@ This spec sets contracts the rest of the roadmap depends on. Each affected spec:
   keep `clerk` distinct (a general copier conductor shouldn't couple to one module
   family), provided its skill descriptions auto-trigger on the right semantics.
   Resolve at 009 scoping.
-- **Q-010b — Language/runtime of bundled scripts:** the 001 logic is Python. Confirm
-  the skill bundles Python scripts (with a documented, dependency-light invocation)
-  vs. any lighter shape. Python is the pragmatic default (reuses 001 verbatim).
+- **Q-010b — Language/runtime of bundled script:** RESOLVED. The skill bundles a
+  single Python script `scripts/clerk.py`, run `./scripts/clerk.py` (shebang) or
+  `uv run scripts/clerk.py` (dependency-light; reuses the 001 logic verbatim). One
+  cohesive orchestration entrypoint, not a scatter of one-liners; scoped to
+  copier-can't work (discovery/trust/ordering), with single-template copier
+  operations invoked directly per FR-001.
 - **Q-010c — Answers-file enumeration for multi-template:** how does the reproduce
   script discover *which* `.copier-answers*.yml` files a project has (glob pattern /
   naming convention)? Fixed when 003 defines the per-template answers-file naming.

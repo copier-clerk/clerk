@@ -48,7 +48,9 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   without an LLM.
 - **Faithful, agent-free reproduce is the headline guarantee**: reproduce replays
   committed answers at the recorded revision (`recopy --vcs-ref=:current:`); for
-  multi-template projects the order is frozen into a per-project reproduce recipe.
+  multi-template projects the order is **recomputed at reproduce time** from the
+  committed answers + pinned template fetches (stable tie-break), never frozen into
+  a committed recipe (see [[spec 010]] + Constitution III).
 - Users bring **their own template catalog**; clerk depends on no first-party hub.
 - clerk's distinctive value is the **agentic-ecosystem wiring** (APM / MCP /
   SpecKit / ADR), delivered as template content, not tool code.
@@ -57,16 +59,20 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 - **C-01 — clerk = skills + templates + minimal glue (not a tool):** the durable
   artifacts are the `SKILL.md` conductor, the `clerk-mod-*` templates, and small
-  deterministic helpers (ordering, edge parsing, defaults, dry-run validation,
-  reproduce-recipe generation). No published application. _See Constitution I;
-  supersedes the earlier tool framing in ADR-0001._
+  deterministic glue bundled as a single script `scripts/clerk.py` (ordering, edge
+  parsing, discovery, defaults, dry-run validation) run `./scripts/clerk.py` / `uv
+  run scripts/clerk.py`. No published application, no `[project.scripts] clerk`
+  console entry. _See Constitution I; supersedes the earlier tool framing in
+  ADR-0001 and the "reproduce-recipe generation" glue item (order is recomputed —
+  spec 010)._
 - **C-02 — Two-phase boundary:** skill authors a frozen, documented inputs handoff;
   the deterministic phase executes with zero LLM. Testable without an LLM. _See
   Constitution II._
 - **C-03 — Faithful reproduce, distinct upgrade:** `recopy --vcs-ref=:current:`;
   bare recopy (silent upgrade) never exposed; `update` is the explicit upgrade;
-  multi-template reproduce order frozen into the project. _See ADR-0001,
-  Constitution III._
+  multi-template reproduce order **recomputed at reproduce time** from committed
+  answers + pinned fetches (stable tie-break), not frozen into the project. _See
+  ADR-0001, Constitution III, [[spec 010]]._
 - **C-04 — Prefer CLI + static config; adapter only IF deprecated surface is
   actually used:** discovery prefers static `copier.yml`/file-tree parsing (safe,
   no code exec); the `Template`/`Worker` adapter + drift test exist only if a helper
@@ -189,8 +195,9 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 - **Description:** Select many templates and run them in correct dependency order.
 - **Outcome:** clerk computes a topological order from declared edges and drives one
-  copier run per template, threading answers; the order is frozen into a per-project
-  reproduce recipe.
+  copier run per template, threading answers; at reproduce the order is **recomputed**
+  from the committed answers + pinned fetches (stable tie-break), not frozen into a
+  committed recipe (see [[spec 010]]).
 - **Scope (in):** THIS is where coordination glue is justified (C-11): read
   `when:false` `depends_on`/`run_after`/`run_before` from `copier.yml`; build the
   DAG; issue ordered `copier copy` runs, each with a distinct answers-file; thread
@@ -224,8 +231,9 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Outcome:** secret questions filled from an external store at run time, never
   written to the answers file, identically at init and reproduce.
 - **Scope (in):** detect secret questions (static `copier.yml` read); a thin script
-  (e.g. `op read …` → `--data secret=…`) — genuinely bash-shaped; reproduce recipe
-  re-fetches secrets the same way.
+  (e.g. `op read …` → `--data secret=…`) — genuinely bash-shaped; the reproduce path
+  re-fetches secrets the same way at reproduce as at init (a bundled skill step, not
+  a committed recipe — see [[spec 010]]).
 - **Scope (out):** store implementations beyond a first adapter.
 - **Depends on:** 003.
 - **Governed by:** ADR-0001 (secrets); C-05, C-11.

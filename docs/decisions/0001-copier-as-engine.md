@@ -83,8 +83,10 @@ conductor.
   which fires `_tasks`. Migrations are **update-only** and out of scope for
   reproduce.
 - **The reproduce invariant is "no AGENT", NOT "no side effects".** Reproduce
-  (`copier recopy` via clerk / `just reproduce`, run by a human or CI) replays the
-  committed answers and DOES run tasks, but no LLM/agent participates. Reproduce
+  (`copier recopy` directly, or via the skill's bundled `scripts/clerk.py`
+  orchestrator for multi-template projects, run by a human or CI — never a
+  generated `just reproduce`, dropped by spec 010) replays the committed answers
+  and DOES run tasks, but no LLM/agent participates. Reproduce
   is therefore **process-deterministic** (same frozen answers + same pinned
   refs → same commands executed), **not** output-byte-deterministic — tasks like
   `apm install` touch network/external state.

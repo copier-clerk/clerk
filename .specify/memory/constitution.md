@@ -1,5 +1,27 @@
 <!--
-SYNC IMPACT REPORT
+SYNC IMPACT REPORT (latest amendment)
+==================
+Version change: 2.0.0 → 2.1.0
+Bump rationale: MINOR — reconciles the constitution to the already-ratified
+runtime-recompute reproduce model (roadmap v2.1.0) and the spec-010 delivery shape,
+in the change that relies on them (governance: amend the principle in the same PR).
+  - III. Multi-template reproduce order: "frozen at generation into a per-project
+         reproduce recipe" → "recomputed at reproduce time from committed answers +
+         pinned fetches with a stable tie-break; NO committed recipe." Faithful,
+         agent-free reproduce (the principle's intent) is unchanged; only the
+         ordering MECHANISM is corrected. Rationale rewritten to match.
+  - I.   Glue enumeration: drop "per-project reproduce recipes"; state the glue is
+         one bundled script `scripts/clerk.py` (./scripts/clerk.py / uv run), and
+         that there is NO `[project.scripts] clerk` console entry (was implicit in
+         "no uvx clerk"; now explicit for spec 010).
+Reconciled in the same change:
+  - docs/decisions/0001-copier-as-engine.md — reproduce no longer cites a generated
+    `just reproduce`; names `copier recopy` directly / `scripts/clerk.py`.
+  - specs/010-delivery-reshape/spec.md — single bundled script shape; Q-010b resolved.
+  - .specify/memory/roadmap.md — spec-003 Outcome, C-01/C-03, Vision de-frozen.
+Unchanged in substance: II, IV, V, VI, VII, VIII.
+
+PRIOR SYNC IMPACT REPORT (v1.0.0 → 2.0.0)
 ==================
 Version change: 1.0.0 → 2.0.0
 Bump rationale: MAJOR — the project's nature was redefined after a YAGNI review.
@@ -56,12 +78,15 @@ clerk is, in order of weight: (1) **an agent skill** — the `SKILL.md` procedur
 that conducts the non-deterministic work; (2) **a family of copier templates**
 (`clerk-mod-*`) — the actual reusable product; and (3) **minimal deterministic
 glue** — small helpers and scripts for the few things copier and an agent cannot
-do directly (dependency-edge parsing, topological ordering, writing/reading
-defaults, dry-run validation, and per-project reproduce recipes). clerk is NOT a
-published general-purpose application: there is no requirement for a `uvx clerk`
-PyPI tool, and glue MUST NOT grow into a re-implementation of what copier already
-provides. New glue is justified only by a capability copier lacks (chiefly
-cross-template coordination); when in doubt, prefer a copier invocation, a
+do directly (dependency-edge parsing, topological ordering — recomputed at
+reproduce time, not frozen into the project — writing/reading defaults, and
+dry-run validation). This glue is bundled with the skill as a single script
+(`scripts/clerk.py`), run `./scripts/clerk.py` / `uv run scripts/clerk.py`. clerk
+is NOT a published general-purpose application: there is no `[project.scripts]
+clerk` console entry, no `uvx clerk` PyPI tool, and glue MUST NOT grow into a
+re-implementation of what copier already provides. New glue is justified only by a
+capability copier lacks (chiefly cross-template coordination); when in doubt,
+prefer a copier invocation, a
 template feature, or a documented agent step over new code.
 
 Rationale: an audit of the full roadmap found that copier already owns the whole
@@ -93,15 +118,23 @@ Reproduce MUST replay the committed answers at the recorded revision:
 `recopy` (no `vcs_ref`) silently resolves the LATEST tag and UPGRADES; it MUST
 NEVER be used. Moving to a newer template version is a DISTINCT, explicit
 operation (`copier update`). For a multi-template project, reproduce order is
-frozen at generation time into a per-project reproduce recipe (an ordered list of
-`copier recopy` commands), so reproduce needs no live ordering computation and no
-agent. `_tasks` run at both init and reproduce; migrations are update-only.
-Reproduce is process-deterministic (same pinned inputs → same commands), not
-necessarily byte-identical in the world, because tasks may touch external state.
+**recomputed at reproduce time** from the committed `.copier-answers*.yml` files —
+each template fetched at its recorded `_commit`, its `when:false` edges read, and
+the whole topo-sorted with a stable, documented tie-break — NOT frozen into a
+committed per-project recipe. Because the pins are identical, the recomputed edges
+and order are identical, so reproduce is deterministic and needs no agent; and
+because it derives solely from committed copier state, it depends on no
+clerk-authored file a user might forget to commit. `_tasks` run at both init and
+reproduce; migrations are update-only. Reproduce is process-deterministic (same
+pinned inputs → same commands), not necessarily byte-identical in the world,
+because tasks may touch external state.
 
 Rationale: faithful reproduce is clerk's headline guarantee and the reason the
-pinning discipline exists; freezing the order into the project keeps reproduce
-both deterministic and clerk-free.
+pinning discipline exists; recomputing the order from committed answers + pinned
+fetches keeps reproduce deterministic and agent-free while committing NO
+clerk-specific artifact into the project — the earlier "freeze a recipe into the
+project" mechanism is superseded because a committed recipe is one more file that
+can drift from, or be omitted alongside, the answers files that are the true state.
 
 ### IV. Prefer copier's CLI + Static Config; Contain Any Deprecated Surface IF Used
 
@@ -240,4 +273,4 @@ Versioning: MAJOR for backward-incompatible principle removals or redefinitions,
 MINOR for a new principle or materially expanded guidance, PATCH for
 clarifications.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
+**Version**: 2.1.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-10
