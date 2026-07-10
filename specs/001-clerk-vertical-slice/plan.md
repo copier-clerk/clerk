@@ -10,7 +10,7 @@ Prove the whole conduct → copier → reproduce loop for ONE trusted source wit
 template, delivered as **an agent skill + one example template + minimal
 deterministic glue** — not a Python package. copier's own CLI already performs
 init, reproduce, and trust refusal each in a single command (verified); clerk adds
-the conducting `SKILL.md`, the `clerk-mod-base` template, and the small glue copier
+the conducting `SKILL.md`, the `clerk-template-example` template, and the small glue copier
 cannot provide by itself (a static discovery/validation helper and a generated
 per-project reproduce recipe).
 
@@ -51,7 +51,7 @@ project tree + copier's `.copier-answers.yml`. Trust lives in copier's
 
 **Testing**: `pytest` for any Python helper + `bats`/pytest-driven subprocess tests
 for the shell recipes; hermetic and offline using local `git` template fixtures.
-One clearly-marked network smoke test against the hand-published `clerk-mod-base`.
+One clearly-marked network smoke test against the hand-published `clerk-template-example`.
 `mypy`/`ruff` apply only to Python glue that exists.
 
 **Target Platform**: Developer workstations + CI (macOS/Linux).
@@ -80,12 +80,12 @@ Evaluated against constitution **v2.0.0** (Principles I–VIII). Initial gate: *
 
 | Principle | Gate | How this plan satisfies it |
 |---|---|---|
-| I — Skills + templates + minimal glue | PASS | Deliverables are a `SKILL.md`, the `clerk-mod-base` template, and a small discovery/validation helper + generated reproduce recipe. No package, no wrapper re-implementing copier. |
+| I — Skills + templates + minimal glue | PASS | Deliverables are a `SKILL.md`, the `clerk-template-example` template, and a small discovery/validation helper + generated reproduce recipe. No package, no wrapper re-implementing copier. |
 | II — Two-phase; skill conducts, helpers execute | PASS | Skill authors a documented answers document; the deterministic phase is copier CLI calls (± the helper), runnable/testable with no LLM. Agent never in reproduce. |
 | III — Faithful, agent-free reproduce | PASS | Generated `just reproduce` pins `--vcs-ref=:current: --defaults --overwrite`; bare recopy never used; upgrade out of scope. Determinism test asserts byte-identity. |
 | IV — Prefer CLI + static config; adapter only if used | PASS | Discovery is a static `copier.yml`/file-tree parse; no Jinja env, no `Template`/`Worker` → **no adapter, no drift test** this slice. copier pinned `<10`. |
 | V — Determinism via pinning; trust by source | PASS | `today` injected via `--data`; template forbids clock/random; trust in `settings.yml` (expanded-https); deterministic phase never writes trust; CI fails loudly. |
-| VI — Template-author contract at discovery | PASS | Discovery statically checks the answers-file `.jinja` (FR-016) + version resolvability (FR-016a) and refuses non-conforming; `clerk-mod-base` conforms + clean `v1.0.0`. |
+| VI — Template-author contract at discovery | PASS | Discovery statically checks the answers-file `.jinja` (FR-016) + version resolvability (FR-016a) and refuses non-conforming; `clerk-template-example` conforms + clean `v1.0.0`. |
 | VII — Hardening per-step (scaled) | PASS | DoD = determinism test + error surfacing (copier.errors.* AND ValueError) + tests for the helper + template loop. No adapter drift test needed (no adapter). |
 | VIII — Documented, dry-run-validated handoff | PASS | Handoff is a documented plain YAML answers document; validation is copier's `--pretend`. No pydantic, no committed JSON Schema, no schema-drift test. |
 
@@ -120,7 +120,7 @@ skills/clerk/
 └── SKILL.md             # THE primary deliverable: the phase-1 conductor procedure
                          # (inspect → present questions → collect answers → trust consent → init → reproduce → hand off)
 
-examples/clerk-mod-base/  # The example template (hand-published to its own repo; roadmap 008 automates)
+examples/clerk-template-example/  # The example template (hand-published to its own repo; roadmap 008 automates)
 ├── copier.yml            # identity questions + when:false edge (fixture-style) + _tasks: git init (no commit)
 └── template/
     ├── README.md.jinja
@@ -143,13 +143,13 @@ tests/
 │   ├── test_discover_static_safe.py # US3/FR-004a: discovery reads statically, executes no template code, needs no trust
 │   ├── test_answersfile_refusal.py  # US5/FR-016: refuse template lacking the answers-file .jinja
 │   ├── test_secret_edge_exclusion.py# FR-013 fixture: secret + when:false NOT persisted
-│   └── test_smoke_remote.py         # marked network smoke vs hand-published clerk-mod-base
+│   └── test_smoke_remote.py         # marked network smoke vs hand-published clerk-template-example
 └── unit/
     └── test_discover.py             # tag PEP440 filtering, when:false edge parsing, answers-file detection, --pretend validation surfacing
 ```
 
 **Structure Decision**: No Python package. The primary artifact is
-`skills/clerk/SKILL.md`; the product artifact is `examples/clerk-mod-base/`; the
+`skills/clerk/SKILL.md`; the product artifact is `examples/clerk-template-example/`; the
 only code is a single small `scripts/clerk-discover` helper (justified by C-11: it
 does the static discovery/validation copier's CLI does not expose as one command)
 plus a generated reproduce recipe. Hermetic tests build throwaway local `git`

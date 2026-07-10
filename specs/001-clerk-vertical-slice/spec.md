@@ -486,7 +486,7 @@ answer (expect a problem report and no files produced).
   internal ordering values.
 - **Trust record**: the set of source prefixes a person has consented to run actions
   from, stored in the exact form used to fetch sources.
-- **Example template ("clerk-mod-base")**: the concrete artifact under test — renders
+- **Example template ("clerk-template-example")**: the concrete artifact under test — renders
   core project identity into README, license, ignore file, and standard directories;
   takes one self-contained post-generation action (initialize version control); carries
   the answer-recording mechanism; is published at a clean version. It intentionally
@@ -561,7 +561,7 @@ answer (expect a problem report and no files produced).
   is a later roadmap spec (005). This slice does not require a secret-bearing example.
 - **Upgrading to a newer template version is out of scope.** Reproduce is version-faithful
   only; the explicit upgrade/migration operation is a later roadmap spec (006).
-- **The example template is disposable.** "clerk-mod-base" is hand-published for this
+- **The example template is disposable.** "clerk-template-example" is hand-published for this
   slice (the automated authoring-and-distribution pipeline is a later roadmap spec, 008)
   and may be recreated or split later.
 - **The person consents to trust out-of-band.** clerk explains the implication and records

@@ -41,7 +41,8 @@ dependency edges (`depends_on`/`run_after`/`run_before`), and new-format
 
 | Template | Kind | Purpose | Spec |
 |---|---|---|---|
-| `clerk-mod-base` | template | Repo foundation: identity → README/LICENSE/.gitignore/dirs + `git init` task. Collapses 5 project-setup base modules | 001 (hand-published), 008 (automated), 009 (maybe re-split) |
+| `clerk-template-example` | example template | Slice-001 demonstrator: identity → README/.gitignore/dirs + `git init` + LICENSE-via-`gh` tasks. Proves the loop + the template contract; disposable, NOT a shippable module | 001 (hand-published) |
+| `clerk-mod-base` | template | Repo foundation: identity → README/LICENSE/.gitignore/dirs + `git init` task. Would collapse 5 project-setup base modules | 008 (automated), 009 (maybe re-split) |
 | repos-collector (meta) | template | Persists the user's source repos in its own answers file | 002 |
 | selector (meta) | template | Catalog injected at runtime via `--data catalog=…`; multiselect | 002 |
 | `clerk-mod-lang-{python,ts,go,rust}` | template | Language overlays | 009 |

@@ -8,7 +8,7 @@ template-authored code (FR-004a). The agent reads this to author a run-spec.
 
 ```json
 {
-  "source": "https://github.com/copier-clerk/clerk-mod-base.git",
+  "source": "https://github.com/copier-clerk/clerk-template-example.git",
   "ref": "v1.0.0",
   "versions": ["v1.0.0"],
   "reproducible": true,

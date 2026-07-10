@@ -10,7 +10,7 @@ It is marked ``network`` and DESELECTED by default (see ``pyproject.toml``
 
     uv run pytest -m network
 
-Target repo: the hand-published ``clerk-mod-base``. Override with
+Target repo: the hand-published ``clerk-template-example``. Override with
 ``CLERK_SMOKE_TEMPLATE_URL`` to point at any published clerk-shaped template
 (e.g. a fork, or the monorepo-fanned-out mirror). If the URL is unreachable
 (e.g. the repo is not published yet), the test SKIPS rather than fails, so it is
@@ -34,7 +34,7 @@ pytestmark = pytest.mark.network
 
 # The intended first-party published exemplar. A public repo, so no auth needed
 # for a read-only clone. Overridable for forks / mirrors.
-DEFAULT_TEMPLATE_URL = "https://github.com/copier-clerk/clerk-mod-base.git"
+DEFAULT_TEMPLATE_URL = "https://github.com/copier-clerk/clerk-template-example.git"
 TEMPLATE_URL = os.environ.get("CLERK_SMOKE_TEMPLATE_URL", DEFAULT_TEMPLATE_URL)
 
 

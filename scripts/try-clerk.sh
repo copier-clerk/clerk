@@ -2,7 +2,7 @@
 # try-clerk.sh — walk the whole clerk slice-1 loop, one step at a time, pausing
 # so you can inspect the result of each stage.
 #
-# It builds a REAL tagged git repo from examples/clerk-mod-base (copier treats a
+# It builds a REAL tagged git repo from examples/clerk-template-example (copier treats a
 # local path exactly like a remote), then drives the four verbs through the
 # installed `clerk` console script:
 #
@@ -52,7 +52,7 @@ pause
 # --- scratch workspace ---------------------------------------------------------
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/clerk-try.XXXXXX")"
 export COPIER_SETTINGS_PATH="$WORK/settings.yml"   # isolate trust store
-TPL="$WORK/clerk-mod-base"
+TPL="$WORK/clerk-template-example"
 DEST="$WORK/my-project"
 echo "Workspace: $WORK"
 echo "Trust store (scratch): $COPIER_SETTINGS_PATH"
@@ -67,13 +67,13 @@ cleanup() {
 trap cleanup EXIT
 
 # --- build a real, tagged template repo from the bundled example ---------------
-step "Build a local git template repo from examples/clerk-mod-base (tagged v1.0.0)"
-cp -R "$REPO/examples/clerk-mod-base" "$TPL"
+step "Build a local git template repo from examples/clerk-template-example (tagged v1.0.0)"
+cp -R "$REPO/examples/clerk-template-example" "$TPL"
 export GIT_AUTHOR_NAME=clerk-try GIT_AUTHOR_EMAIL=try@clerk.invalid
 export GIT_COMMITTER_NAME=clerk-try GIT_COMMITTER_EMAIL=try@clerk.invalid
 run git -C "$TPL" init -q
 run git -C "$TPL" add -A
-run git -C "$TPL" commit -qm "clerk-mod-base v1.0.0"
+run git -C "$TPL" commit -qm "clerk-template-example v1.0.0"
 run git -C "$TPL" tag v1.0.0
 echo "Template repo ready at $TPL"
 pause

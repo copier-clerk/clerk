@@ -1,9 +1,11 @@
-# clerk-mod-base — the exemplar clerk module.
+# clerk-template-example — the exemplar clerk template.
 #
 # A minimal, reproducible identity template: it asks who you are and what you're
 # building, renders a README / LICENSE / .gitignore, and initializes a git repo.
-# It is deliberately small — its job is to prove the whole clerk loop
-# (discover → init → reproduce) end to end, not to be a full project scaffolder.
+# It is deliberately small — its job is to demonstrate the whole clerk loop
+# (discover → init → reproduce) end to end and show what a conforming template
+# looks like. It is NOT a shippable `clerk-mod-*` module (that family is spec
+# 009); it is a disposable example.
 #
 # Contract (Constitution VI): it ships the answers-file template
 # (`template/{{ _copier_conf.answers_file }}.jinja`) so every generated project

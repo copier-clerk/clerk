@@ -9,7 +9,7 @@ runs with no LLM (Constitution II).
 
 ```yaml
 # run-spec.yml
-source: "https://github.com/copier-clerk/clerk-mod-base.git"   # required
+source: "https://github.com/copier-clerk/clerk-template-example.git"   # required
 ref: "v1.0.0"                                                  # optional (pin)
 dest: "./my-project"                                           # required
 answers:                                                       # optional map

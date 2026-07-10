@@ -1,7 +1,7 @@
 # Quickstart — clerk vertical slice (001)
 
 End-to-end validation of the whole loop: **discover → trust → init → reproduce**,
-against the bundled `examples/clerk-mod-base` template. Matches the automated
+against the bundled `examples/clerk-template-example` template. Matches the automated
 tests and `scripts/try-clerk.sh`.
 
 ## Prerequisites
@@ -22,12 +22,12 @@ KEEP=1 bash scripts/try-clerk.sh   # keep the scratch workspace to poke around
 
 ### 0. A real template repo to point at
 
-`clerk-mod-base` isn't published yet, so make a local tagged repo from the bundled
-example (copier treats a local path exactly like a remote):
+`clerk-template-example` isn't published yet, so make a local tagged repo from the
+bundled example (copier treats a local path exactly like a remote):
 
 ```sh
-TPL=$(mktemp -d)/clerk-mod-base
-cp -R examples/clerk-mod-base "$TPL"
+TPL=$(mktemp -d)/clerk-template-example
+cp -R examples/clerk-template-example "$TPL"
 git -C "$TPL" init -q && git -C "$TPL" add -A \
   && git -C "$TPL" commit -qm base && git -C "$TPL" tag v1.0.0
 
@@ -93,6 +93,6 @@ effect sourced from GitHub's live database, not pinned to the commit, so — lik
 
 ```sh
 uv run pytest -q            # 35 hermetic tests (local git fixtures, no network)
-uv run pytest -m network    # the one live smoke test (skips until clerk-mod-base is published)
+uv run pytest -m network    # the one live smoke test (skips until clerk-template-example is published)
 uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run mypy
 ```

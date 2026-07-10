@@ -134,7 +134,7 @@ _BASE_OUT = "name={{ project_name }} org={{ org }} license={{ license }} date={{
 def base_template(tmp_path: Path) -> TemplateRepo:
     """The exemplar-shaped template: identity questions + a hermetic git-init task.
 
-    Stands in for `clerk-mod-base` in hermetic tests.
+    Stands in for `clerk-template-example` in hermetic tests.
     """
     return build_template_repo(
         tmp_path / "clerk-mod-base",
