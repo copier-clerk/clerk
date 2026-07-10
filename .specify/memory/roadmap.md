@@ -194,14 +194,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Scope (in):** THIS is where coordination glue is justified (C-11): read
   `when:false` `depends_on`/`run_after`/`run_before` from `copier.yml`; build the
   DAG; issue ordered `copier copy` runs, each with a distinct answers-file; thread
-  answers between them; **generate the ordered reproduce recipe** so reproduce stays
-  agent-free and needs no live DAG. Forward-deliver the all-gaps preflight (C-10):
-  collate every question across enabled templates and `--pretend`-dry-run to report
-  all missing answers at once. If the ordering logic exceeds a small helper, that is
-  the evidence that justifies crystallizing a minimal tool (Q4).
-- **Scope (out):** the agentic module's internal multiselect (007).
-- **Depends on:** 002.
-- **Governed by:** ADR-0003; C-07, C-10, C-11.
+  answers between them. **Reproduce recomputes the order at runtime** from the
+  committed answers files + pinned template fetches with a stable tie-break (per
+  [[spec 010]]) — NOT a frozen recipe file committed to the project (this supersedes
+  the earlier "generate the ordered reproduce recipe" framing). Forward-deliver the
+  all-gaps preflight (C-10): collate every question across enabled templates and
+  `--pretend`-dry-run to report all missing answers at once. The orchestrator ships
+  bundled with the skill, not as a CLI (spec 010).
+- **Scope (out):** the agentic module's internal multiselect (007); a
+  project-committed clerk recipe/DAG artifact (rejected — spec 010).
+- **Depends on:** 002; delivery contract from 010.
+- **Governed by:** ADR-0003; C-07, C-10, C-11; spec 010.
 
 ### 004 — Global per-template defaults  [status: planned]
 
@@ -297,6 +300,32 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   modules; 009 may instead ship them as separate `clerk-mod-*` repos — kept
   documented. (001 ships only `clerk-template-example`, a demo — not this module.)
 
+### 010 — Delivery reshape: skill-bundled copier wrapper  [status: specced]
+
+- **Description:** Reshape clerk's delivery so it is a **pure copier wrapper bundled
+  in a portable skill** with **zero clerk-specific artifact committed into generated
+  projects** — correcting the transitional CLI/justfile shape 001 shipped to prove
+  the loop. Cross-cutting: specs 002–009 must honor it.
+- **Outcome:** no `clerk` console script and no generated justfile; deterministic
+  helpers ship as skill scripts invoked by instructions; a generated project
+  reproduces with **copier alone** (no clerk, no `just`) from its committed answers
+  files; multi-template reproduce **recomputes** order at runtime from committed
+  answers + pinned template fetches (stable tie-break), never a frozen recipe.
+- **Scope (in):** drop `[project.scripts] clerk` + justfile generation; bundle
+  discover/init/reproduce/check + the multi-template orchestrator with the skill;
+  reproduce/update as **portable skills** (semantic auto-trigger), not slash commands;
+  document the copier-only reproduce fallback; adapt (not weaken) 001's tests.
+- **Scope (out):** the ordering algorithm itself (003 — this spec fixes the
+  reproduce-time recompute *contract* it must satisfy); catalog (002); migrations (006).
+- **Key contracts for other specs:** deps stay in `copier.yml` (versioned), NOT the
+  catalog, no dep-cache (002/003/008); reproduce recomputes from pins, changed deps
+  are an `update` concern only (003/006); everything is skill-bundled, no CLI
+  (all); distribution = skill via APM + templates via repos (008).
+- **Depends on:** 001 (verified). Informs/precedes 002–009.
+- **Governed by:** Constitution I/II/III/V/VIII; ADR-0001/0002/0003/0006; C-01, C-02,
+  C-11. **Open:** Q-010a (skill namespace `clerk` vs `project-setup:*` — resolve at
+  009), Q-010b (bundled-script runtime), Q-010c (answers-file naming for multi-template).
+
 ### DEFERRED — Rewrite / brownfield adoption  [status: deferred]
 
 - **Description:** Point clerk at an EXISTING project with no `.copier-answers.yml`,
@@ -327,12 +356,20 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Glue-only-when-copier-cannot (C-11):** the default answer to "should this be
   code?" is no — prefer a copier invocation, a template feature, or a documented
   skill step. Code appears for coordination copier lacks.
-- **Reproduce is frozen, not recomputed:** multi-template order is baked into a
-  per-project reproduce recipe at generation, keeping reproduce deterministic and
-  agent-free without shipping a DAG engine to consumers.
-- **Distribution:** the SKILL ships via the APM marketplace; templates via their
-  own repos + the catalog index. There is no PyPI `clerk` package to publish.
+- **Reproduce recomputes, deterministically, from committed state (superseded the
+  earlier "frozen recipe" note — see [[spec 010]]):** multi-template order is
+  recomputed at reproduce from the committed `.copier-answers*.yml` + each template
+  fetched at its pinned `_commit`, topo-sorted with a stable tie-break. Pinned
+  commits → identical edges → identical order, so it is deterministic and agent-free
+  **without** committing any clerk-specific recipe/DAG file into the project (which
+  the user could forget to commit). Changed deps are picked up only at `update`.
+- **No clerk artifact in generated projects:** the committed copier answers files are
+  the entire reproduce state; a project reproduces with copier alone (no clerk, no
+  `just`). No generated justfile, no frozen recipe (spec 010).
+- **Distribution:** the SKILL (with its bundled deterministic scripts) ships via the
+  APM marketplace; templates via their own repos + the catalog index. There is no
+  PyPI `clerk` package and no `clerk` console script to publish (C-01, spec 010).
 
 ---
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-09
+**Version**: 2.1.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-10
