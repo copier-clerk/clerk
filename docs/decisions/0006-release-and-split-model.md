@@ -41,17 +41,20 @@ Key verified constraints:
    (splitsh-lite, `git subtree split`, `git-filter-repo`, copybara) solves a
    problem clerk does not have and is rejected as over-engineering.
    - **DECIDED: hand-rolled ~25-line GitHub Actions workflow** (matrix over
-     `templates/<name>`): checkout monorepo at the release tag → clone target
-     `copier-clerk/clerk-mod-<name>` (PAT auth) → replace contents with
-     `templates/<name>/.` → commit (skip if no diff) → `git tag -a vX.Y.Z` → push
-     HEAD + tags. Zero external deps, no history-rewrite edge cases, fits clerk's
-     "own the thin layer" ethos. NOT adopting a third-party split action.
+     `templates/<name>`): checkout monorepo at the release tag → clone (or
+     auto-create if missing) target `copier-clerk/clerk-mod-<name>` → replace
+     contents with `templates/<name>/.` → commit (skip if no diff) → `git tag -a
+     vX.Y.Z` → push HEAD + tags. Auth is an org GitHub App minting short-lived
+     tokens, NOT a personal PAT — see *CI identity for cross-repo writes* below.
+     Zero external deps, no history-rewrite edge cases, fits clerk's "own the thin
+     layer" ethos. NOT adopting a third-party split action.
    - (For reference only, not adopted: `danharrin/monorepo-split-github-action`
      is the maintained symplify continuation doing the identical snapshot-mirror
      logic — the hand-roll is a ~25-line de-obfuscation of it, so we own it
      rather than pin an external action.)
-   - Two edge cases: skip-commit-when-no-diff, and PAT scoping (token that can
-     push to the `copier-clerk/clerk-mod-*` repos).
+   - Two edge cases: skip-commit-when-no-diff, and token scoping (the GitHub App
+     installation token must reach the `copier-clerk/clerk-mod-*` repos, and hold
+     `administration:write` for auto-create — see *CI identity* below).
    - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
      mirror for a paper trail; rejected. The split repos are generated read-only
      mirrors (nothing to review — the content derives from an already-reviewed,
@@ -67,7 +70,9 @@ Key verified constraints:
      (multi-repo managers, wrong shape), `git-subrepo` (vendoring, wrong
      direction), copybara (JDK/Bazel/Starlark — disproportionate for ~24 `cp`s).
 4. **Catalog** is published from the monorepo (a JSON index of `clerk-mod-*`
-   repos + latest `v*`). clerk reads it (one or more catalog pointers).
+   repos + latest `v*`). clerk reads it (one or more catalog pointers). It is
+   GENERATED, not hand-maintained — see the *Authoring lifecycle* section for how
+   it is derived, hosted (in-monorepo + GitHub Pages), and kept drift-free.
 5. **Consumers/clerk always source from the split repos**
    (`https://github.com/copier-clerk/clerk-mod-<name>.git` — expanded https form,
    per the trust contract in [[0001-copier-as-engine]]), never the monorepo — see
@@ -132,7 +137,7 @@ the clean split tag; `{{version_tag}}` is the prefixed monorepo form) — so a h
 (docs: "There is no rollback procedure for post-bump hook"): a failing fan-out
 hook leaves the version commit + all package tags created locally, aborts the
 remaining packages' hooks, and skips global post_bump. Fan-out to ~24 downstream
-repos is inherently flaky (network/PAT/remote conflicts) and must not be able to
+repos is inherently flaky (network/token/remote conflicts) and must not be able to
 half-finish the release.
 
 DECISION — one CI job, fan-out as later steps (no separate job needed):
@@ -145,9 +150,9 @@ DECISION — one CI job, fan-out as later steps (no separate job needed):
    `copier-clerk/clerk-mod-<name>`.
 A fan-out failure fails the workflow AFTER the monorepo release is safely done;
 re-run steps 3-4 alone against existing tags (idempotent, testable in isolation,
-PAT scoped to the fan-out steps only).
+the cross-repo token scoped to the fan-out steps only — see *CI identity* below).
 
-OPTIONAL — `pre_bump_hooks` as preflight: validate mirror repos reachable + PAT
+OPTIONAL — `pre_bump_hooks` as preflight: validate mirror repos reachable + token
 valid BEFORE bumping. pre_bump DOES roll back (stash-and-exit), so this is the one
 place cog's "abort the bump" semantics are an asset — fail fast before any tag
 exists. Not required for MVP.
@@ -164,10 +169,148 @@ per-component release PRs make the changed set explicit) and never forces an
 umbrella tag. It remains the drop-in fallback if the `git tag --points-at HEAD`
 approach becomes a maintenance burden.
 
+## Alternatives considered — repo topology
+
+Before committing to the monorepo→per-repo snapshot split, two other shapes were
+weighed. Both are rejected; recorded so the split is not re-litigated.
+
+### Git submodules (rejected)
+
+The appeal: "keep everything in the main repo and run one CI pipeline." It does
+not work, because it does not touch the load-bearing constraint. copier resolves
+"latest version" from PEP 440 git tags **in the repo it fetched**, with no
+prefix/pattern filter (`_vcs.py get_latest_tag`). A consumable template must
+therefore be a repo whose `vX.Y.Z` tags mean *that template* — and git tags are
+not branch- or subdirectory-scoped, so one repo yields exactly one version line
+(`_subdirectory` does not rescue this; it shares the single tag namespace).
+Submodules are a *source-composition* pointer to a pinned commit of another repo;
+they publish nothing and create no tags, so they cannot supply the per-template
+clean `v*` tag the split exists to produce.
+
+Neither direction helps:
+- **Child repos authoritative, monorepo aggregates them as submodules** —
+  reintroduces the 24-repo hand-authoring this ADR rejects as untenable, and adds
+  pointer-bump ceremony. The "one pipeline" claim is false: release still has to
+  create a clean tag in each child (recursing into each child's CI or pushing per
+  child) — that push *is* the fan-out, relocated.
+- **Monorepo authoritative, mirrors are submodules used only as publish targets**
+  — strictly more work than today's `cp → commit → tag → push` (adds detached-HEAD
+  checkouts + pointer bumps), no upside.
+- **Hazard:** copier walks the template tree to render it. A `templates/<name>`
+  that is actually a submodule (a gitlink / `.git` file) is not something copier's
+  renderer expects to vendor — undefined-to-awkward at best.
+
+The single-pipeline goal is already met without submodules: decision #3 runs the
+fan-out as later STEPS in the same CI job, not a separate pipeline. This also
+restates the standing "no submodules" rule from [[0002-catalog-and-answer-model]].
+
+### copier "multi-template composition" (not a rival — the reason for the split)
+
+Two distinct copier features go by this name, and both are *consumer-side*
+layering, not a release topology:
+1. **Multiple answers files** — a consumer applies several INDEPENDENT templates
+   to one project, each tracked by its own answers file
+   (`copier copy -a .copier-answers.<layer>.yml <repo> .`), each updated
+   independently (`copier update -a .copier-answers.<layer>.yml`). Each layer is
+   STILL its own repo with its own `v*` tag line. This is exactly clerk's
+   `clerk-mod-*` model (base + pre-commit + CI + …) and is the *payoff* of the
+   split, not an alternative to it — it strengthens the case for many small,
+   independently-tagged repos.
+2. **`_external_data`** — one template reads another already-applied template's
+   answers file as data (e.g. default a child's `target_version` from a parent's
+   answer). Orthogonal to repo topology; it reads a file in the *generated
+   project*, not another repo. This is the future cross-module answer-inheritance
+   seam (roadmap 003/004 territory), not a release decision.
+
+## Authoring lifecycle — structure, indexing, scaffolding, publishing
+
+The release mechanics above cover *version bump → tag → fan-out*. This section
+covers the rest of the module lifecycle in the authoring monorepo
+(`copier-clerk/clerk-templates`): creating modules, keeping the family
+structured, and deriving the published catalog. It is the design detail behind
+roadmap **spec 008**; slice 001 implements none of it.
+
+**Framing — an authoring plane that REUSES the consumer plane (C-11).** Slice 001
+built the consumer plane (`discover / init / reproduce / trust`). The authoring
+lifecycle is the same thin helpers aimed *inward* at the monorepo — the module
+lint IS `discovery.discover()` run against local `templates/<name>/` instead of a
+remote repo. No new engine, no second tool; this keeps the lifecycle inside
+C-01/C-11 (glue only where copier cannot; prefer template content + CI bash).
+
+1. **Creating modules — a copier meta-template (dogfood).** `just new-module
+   <name>` renders `_meta/module-template/` with copier itself, laying down a
+   contract-complete module: `copier.yml` skeleton with the MANDATORY answers-file
+   `.jinja`, `README.md`, cog-managed `CHANGELOG.md`, a golden-render test fixture,
+   and the registration edits (`cog.toml [monorepo.packages.<name>]` + a catalog
+   source entry). Template content, not tool code. (Alternatives: a bash/sed
+   generator — simpler but bespoke and non-dogfooding; or defer and hand-author
+   first — most YAGNI-strict. Chosen: meta-template, to exercise the module
+   contract on every creation.)
+
+2. **Keeping it structured — a module contract, enforced in pre-commit AND CI.**
+   One `just check-modules` loops `templates/*/` and calls `discovery.discover()`
+   on each, asserting:
+   - valid `copier.yml` + present answers-file `.jinja` (the reproduce invariant —
+     the exact slice-001 check);
+   - `README.md` + cog-managed `CHANGELOG.md` present;
+   - **three-way registration parity**: directory listing == `cog.toml` packages
+     == catalog source entries (no orphan module, no ghost registration);
+   - **published-label immutability** (Constitution VI / C-06): a module's
+     `copier.yml` choice labels, once shipped, do not silently change — diff
+     against the last `<name>-v*` tag.
+   This runs in the `pre_bump_hooks` preflight slot already reserved above
+   (pre_bump rolls back cleanly → fail before any tag exists).
+
+3. **Auto-derived indexes — nothing hand-edited.**
+   - `cog.toml [monorepo.packages]` stays DECLARATIVE (the scaffolder writes the
+     entry); the lint VERIFIES it matches the directory rather than regenerating a
+     release tool's own config (auto-generating it is fragile).
+   - The **catalog JSON index** (what clerk consumers read) is GENERATED on release
+     from monorepo state: enumerate `templates/*/`, read name + description from
+     each `copier.yml` + latest `v*` tag, emit JSON. Per
+     [[0002-catalog-and-answer-model]] it holds SOURCES, not mandatory pins — the
+     latest tag is informational display only; the real reproduce pin lives in each
+     project's answers file. **Hosting:** committed as `catalog.json` in the
+     monorepo and served via GitHub Pages / a stable raw URL (one versioned source
+     of truth; clerk fetches a stable URL). (Alternatives: a dedicated
+     `copier-clerk/catalog` repo — extra repo + PAT + push target; or a Release
+     asset — no always-live URL, more fetch indirection.)
+
+4. **Publishing — the release job, extended.** The decision-#3 job gains a catalog
+   step: `cog bump --auto` → `git push --follow-tags` → `git tag --points-at HEAD`
+   → per-changed-module fan-out (cp + strip-prefix tag + push) → **regenerate +
+   publish `catalog.json`** → `gh release create` with the cog changelog body. The
+   catalog regeneration is the one new step on the already-decided flow.
+
+### CI identity for cross-repo writes + repo auto-creation
+
+The fan-out and (new) repo-creation steps write repos OTHER than the workflow's
+own, so the default Actions `GITHUB_TOKEN` (scoped to its own repo) is
+insufficient — a cross-repo credential is required regardless of topology.
+
+**Split repos are auto-created if missing.** The fan-out runs `gh repo create
+copier-clerk/clerk-mod-<name>` when the target does not exist (idempotent), so a
+newly scaffolded module needs zero manual pre-provisioning and one code path owns
+repo existence. Creating a repo in the org needs **`administration: write`** on
+the org — a higher grant than the `contents: write` a push needs.
+
+**DECIDED — an org-owned GitHub App ("clerk-fanout"), not a personal PAT.** The
+workflow mints a short-lived (~1h) installation token per run (e.g.
+`actions/create-github-app-token`) with `contents: write` + `administration:
+write`. Rationale: the elevated org-admin grant belongs to an auditable,
+org-owned identity that survives a maintainer leaving and issues ephemeral tokens
+— not a long-lived personal PAT sitting in repo secrets.
+- **Fallback (documented, not chosen):** a fine-grained PAT with the same two
+  grants works for low ceremony but is tied to a person and long-lived.
+- **Note:** if auto-create is ever dropped for a manual `gh repo create` per new
+  module, the CI credential only needs `contents: write` and the App's
+  `administration: write` becomes unnecessary — the App is justified specifically
+  by auto-creation.
+
 ## Risks
 
 - The fan-out is hand-rolled (no external split action to track). Its risk is the
-  ~25 lines of workflow bash we own + PAT scoping — legible and low.
+  ~25 lines of workflow bash we own + GitHub App token scoping — legible and low.
 - copier's PEP 440 hard requirement is load-bearing and has no relaxation knob;
   re-verify `get_latest_tag` on major copier upgrades in case a tag-filter is ever
   added (that alone could retire the split).

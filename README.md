@@ -25,9 +25,10 @@ clerk is exactly that layer, and nothing more:
 ## What clerk is NOT
 
 - **Not a scaffolder.** copier renders; clerk only decides and fills in.
-- **Not in the reproduce path.** Reproduce is agent-free: a plain
-  `copier recopy --defaults` (or `just reproduce`) run by a human or CI replays
-  the committed answers with no agent involvement.
+- **Not in the reproduce path.** Reproduce is agent-free: `clerk reproduce` (or
+  the generated `just reproduce`) replays the committed answers **at the recorded
+  commit** (`recopy --vcs-ref=:current: --defaults --overwrite`), never a bare
+  recopy that would silently upgrade — run by a human or CI with no agent.
 - **Not a template hub.** The catalog is user-owned; clerk works against any
   copier templates you point it at. See
   [`0002`](docs/decisions/0002-catalog-and-answer-model.md).
@@ -36,9 +37,12 @@ clerk is exactly that layer, and nothing more:
 
 The agent fetches a catalog of copier templates, injects it into a copier
 **selector template** at runtime (`run_copy(data={"catalog": [...]})`), the user
-picks modules, clerk writes the answer files, and copier renders — without
-`--trust`, so all action-taking stays in clerk's orchestrator. See
-[`0003`](docs/decisions/0003-selector-template-and-runtime-injection.md).
+picks modules, clerk writes the answer files, and copier renders. Any template
+that takes actions (its `_tasks` / migrations / jinja extensions) runs only from a
+source the user has **trusted** — copier's `settings.yml` trust list, recorded by
+an explicit consent step, never a blanket `unsafe=True`. See
+[`0003`](docs/decisions/0003-selector-template-and-runtime-injection.md) and
+[`0001`](docs/decisions/0001-copier-as-engine.md).
 
 ## Design decisions
 
