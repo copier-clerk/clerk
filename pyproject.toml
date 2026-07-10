@@ -16,10 +16,16 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  # copier is the deterministic render + reproduce engine. Pinned for
-  # byte-stable reproduce (see docs/decisions/0002); clerk drives it via its
-  # Python API / uvx and never runs template _tasks (no --trust).
+  # copier is the deterministic render + reproduce engine. Pinned <10 for
+  # byte-stable reproduce and a stable public surface (see docs/decisions/0001,
+  # 0002). clerk drives it via its public API / CLI; a template's _tasks run at
+  # init AND reproduce, gated by the user's settings.yml trust (never blanket
+  # unsafe=True) — see the constitution, Principles III & V.
   "copier>=9.16,<10",
+  # Static discovery only: PEP 440 tag filtering + copier.yml parsing. No
+  # pydantic seam and no deprecated-surface adapter in this slice.
+  "packaging>=26.2",
+  "pyyaml>=6.0.3",
 ]
 
 [project.urls]
@@ -34,6 +40,7 @@ dev = [
   "pytest>=8",
   "mypy>=1.11",
   "ruff>=0.6",
+  "types-pyyaml>=6.0.12.20260518",
 ]
 
 [build-system]
@@ -50,6 +57,12 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
 
+[tool.ruff.lint.per-file-ignores]
+# Tests use pathlib.Path and fixture types at runtime (pytest evaluates
+# annotations and constructs fixtures), so the type-checking-import rules are
+# noise here — the imports are genuinely needed outside TYPE_CHECKING.
+"tests/**" = ["TC001", "TC002", "TC003"]
+
 [tool.ruff.format]
 quote-style = "double"
 
@@ -60,3 +73,9 @@ files = ["src/clerk"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The suite is hermetic/offline by default. The single live-source smoke test is
+# marked `network` and deselected here; run it explicitly with `-m network`.
+addopts = "-m 'not network'"
+markers = [
+  "network: test requires network access (live-source smoke test); deselected by default",
+]
