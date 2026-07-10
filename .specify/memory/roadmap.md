@@ -88,10 +88,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   where possible); validation reuses copier's own dry run (`--pretend`) and answer
   validation. Typed models / JSON-Schema drift tests are NOT introduced until a
   non-agent program consumes the handoff. _See Constitution VIII._
-- **C-09 — Authoring monorepo → per-template fan-out:** templates authored in one
-  monorepo; cocogitto tags `<name>-vX.Y.Z`; a hand-rolled snapshot-mirror CI step
-  fans out to read-only `copier-clerk/clerk-mod-*` repos with clean `vX.Y.Z` tags;
-  consumers source the split repos. _See ADR-0006/0002._
+- **C-09 — Authoring monorepo → per-template fan-out + lifecycle:** templates
+  authored in one monorepo; cocogitto tags `<name>-vX.Y.Z`; a hand-rolled
+  snapshot-mirror CI step fans out to read-only `copier-clerk/clerk-mod-*` repos
+  with clean `vX.Y.Z` tags; consumers source the split repos. The authoring
+  lifecycle (scaffold via copier meta-template, `check-modules` contract lint,
+  generated `catalog.json`, org GitHub App minting short-lived tokens with
+  fan-out auto-creating missing repos) reuses the consumer-plane helpers aimed
+  inward — no second tool. Submodules rejected (do not satisfy copier's per-repo
+  clean-tag rule). _See ADR-0006/0002._
 - **C-10 — Validation wraps copier, not re-implements it:** surface copier's own
   validation (`copier.errors.*` AND `builtins.ValueError`); `--pretend`/`--check`
   uses copier's dry run. Cross-module all-gaps preflight is a forward-extension at
@@ -226,20 +231,32 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 003; likely 002.
 - **Governed by:** ADR-0001/0003; C-06.
 
-### 008 — Release + fan-out (CI)  [status: planned]
+### 008 — Release + fan-out + authoring lifecycle (CI)  [status: planned]
 
 - **Description:** Author templates in one monorepo, distribute as per-template
-  read-only repos.
+  read-only repos, and manage the full module lifecycle (scaffold, structure
+  lint, derived catalog) beyond version bumps.
 - **Outcome:** a monorepo release publishes changed templates to
-  `copier-clerk/clerk-mod-*` and updates a published catalog index.
+  `copier-clerk/clerk-mod-*` and refreshes a generated catalog index; new modules
+  are scaffolded contract-complete and the family stays structurally in-sync.
 - **Scope (in):** cocogitto monorepo tags `<name>-vX.Y.Z`
   (`generate_mono_repository_global_tag=false`, `tag_prefix=v`); one CI job —
   `cog bump` → `push --follow-tags` → `git tag --points-at HEAD` → hand-rolled
-  ~25-line snapshot-mirror (cp + commit + strip-prefix tag + push, PAT-scoped,
-  skip-if-no-diff); publish a catalog JSON index; direct push. All CI bash, no
-  application code. Distribute the SKILL via APM marketplace; templates via their
-  repos.
-- **Scope (out):** history-preserving splits (rejected).
+  ~25-line snapshot-mirror (cp + commit + strip-prefix tag + push, skip-if-no-diff)
+  → regenerate + publish `catalog.json`; direct push. **Authoring lifecycle** (see
+  ADR-0006 *Authoring lifecycle*): a copier meta-template scaffolder
+  (`just new-module`), a `just check-modules` contract lint (answers-file `.jinja`,
+  README/CHANGELOG, directory==cog==catalog parity, label immutability) run in
+  pre-commit + `pre_bump_hooks`, and a generated catalog index (`catalog.json` in
+  monorepo, served via GitHub Pages). **CI identity:** an org-owned GitHub App
+  ("clerk-fanout") minting short-lived tokens with `contents:write` +
+  `administration:write`; the fan-out auto-creates missing `clerk-mod-*` repos
+  (PAT is the documented fallback). The lint/scaffolder REUSE slice-001 discovery
+  (authoring plane = consumer plane aimed inward) — all CI bash + template content,
+  no new application code. Distribute the SKILL via APM marketplace; templates via
+  their repos.
+- **Scope (out):** history-preserving splits (rejected); a standalone catalog repo
+  (rejected — index lives in the monorepo).
 - **Depends on:** 001 (templates exist), 002 (catalog).
 - **Governed by:** ADR-0006/0002; C-09.
 
