@@ -182,6 +182,99 @@ rendered files, an initialized git repo, and a `.copier-answers.yml` recording
 `_src_path` + `_commit` + answers. **No clerk-specific file is written** — the
 `.copier-answers.yml` is the entire reproduce state.
 
+---
+
+### Multi-template flow (spec 003) — N≥2 layers in dependency order
+
+> **When this applies:** the user selects more than one template from the catalog
+> (e.g. a `clerk-mod-base` + a language layer). N=1 is the degenerate case of this
+> flow — behavior is identical to the steps above.
+
+**Your judgment (phase 1):** collect a validated selection (≥1 full-ids from step 0)
+and per-layer answers. You author the run-spec; ordering, apply, and reproduce are
+LLM-free (Constitution II).
+
+#### 5a. Author the multi-template run-spec
+
+Write a run-spec with the `selection` shape (instead of the single-template `source`
+field). List all selected layers with their resolved `source`/`ref` (from step 0-c)
+and per-layer answers. `today` is still injected by clerk — omit it:
+
+```yaml
+dest: "./my-project"
+selection:
+  - full_id: "demo/clerk-mod-base"
+    source: "https://github.com/copier-clerk/clerk-mod-base.git"
+    ref: "v1.2.0"          # optional pin; omit for latest
+    answers:
+      project_name: acme
+      license: MIT
+  - full_id: "demo/clerk-mod-python"
+    source: "https://github.com/copier-clerk/clerk-mod-python.git"
+    ref: null
+    answers:
+      python_version: "3.12"
+```
+
+Input order within `selection` does not affect the output — clerk reorders
+layers by dependency. See `specs/003-multi-template/contracts/ordering.md` for
+the exact run-spec shape, edge semantics, and exit codes.
+
+#### 5b. Preflight, then generate
+
+```sh
+uv run scripts/clerk.py init --run-spec <file> --check   # all-gaps preflight: all layers, writes nothing
+uv run scripts/clerk.py init --run-spec <file>           # apply layers in dependency order
+```
+
+**How clerk orders and applies layers (LLM-free):**
+
+1. Reads each layer's `copier.yml` statically for `depends_on`/`run_after`/
+   `run_before` edges (hidden `when:false` answers, already parsed by discovery).
+2. Builds a directed graph and refuses before any write if it finds:
+   - a **cycle** (names the cycle members — exit 1);
+   - a **dangling edge** (a dependency not in the selection — exit 1, names it);
+   - a **basename collision** (two layers with the same repo basename would overwrite
+     each other's answers file — exit 1, names the basename).
+3. Topologically sorts with a **stable tie-break: lexicographic by template basename**
+   among constraint-free layers — deterministic across runs and across init/reproduce.
+4. Applies one `copier copy` per layer in that order, threading earlier layers'
+   answers into later layers via copier's `data=` parameter (not `_external_data`).
+5. Each layer commits its own `.copier-answers.<basename>.yml` recording its
+   `_src_path` + `_commit`. **No clerk-authored order or recipe file is committed.**
+
+`--check` (all-gaps preflight) runs all layers with `pretend=True`, collects every
+missing or invalid answer across all layers, and reports them in one pass — it never
+stops at the first failing layer.
+
+On success, the project has one committed `.copier-answers.<basename>.yml` per
+layer. Those files are the entire reproduce state.
+
+#### Reproduce (recomputed, not frozen)
+
+```sh
+uv run scripts/clerk.py reproduce <project-dir>
+```
+
+clerk enumerates the committed `.copier-answers*.yml` files, fetches each template
+at its recorded `_commit`, re-reads the edges, rebuilds the DAG, and topo-sorts with
+the same stable tie-break — **recomputing** the order from committed state, never
+reading a frozen recipe. Pinned commits → identical edges → identical order, so
+reproduce is deterministic and agent-free.
+
+**Copier-only-by-hand fallback** (no clerk required):
+
+```sh
+# For each .copier-answers.<name>.yml in the recomputed dependency order:
+cd <project-dir>
+copier recopy --vcs-ref=:current: --defaults --overwrite -a .copier-answers.<name>.yml
+```
+
+The recomputed order is derivable by hand from the same committed `when:false` edges;
+nothing about the project *requires* clerk to reproduce.
+
+---
+
 ### 6. Hand off
 
 Tell the user the project is generated and how to reproduce it **without you**:
@@ -220,5 +313,7 @@ slash commands. They apply to any project clerk has touched:
   surface, exact commands, and exit codes for the bundled script.
 - `specs/002-catalog/contracts/catalog.md` — catalog file format, listing JSON
   shape, full-id semantics, exit codes, and `unusable` structure.
+- `specs/003-multi-template/contracts/ordering.md` — multi-template run-spec shape,
+  edge semantics (depends_on/run_after/run_before), ordering algorithm, and exit codes.
 - `specs/001-clerk-vertical-slice/contracts/discovery-output.md` — discover JSON.
 - `specs/001-clerk-vertical-slice/contracts/answers-doc.md` — run-spec format.
