@@ -1,6 +1,6 @@
 ---
 name: clerk
-description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Portable (macOS/Linux/WSL) — the deterministic steps run via the bundled script, no clerk CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/clerk.py`) does all rendering, and reproduce is agent-free.
+description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Portable — the deterministic steps run via the bundled script, no clerk CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/clerk.py`) does all rendering, and reproduce is agent-free.
 ---
 
 # clerk — conduct copier
@@ -22,38 +22,10 @@ author *inputs only*.
 
 ## Prerequisites
 
-- **Platform:** macOS, Linux, or WSL on Windows.
-- `git` on PATH.
+- `uv` on PATH (to run `scripts/clerk.py`), `copier`, and `git`.
 - The example template's LICENSE task needs `gh` authenticated (`gh auth status`).
-- `scripts/clerk.py` is the bundled script — **invoke it by the path anchored to
-  the skill's install location**, not as `./scripts/clerk.py` (the agent's CWD is
-  normally the consumer project root, not the skill dir, so a bare relative path
-  will not resolve when the skill is installed via APM). Example:
-
-  ```sh
-  # When clerk is installed via APM, the skill dir is the resolved base:
-  python "$SKILL_DIR/scripts/clerk.py" <verb> …
-  # or with uv (frictionless if uv is on PATH — reads the PEP 723 header):
-  uv run "$SKILL_DIR/scripts/clerk.py" <verb> …
-  ```
-
-  where `$SKILL_DIR` is the directory containing this `SKILL.md`.
-
-- **Third-party deps** (`copier>=9.16,<10`, `pyyaml`, `packaging`, `tomli-w`) must
-  be installed. The script checks them at startup and prints an environment-aware
-  install suggestion if any are missing or version-incompatible — no traceback.
-  Run `scripts/clerk.py doctor` for an explicit readiness check:
-
-  ```sh
-  python "$SKILL_DIR/scripts/clerk.py" doctor   # exit 0 = ready; exit 4 = issues
-  ```
-
-  Install suggestions (detected automatically):
-  - **uv** on PATH: `uv pip install copier pyyaml packaging tomli-w`
-  - **pip** on PATH: `pip install copier pyyaml packaging tomli-w`
-  - **macOS brew** (copier only): `brew install copier` (then pip/uv for the rest)
-  - `uv run "$SKILL_DIR/scripts/clerk.py"` auto-provisions in an ephemeral env
-    if you have `uv` — no manual install needed in that case.
+- `scripts/clerk.py` is the bundled script; invoke it as `uv run scripts/clerk.py`
+  or `./scripts/clerk.py` — no `clerk` console command on PATH is needed or expected.
 
 ## Procedure
 
@@ -179,7 +151,7 @@ If you skip this, `init` refuses with exit 3 and prints the exact
 `scripts/clerk.py trust add` command — that refusal is the safety gate working,
 not an error to route around. Never auto-trust; consent is the user's, per turn.
 
-### 4. Author the run-spec — and handle secret questions
+### 4. Author the run-spec
 
 Write a run-spec file (JSON/YAML) per
 `specs/001-clerk-vertical-slice/contracts/answers-doc.md`:
@@ -192,32 +164,10 @@ answers:
   <key>: <value>
 ```
 
-Omit `today` (the script injects it).
-
-**Secrets — do NOT collect, do NOT put in the run-spec (spec 005):**
-
-If discovery reports any key in `secret_questions` (for a third-party template):
-
-- **NEVER ask the user for the value.** Never place it in the run-spec or in any
-  field you author. A secret must not enter the LLM context (Constitution II).
-- **Explain the situation** and direct **out-of-band supply**:
-  - copier's own **masked interactive prompt** at the deterministic step (the
-    human types it directly into copier, not to you), OR
-  - an environment mechanism the user controls.
-- **If the run is non-interactive (reproduce/CI):** a required secret with no
-  value supplied **fails loud** naming the question — clerk does NOT silently
-  render copier's placeholder default (Constitution V). The user must supply the
-  real value out-of-band before reproducing.
-- **clerk enforces this mechanically.** `scripts/clerk.py init` rejects any
-  run-spec that supplies a value for a discovery-flagged secret key — fail loud,
-  naming the key — regardless of what you put in the run-spec. Do not try to
-  work around this; it is the security boundary.
-- clerk-authored templates (`clerk-mod-*`) avoid `secret: true` questions
-  entirely; if you encounter one it is a third-party template. See
-  `specs/005-secrets/contracts/secrets.md` for the full policy.
-
-Secrets and hidden `when:false` edges are never written to the recorded answers
-regardless (copier's own behavior).
+Omit `today` (the script injects it). For `secret: true` questions, do not
+hard-code the secret into a committed run-spec — in this slice, prompt for it at
+run time; secret injection from a store is a later spec (005). Secrets and hidden
+`when:false` edges are never written to the recorded answers regardless.
 
 ### 5. Dry-run, then generate
 

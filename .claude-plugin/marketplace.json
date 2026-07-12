@@ -1,0 +1,16 @@
+{
+  "name": "clerk",
+  "owner": {
+    "name": "copier-clerk",
+    "url": "https://github.com/copier-clerk"
+  },
+  "plugins": [
+    {
+      "name": "clerk",
+      "description": "Agentic conductor for copier — a skill + bundled deterministic scripts. Inspects templates, authors run-specs, drives init and faithful reproduce.",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "source": "./packages/clerk"
+    }
+  ]
+}

@@ -295,11 +295,45 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 003; likely 002.
 - **Governed by:** ADR-0001/0003; C-06.
 
-### 008 — Release + fan-out + authoring lifecycle (CI)  [status: planned]
+### 008 — Skill packaging: installable via Claude + Codex APM marketplaces  [status: implemented]
+
+- **Description:** Make the clerk skill installable into any macOS/Linux/WSL project
+  via APM, using APM's own tooling (`apm pack` / `apm publish` / `apm marketplace`).
+  Solves portability: the package vendors `src/clerk/*` (no PyPI `clerk`) and checks
+  its deps (no assumed package manager).
+- **Outcome:** A developer can `apm marketplace add copier-clerk/clerk`, `apm install
+  clerk`, and drive copier from their own project with the bundled `scripts/clerk.py`.
+  Both a Claude (`.claude-plugin/marketplace.json`) and a Codex
+  (`.agents/plugins/marketplace.json`) marketplace are built from one `apm.yml` config.
+  Dep preflight with environment-aware install suggestion (uv/pipx/pip; brew for copier
+  only). `clerk doctor` for explicit readiness check. Release sequence is documented
+  and gated (`apm pack --check-versions --check-clean`).
+- **Scope (in):** `apm.yml` `marketplace:` block (claude+codex outputs, `category:
+  Productivity`); `packages/clerk/` local-source package layout; `src/clerk/_preflight.py`
+  (stdlib-only dep check + version pin + environment-aware suggestion); dual-mode
+  `sys.path` shim in `scripts/clerk.py` (BLOCKER-1 fix); PEP 723 header (FR-005);
+  `doctor` verb; `just vendor`/`check-vendor`/`pack`/`release` recipes (BLOCKER-2 fix);
+  CI `pack.yml` gate; portable SKILL.md update; README `## Install` section; roadmap
+  split.
+- **Scope (out):** fan-out/authoring-lifecycle CI (deferred — see spec 008b below).
+  No cocogitto, no catalog.json generation, no GitHub App, no `just new-module` /
+  `check-modules`. No `apm publish` to registry (deferred until `registries` feature
+  is stable — Q-008b).
+- **Completed 2026-07-12** (branch `008-packaging`): all T001–T015 done; 51 new tests
+  (34 unit preflight + 17 packaging structural); ruff/mypy-strict clean; full suite
+  green. `apm pack` dry-run + validate: deferred — `apm` not installed in CI; marked
+  to skip cleanly. Install smoke (T011a): marked `network`, deferred for CI with
+  `apm` + network access.
+- **Depends on:** 001, 002, 003, 010.
+- **Governed by:** Constitution I, II; ADR-0006; spec 010; C-01, C-11.
+
+### 008b — Fan-out + authoring lifecycle (CI)  [status: planned]
 
 - **Description:** Author templates in one monorepo, distribute as per-template
   read-only repos, and manage the full module lifecycle (scaffold, structure
-  lint, derived catalog) beyond version bumps.
+  lint, derived catalog) beyond version bumps. Deferred from spec 008 — no
+  `clerk-mod-*` templates exist to fan out until spec 009 (C-11: no speculative
+  machinery).
 - **Outcome:** a monorepo release publishes changed templates to
   `copier-clerk/clerk-mod-*` and refreshes a generated catalog index; new modules
   are scaffolded contract-complete and the family stays structurally in-sync.
@@ -317,11 +351,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `administration:write`; the fan-out auto-creates missing `clerk-mod-*` repos
   (PAT is the documented fallback). The lint/scaffolder REUSE slice-001 discovery
   (authoring plane = consumer plane aimed inward) — all CI bash + template content,
-  no new application code. Distribute the SKILL via APM marketplace; templates via
-  their repos.
+  no new application code.
 - **Scope (out):** history-preserving splits (rejected); a standalone catalog repo
   (rejected — index lives in the monorepo).
-- **Depends on:** 001 (templates exist), 002 (catalog).
+- **Depends on:** 008 (skill packaging), 009 (real clerk-mod-* templates exist).
 - **Governed by:** ADR-0006/0002; C-09.
 
 ### 009 — project-setup module port (templates)  [status: planned]
