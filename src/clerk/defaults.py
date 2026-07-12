@@ -130,10 +130,10 @@ def select_keys(defaults: dict[str, Any], questions: list[Question]) -> dict[str
 # ---------------------------------------------------------------------------
 
 
-def fold_settings_defaults(toml_defaults: dict[str, Any]) -> dict[str, Any]:
+def fold_settings_defaults(clerk_defaults: dict[str, Any]) -> dict[str, Any]:
     """Merge copier's ``settings.yml defaults:`` as a lower-priority fallback.
 
-    Result: ``{**copier_settings_defaults, **toml_defaults}`` so the clerk
+    Result: ``{**copier_settings_defaults, **clerk_defaults}`` so the clerk
     defaults file always wins on collision. Best-effort: any exception from
     ``load_settings()`` is swallowed and only the clerk defaults are returned
     (Q-004b resolved — graceful degradation, FR-005).
@@ -145,5 +145,5 @@ def fold_settings_defaults(toml_defaults: dict[str, Any]) -> dict[str, Any]:
         settings_defaults = dict(settings.defaults) if settings.defaults else {}
     except Exception as exc:  # noqa: BLE001 — best-effort; degrades gracefully
         _logger.debug("could not load copier settings.yml defaults (ignored): %s", exc)
-        return toml_defaults
-    return {**settings_defaults, **toml_defaults}
+        return clerk_defaults
+    return {**settings_defaults, **clerk_defaults}
