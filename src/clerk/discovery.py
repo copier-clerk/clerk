@@ -293,6 +293,26 @@ def _git_identity_configured(dst: Path) -> bool:
     return bool(name.stdout.strip()) and bool(email.stdout.strip())
 
 
+def worktree_is_dirty(dest: str) -> bool:
+    """True if ``dest`` is a git repo with uncommitted changes (tracked or untracked).
+
+    Used as an upgrade prerequisite: the between-layer commit stages everything
+    (``git add -A``), so a real upgrade must start from a clean tree or the user's
+    unrelated work would be swept into a clerk commit. A path that is not a git repo
+    returns False (copier surfaces the not-a-repo case itself). Lives in discovery so
+    all subprocess/git calls stay here (FR-004).
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=Path(dest),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False  # not a git repo — not our precondition to enforce
+    return bool(result.stdout.strip())
+
+
 def git_commit_if_dirty(dest: str, message: str) -> None:
     """Stage and commit any changes in ``dest`` if the working tree is dirty.
 

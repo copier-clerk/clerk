@@ -8,6 +8,20 @@ report. Nothing clerk-authored is committed to encode the upgrade state; the new
 
 ---
 
+## Prerequisites
+
+- **Clean git working tree.** Before any clone or write, clerk checks `dest` with
+  `git status --porcelain`; if it is dirty, clerk raises `DirtyWorktreeError`
+  (exit 1) and does nothing. Two reasons converge on this: (1) a multi-layer upgrade
+  commits each layer between layers via `git add -A`, which would otherwise sweep the
+  user's unrelated uncommitted work into a clerk commit; (2) copier's own
+  `run_update` refuses a dirty tree even in `pretend` mode. Checking up front lets
+  clerk surface one clear "commit or stash first" message instead of copier's cryptic
+  mid-run "repository is dirty" error. A path that is not a git repo is not clerk's
+  precondition to enforce (copier surfaces that itself).
+
+---
+
 ## The upgrade run-spec
 
 An extension of the spec 003 multi-template run-spec shape. Single-layer is the N=1
@@ -182,7 +196,7 @@ resolve the conflicts and rerun. Clerk does NOT auto-resolve conflicts or revert
 | Code | Meaning |
 |---|---|
 | 0 | success (clean upgrade, or `--pretend` preview complete) |
-| 1 | `ClerkError` / `OrderingError` / `DeprecatedMigrationFormatError` / `DowngradeError` / other clerk error |
+| 1 | `ClerkError` / `DirtyWorktreeError` / `OrderingError` / `DeprecatedMigrationFormatError` / `DowngradeError` / other clerk error |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` — source has migrations/tasks and is untrusted |
 | 4 | `MergeConflictError` — upgrade completed but conflicts remain; named paths in output |

@@ -200,7 +200,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_update = sub.add_parser(
         "update",
-        help="Upgrade a project to a newer template version (spec 006).",
+        help=(
+            "Upgrade a project to a newer template version (spec 006). "
+            "Requires a clean git working tree (commit or stash changes first)."
+        ),
+        description=(
+            "Upgrade a project to a newer template version (spec 006). "
+            "Requires a clean git working tree: upgrade commits each template layer "
+            "between layers, and copier refuses a dirty tree even with --pretend. "
+            "Commit or stash your changes first."
+        ),
     )
     p_update.add_argument("dest", nargs="?", default=".", help="Project directory (default: cwd).")
     p_update.add_argument(

@@ -12,7 +12,7 @@ import pytest
 import yaml
 
 from clerk import runner
-from clerk.errors import OrderingError
+from clerk.errors import DirtyWorktreeError, OrderingError
 from tests.conftest import MultiUpgradeFixture, NewDepUpgradeFixture
 
 _PATH = __import__("os").environ.get("PATH", "/usr/bin:/bin")
@@ -182,3 +182,47 @@ def test_n1_via_multi_path_no_regression(
     af = next(dest.glob(".copier-answers*.yml"))
     raw = yaml.safe_load(af.read_text())
     assert raw["_commit"] == "v1.1.0"
+
+
+def test_dirty_worktree_refused_before_any_write(
+    multi_upgrade_fixture: MultiUpgradeFixture, tmp_path: Path
+) -> None:
+    """Prerequisite: a real upgrade on a dirty tree is refused up front, nothing written.
+
+    The between-layer commit stages everything (git add -A), so clerk must start from a
+    clean tree or the user's uncommitted work would be swept into a clerk commit.
+    """
+    dest = tmp_path / "proj"
+    a_url = str(multi_upgrade_fixture.tpl_a_path)
+    b_url = str(multi_upgrade_fixture.tpl_b_path)
+    _init_multi_and_commit(dest, a_url, b_url)
+
+    # Introduce an unrelated uncommitted change.
+    (dest / "my_unrelated_work.txt").write_text("in progress\n")
+
+    before_a = (dest / "a_out.txt").read_text()
+    with pytest.raises(DirtyWorktreeError, match="uncommitted changes"):
+        runner.update_many(str(dest), vcs_ref="v1.1.0")
+
+    # Nothing upgraded, and the user's change is untouched.
+    assert (dest / "a_out.txt").read_text() == before_a
+    assert (dest / "my_unrelated_work.txt").read_text() == "in progress\n"
+    raw_a = yaml.safe_load((dest / ".copier-answers.tpl-mu-a.yml").read_text())
+    assert raw_a["_commit"] == "v1.0.0"  # still at the original version
+
+
+def test_dirty_worktree_refused_in_pretend_too(
+    multi_upgrade_fixture: MultiUpgradeFixture, tmp_path: Path
+) -> None:
+    """Dirty tree is refused even with --pretend: copier's run_update refuses a dirty
+    tree regardless of pretend, so clerk surfaces the clear error up front in both modes.
+    """
+    dest = tmp_path / "proj"
+    a_url = str(multi_upgrade_fixture.tpl_a_path)
+    b_url = str(multi_upgrade_fixture.tpl_b_path)
+    _init_multi_and_commit(dest, a_url, b_url)
+
+    (dest / "my_unrelated_work.txt").write_text("in progress\n")
+
+    with pytest.raises(DirtyWorktreeError, match="uncommitted changes"):
+        runner.update_many(str(dest), vcs_ref="v1.1.0", pretend=True)

@@ -384,7 +384,12 @@ slash commands. They apply to any project clerk has touched:
    non-empty, explain that the template runs code and obtain explicit consent before
    running upgrade. Then trust the source if not already trusted:
    `uv run scripts/clerk.py trust add --from-source <src>`.
-5. **Dry-run (optional)**: run with `--pretend` to preview changes without writing.
+5. **Clean tree required**: the destination must have no uncommitted changes.
+   Upgrade commits each layer between layers (and copier refuses a dirty tree even
+   in `--pretend`), so commit or stash first. clerk refuses up front with a clear
+   message otherwise.
+6. **Dry-run (optional)**: run with `--pretend` to preview changes without writing
+   (still requires a clean tree).
 
 **Phase 2 (deterministic — LLM-free):**
 
@@ -395,7 +400,7 @@ uv run scripts/clerk.py update <dest> [--vcs-ref <tag>] [--pretend] [--conflict 
 
 **Exit codes** (see `contracts/upgrade.md` for details):
 - `0` — success; all layers upgraded.
-- `1` — hard error (ordering, deprecated migration format, downgrade attempt, etc.).
+- `1` — hard error (dirty working tree, ordering, deprecated migration format, downgrade attempt, etc.).
 - `3` — untrusted source with tasks/migrations.
 - `4` — merge conflicts present; named in output. Resolve conflicts and re-run upgrade.
 

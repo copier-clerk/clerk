@@ -36,6 +36,7 @@ from clerk import discovery, trust
 from clerk.catalog import TemplateRecord
 from clerk.errors import (
     ClerkError,
+    DirtyWorktreeError,
     DowngradeError,
     InvalidRunSpecError,
     MergeConflictError,
@@ -698,6 +699,19 @@ def update_many(
     N=1 behaves identically to single-layer update (uniform loop, spec 010).
     """
     from clerk import ordering  # local import avoids circular at module load
+
+    # Prerequisite: the tree must be clean before an upgrade. Two reasons, both point
+    # to "commit or stash first": (1) a real upgrade commits each layer between layers
+    # (git add -A), which would sweep the user's unrelated uncommitted work into a clerk
+    # commit; (2) copier's own run_update refuses a dirty tree even in pretend mode.
+    # Checked up front, before any network clone, so clerk surfaces one clear error
+    # instead of copier's cryptic "repository is dirty" mid-run.
+    if discovery.worktree_is_dirty(dest):
+        raise DirtyWorktreeError(
+            f"{dest!r} has uncommitted changes. Upgrade requires a clean working tree "
+            f"(it commits each template layer between layers, and copier refuses a dirty "
+            f"tree). Commit or stash your changes first, then re-run the upgrade."
+        )
 
     answers_files = enumerate_answers_files(dest)
     if not answers_files:

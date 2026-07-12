@@ -55,6 +55,16 @@ author *inputs only*.
   - `uv run "$SKILL_DIR/scripts/clerk.py"` auto-provisions in an ephemeral env
     if you have `uv` — no manual install needed in that case.
 
+## User defaults (spec 004)
+
+clerk pre-fills copier's soft-default prompt values from a YAML file at
+`~/.config/clerk/defaults.yml` (overridable via `CLERK_DEFAULTS_PATH`). It is a
+flat `question_key: value` mapping — no sections, no nesting. Keys absent from
+the current template's questions are silently ignored (one file works across many
+templates). Secret questions (`secret: true`) are never pre-filled. The file is
+user-side config only — it is never written into the generated project. See
+`specs/004-defaults/contracts/defaults.md` for the full contract.
+
 ## Procedure
 
 ### 0. Catalog: ensure, list, pick, validate
@@ -355,7 +365,64 @@ slash commands. They apply to any project clerk has touched:
   answers at the recorded commit, no agent. Equivalent copier-only fallback:
   `copier recopy --vcs-ref=:current: --defaults --overwrite` (per answers file).
 - **Update** — the intentional upgrade to a newer template version (spec 006);
-  distinct from reproduce.
+  distinct from reproduce. Procedure below.
+
+### Upgrade sub-procedure (spec 006)
+
+> **When this applies:** the user wants to move a project from one template version
+> to a newer one (e.g. `v1.0.0 → v1.2.0`). Upgrade is the ONLY clerk path that
+> advances a template version; reproduce always stays pinned.
+
+**Phase 1 (agent — you):**
+
+1. **Inspect current state**: read the project's `.copier-answers*.yml` — note the
+   `_src_path` (template source) and `_commit` (current pinned version) per layer.
+2. **Discover available versions**: run
+   `uv run scripts/clerk.py discover <src_path>` and note the `versions` list.
+3. **Announce the upgrade**: tell the user the from→to version per layer.
+4. **Trust check**: if `has_tasks`, `has_migrations`, or `jinja_extensions` is
+   non-empty, explain that the template runs code and obtain explicit consent before
+   running upgrade. Then trust the source if not already trusted:
+   `uv run scripts/clerk.py trust add --from-source <src>`.
+5. **Clean tree required**: the destination must have no uncommitted changes.
+   Upgrade commits each layer between layers (and copier refuses a dirty tree even
+   in `--pretend`), so commit or stash first. clerk refuses up front with a clear
+   message otherwise.
+6. **Dry-run (optional)**: run with `--pretend` to preview changes without writing
+   (still requires a clean tree).
+
+**Phase 2 (deterministic — LLM-free):**
+
+```sh
+# Single-layer or multi-layer (N=1 is the degenerate case):
+uv run scripts/clerk.py update <dest> [--vcs-ref <tag>] [--pretend] [--conflict inline|rej]
+```
+
+**Exit codes** (see `contracts/upgrade.md` for details):
+- `0` — success; all layers upgraded.
+- `1` — hard error (dirty working tree, ordering, deprecated migration format, downgrade attempt, etc.).
+- `3` — untrusted source with tasks/migrations.
+- `4` — merge conflicts present; named in output. Resolve conflicts and re-run upgrade.
+
+**Post-upgrade:**
+- On exit 0: committed `.copier-answers*.yml` files now record the new `_commit`.
+- On exit 4: files contain inline conflict markers (`<<<<<<< before updating`) or
+  `.rej` files (in `--conflict rej` mode). Resolve and re-run.
+
+**Migration awareness:**
+- `_migrations` entries run automatically during `run_update` when the version
+  condition is met (`target >= entry_version > from_version`). copier executes them;
+  clerk trust-gates them (same as `_tasks`).
+- The deprecated `before`/`after` dict form in `_migrations` is refused at discovery
+  — template authors must use the new format (see `contracts/upgrade.md`).
+- `--skip-tasks` suppresses `_tasks` but NOT `_migrations` (copier limitation:
+  migration_tasks() is called unconditionally in _apply_update()).
+
+**Copier-only fallback** (no clerk required for single layer):
+```sh
+copier update --vcs-ref <tag> --defaults --overwrite <dest>
+# Multi-layer: drive each .copier-answers*.yml in dependency order
+```
 
 ## References
 

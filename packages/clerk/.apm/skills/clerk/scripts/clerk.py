@@ -198,6 +198,48 @@ def _build_parser() -> argparse.ArgumentParser:
     p_trust_list = trust_sub.add_parser("list", help="List trusted sources.")
     p_trust_list.set_defaults(func=_deferred_dispatch)
 
+    p_update = sub.add_parser(
+        "update",
+        help=(
+            "Upgrade a project to a newer template version (spec 006). "
+            "Requires a clean git working tree (commit or stash changes first)."
+        ),
+        description=(
+            "Upgrade a project to a newer template version (spec 006). "
+            "Requires a clean git working tree: upgrade commits each template layer "
+            "between layers, and copier refuses a dirty tree even with --pretend. "
+            "Commit or stash your changes first."
+        ),
+    )
+    p_update.add_argument("dest", nargs="?", default=".", help="Project directory (default: cwd).")
+    p_update.add_argument(
+        "--vcs-ref",
+        default=None,
+        dest="vcs_ref",
+        help="Target version tag (default: latest PEP 440 tag per layer).",
+    )
+    p_update.add_argument(
+        "--pretend",
+        action="store_true",
+        help="Dry-run: preview what would change without writing.",
+    )
+    p_update.add_argument(
+        "--conflict",
+        choices=["inline", "rej"],
+        default="inline",
+        help="Conflict mode: 'inline' (default) writes markers; 'rej' writes .rej files.",
+    )
+    p_update.add_argument(
+        "--skip-tasks",
+        action="store_true",
+        dest="skip_tasks",
+        help=(
+            "Suppress _tasks during update. "
+            "NOTE: does NOT suppress _migrations (copier limitation; see spec 006)."
+        ),
+    )
+    p_update.set_defaults(func=_deferred_dispatch)
+
     p_doctor = sub.add_parser(
         "doctor",
         help="Check that all required deps are installed and version-compatible.",
@@ -442,6 +484,21 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
             return 0
         return 2
 
+    def _cmd_update(a: argparse.Namespace) -> int:
+        dest = a.dest
+        results = runner.update_many(
+            dest,
+            vcs_ref=a.vcs_ref or None,
+            pretend=a.pretend,
+            conflict=a.conflict,
+            skip_tasks=a.skip_tasks,
+        )
+        if results and results[0].pretend:
+            print(f"OK: dry-run upgrade preview for {len(results)} layer(s) (no files written).")
+        else:
+            print(f"OK: upgraded {dest} ({len(results)} layer(s)).")
+        return 0
+
     # --- dispatch table ---
     cmd = args.command
     try:
@@ -455,10 +512,19 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
             return _cmd_catalog(args)
         if cmd == "trust":
             return _cmd_trust(args)
+        if cmd == "update":
+            return _cmd_update(args)
     except UntrustedSourceError as exc:
         print(str(exc), file=sys.stderr)
         return 3
     except ClerkError as exc:
+        # MergeConflictError subclasses ClerkError — exit 4 so callers can distinguish
+        # "conflicts to resolve" from hard errors (exit 1).
+        from clerk.errors import MergeConflictError
+
+        if isinstance(exc, MergeConflictError):
+            print(f"error: {exc}", file=sys.stderr)
+            return 4
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

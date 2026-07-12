@@ -128,3 +128,17 @@ class DowngradeError(ClerkError):
     Downgrades are not supported; the user must use copier CLI directly if they
     really want to downgrade.
     """
+
+
+class DirtyWorktreeError(ClerkError):
+    """The destination has uncommitted changes at the start of an upgrade.
+
+    Upgrade requires a clean tree for two reasons: (1) it commits each layer's
+    changes between layers so copier's next ``run_update`` sees a clean tree
+    (multi-layer coordination copier cannot do), and those commits stage
+    everything (``git add -A``), so pre-existing uncommitted work would be swept
+    into a clerk commit; (2) copier's own ``run_update`` refuses a dirty tree even
+    in pretend mode. clerk checks up front and asks the user to commit or stash
+    first, surfacing one clear error instead of copier's cryptic mid-run message.
+    Maps to exit 1.
+    """
