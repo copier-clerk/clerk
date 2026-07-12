@@ -354,6 +354,8 @@ def test_secret_with_nonempty_default_does_not_fail_loud(tmp_path: Path) -> None
     # Should NOT raise InvalidRunSpecError — the template has a usable default.
     # It may raise other errors (e.g. trust) but not the fail-loud secret check.
     # We only care that _check_required_secrets_supplied doesn't fire.
+    from clerk import discovery
     from clerk.runner import _check_required_secrets_supplied
 
-    _check_required_secrets_supplied(spec.answers, repo.url, spec.ref)  # must not raise
+    desc = discovery.discover(repo.url, spec.ref)
+    _check_required_secrets_supplied(spec.answers, desc)  # must not raise

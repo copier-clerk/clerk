@@ -113,21 +113,21 @@ def _require_trust_if_action_taking(source: str, ref: str | None) -> None:
         raise UntrustedSourceError(suggest_prefix(source), source=source)
 
 
-def _check_no_secrets(answers: dict[str, Any], source: str, ref: str | None) -> None:
+def _check_no_secrets(answers: dict[str, Any], desc: discovery.Discovery) -> None:
     """Fail loud if the run-spec supplies a value for any discovery-flagged secret key.
 
     Named key, never the value — that is the invariant (FR-003a / SC-003a).  This
     runs before any copier call so a secret never flows through even if the SKILL
-    rule is violated.
+    rule is violated.  Takes a pre-fetched ``Discovery`` so the caller pays for one
+    clone per layer, not one per check.
     """
-    desc = discovery.discover(source, ref)
     secret_set = set(desc.secret_questions)
     offenders = [k for k in answers if k in secret_set]
     if offenders:
         raise SecretInAnswersError(offenders)
 
 
-def _check_required_secrets_supplied(answers: dict[str, Any], source: str, ref: str | None) -> None:
+def _check_required_secrets_supplied(answers: dict[str, Any], desc: discovery.Discovery) -> None:
     """Fail loud if a required secret question has no value in non-interactive mode.
 
     copier would silently render the placeholder default — clerk refuses instead
@@ -135,7 +135,6 @@ def _check_required_secrets_supplied(answers: dict[str, Any], source: str, ref: 
     when it has a falsy default (empty string or None), matching copier's own
     check for secret questions.
     """
-    desc = discovery.discover(source, ref)
     for q in desc.questions:
         if not q.secret:
             continue
@@ -180,14 +179,15 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     """
     _require_reproducible(spec.source, spec.ref)
     _require_trust_if_action_taking(spec.source, spec.ref)
+    # Discover once; reuse for both secret checks and error redaction below.
+    desc = discovery.discover(spec.source, spec.ref)
     # Mechanical enforcement (FR-003a): reject secret keys in the run-spec before
     # any copier call, regardless of SKILL behavior.
-    _check_no_secrets(spec.answers, spec.source, spec.ref)
+    _check_no_secrets(spec.answers, desc)
     # Fail loud on required secrets with no value (FR-003c / Constitution V).
-    _check_required_secrets_supplied(spec.answers, spec.source, spec.ref)
+    _check_required_secrets_supplied(spec.answers, desc)
     data = _with_today(spec.answers, today)
-    # Discover secret keys once for potential error redaction below.
-    _secret_keys = discovery.discover(spec.source, spec.ref).secret_questions
+    _secret_keys = desc.secret_questions
     try:
         run_copy(
             spec.source,
@@ -300,12 +300,14 @@ def init_many(
             _require_reproducible(record.source, record.ref)
             _require_trust_if_action_taking(record.source, record.ref)
             layer_answers = answers_map.get(record.full_id, {})
+            # Discover once per layer; reuse for both secret checks and redaction.
+            desc = discovery.discover(record.source, record.ref)
             # FR-003a: reject secrets in per-layer answers before any copier call.
-            _check_no_secrets(layer_answers, record.source, record.ref)
+            _check_no_secrets(layer_answers, desc)
             # FR-003c: fail loud on required secrets with no value.
-            _check_required_secrets_supplied(layer_answers, record.source, record.ref)
+            _check_required_secrets_supplied(layer_answers, desc)
             data = {**accumulated, **layer_answers}
-            _secret_keys = discovery.discover(record.source, record.ref).secret_questions
+            _secret_keys = desc.secret_questions
             try:
                 run_copy(
                     record.source,
@@ -338,12 +340,14 @@ def init_many(
         _require_reproducible(record.source, record.ref)
         _require_trust_if_action_taking(record.source, record.ref)
         layer_answers = answers_map.get(record.full_id, {})
+        # Discover once per layer; reuse for both secret checks and redaction.
+        desc = discovery.discover(record.source, record.ref)
         # FR-003a: reject secrets in per-layer answers even in preflight mode.
-        _check_no_secrets(layer_answers, record.source, record.ref)
+        _check_no_secrets(layer_answers, desc)
         # FR-003c: fail loud on required secrets with no value.
-        _check_required_secrets_supplied(layer_answers, record.source, record.ref)
+        _check_required_secrets_supplied(layer_answers, desc)
         data = {**accumulated, **layer_answers}
-        _secret_keys = discovery.discover(record.source, record.ref).secret_questions
+        _secret_keys = desc.secret_questions
         try:
             run_copy(
                 record.source,
