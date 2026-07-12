@@ -48,9 +48,11 @@ at once, not one failed layer at a time.
    No "ordering template", no user step — a pure function (ADR-0003).
 2. **Deterministic order via a documented stable tie-break.** Mutually-independent
    layers (no edge between them) may run in any order; determinism comes from a
-   **stable, documented tie-break** (lexicographic by full-id) so the order — and
-   thus the byte output for edge-independent layers writing disjoint paths — is
-   identical across runs and across init-vs-reproduce.
+   **stable, documented tie-break** (lexicographic by repo-basename) so the order —
+   and thus the byte output for edge-independent layers writing disjoint paths — is
+   identical across runs and across init-vs-reproduce. Basename (not full-id) is the
+   tie-break key because init and reproduce reconstruct full-ids differently, so
+   basename is the only identity stable across both paths.
 3. **Reproduce RECOMPUTES the order; nothing clerk-authored is committed** (spec 010
    / Constitution III). At reproduce clerk enumerates committed answers files,
    fetches each at its `_commit`, re-reads edges, re-topo-sorts (same tie-break), and
@@ -165,7 +167,7 @@ dependency (or, per policy, auto-includes it — see Open Questions), writes not
   normalized into the same edge direction as `depends_on`/`run_after`.
 - **FR-002**: clerk MUST topologically sort the DAG and apply one `copier copy` per
   template layer in that order, with a **stable, documented tie-break**
-  (lexicographic by full-id) for mutually-independent layers.
+  (lexicographic by repo-basename) for mutually-independent layers.
 - **FR-003**: Each layer MUST be written to a **distinct committed answers file**
   (`.copier-answers.<template-basename>.yml`). A basename collision among *selected*
   templates MUST be refused at init before any write.
@@ -245,9 +247,10 @@ dependency (or, per policy, auto-includes it — see Open Questions), writes not
   in the catalog but NOT selected — **refuse** (name it, let the user add it) vs
   **auto-include** it into the selection. Lean: **refuse** for 003 (explicit,
   no surprise layers); auto-include is a later ergonomic nicety. Resolve at planning.
-- **Q-003c — Tie-break key**: lexicographic by **full-id** vs by **repo-basename**.
-  Lean: full-id (globally unique per spec 002, so the tie-break is always total).
-  Resolve at planning.
+- **Q-003c — Tie-break key (RESOLVED)**: lexicographic by **repo-basename**, not
+  full-id. Init and reproduce reconstruct full-ids differently, so basename is the
+  only identity stable across both paths; the basename-collision refusal (FR-003)
+  makes it unique — and thus a total, deterministic order — within a valid selection.
 
 ## Governing constitution & ADRs
 

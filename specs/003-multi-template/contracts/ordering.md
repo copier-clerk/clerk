@@ -37,9 +37,8 @@ Read statically from each template's `copier.yml` as hidden `when:false` answers
 - `run_after: [X, …]` — same direction as `depends_on`. Edge: X → self.
 - `run_before: [Y, …]` — this template must apply BEFORE Y. Normalized to: self → Y.
 
-Edges reference templates by a name matching the selection's identity (full-id or
-its basename — the resolver documents which; see "Identity matching"). An edge to a
-template **not in the selection** is a *dangling edge* → refused (Q-003b: refuse,
+Edges reference templates by **repo-basename** (see "Identity matching"). An edge to
+a template **not in the selection** is a *dangling edge* → refused (Q-003b: refuse,
 name it).
 
 ## Order algorithm
@@ -50,9 +49,11 @@ name it).
    dangling edge (name the missing dependency), or a basename collision among
    selected templates (two layers wanting the same `.copier-answers.<basename>.yml`).
 3. **Topologically sort** with a **stable tie-break**: among nodes with no ordering
-   constraint between them, order **lexicographically by full-id** (globally unique
-   per spec 002 ⇒ a total, deterministic order). Use `graphlib.TopologicalSorter`
-   (feeding ready-sets in tie-break order) or an equivalent Kahn's algorithm.
+   constraint between them, order **lexicographically by repo-basename** (unique
+   within a valid selection after the collision check ⇒ a total, deterministic order;
+   and stable across init vs reproduce, which reconstruct full-ids differently). Use
+   `graphlib.TopologicalSorter` (feeding ready-sets in tie-break order) or an
+   equivalent Kahn's algorithm.
 4. The result is the layer application order — computed identically at init and at
    reproduce.
 

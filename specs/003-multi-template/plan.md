@@ -23,8 +23,9 @@ Resolved planning decisions (flagged for review in spec Open Questions):
   collision among selected templates → refuse at init** (Q-003a).
 - **Dangling edge** (selected template `depends_on` an unselected one) → **refuse**,
   naming it (Q-003b); auto-include deferred as a later nicety.
-- **Tie-break** = lexicographic by **full-id** (globally unique per spec 002 ⇒ a
-  total order) (Q-003c).
+- **Tie-break** = lexicographic by **repo-basename** — unique within a valid
+  selection (collision refused) and stable across init vs reproduce, which
+  reconstruct full-ids differently (Q-003c).
 
 ## Technical Context
 

@@ -212,7 +212,7 @@ def init_many(
     into later layers via the accumulating ``data=`` dict (ADR-0003: ``data=``, not
     ``_external_data``).
 
-    For each layer in topological order (stable full_id tie-break):
+    For each layer in topological order (stable basename tie-break):
     1. Pre-checks trust + reproducibility (same guards as single-template ``init``).
     2. Runs ``run_copy`` with the accumulated answers merged with the layer's own
        answers, using a layer-specific ``answers_file`` name.
@@ -325,7 +325,7 @@ def reproduce_many(dest: str) -> list[RunResult]:
     2. For each file, read the recorded ``_src_path`` + ``_commit`` (the exact
        source and pinned commit copier wrote at init time).
     3. Re-discover each template at its pinned commit to re-read its edges.
-    4. Rebuild the DAG + topo-sort (same stable full_id tie-break) → the
+    4. Rebuild the DAG + topo-sort (same stable basename tie-break) → the
        recomputed order.
     5. Drive ``reproduce(dest, answers_file=<that file>)`` per layer in that order.
 
@@ -369,7 +369,8 @@ def reproduce_many(dest: str) -> list[RunResult]:
 
         # Reconstruct a minimal TemplateRecord: full_id derived from source basename
         # (matches the pattern catalog.py uses: catalog/basename — but here we use
-        # a synthetic "_recorded/<basename>" so the full_id tie-break is consistent).
+        # a synthetic "_recorded/<basename>" so the basename tie-break resolves to the
+        # same key init used, keeping init order == reproduce order).
         basename = str(src_path).rstrip("/").rsplit("/", 1)[-1]
         if basename.endswith(".git"):
             basename = basename[:-4]

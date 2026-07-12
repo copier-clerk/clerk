@@ -165,7 +165,7 @@ def layer_plan(records: list[TemplateRecord]) -> list[tuple[TemplateRecord, str]
 
     For each record, calls ``discovery.discover`` to fetch its declared edges,
     builds the DAG, validates it (raises ``OrderingError`` on cycle, dangling
-    edge, or basename collision), topo-sorts with the stable full_id tie-break,
+    edge, or basename collision), topo-sorts with the stable basename tie-break,
     and returns ``[(record, answers_file_name)]`` in application order.
 
     This is the entry point for both ``init_many`` and ``reproduce_many`` — the
