@@ -583,7 +583,7 @@ def update(
     desc = discovery.discover(str(src_path), vcs_ref)
 
     # Format pre-check: refuse deprecated _migrations form before any run_update call.
-    _check_migrations_format_at_source(str(src_path), vcs_ref)
+    discovery.check_migrations_format_at_source(str(src_path), vcs_ref)
 
     # Trust pre-check: untrusted source with migrations or tasks → refuse (FR-004)
     _require_trust_if_update_action_taking(str(src_path), vcs_ref)
@@ -656,43 +656,6 @@ def update(
     return RunResult(dest=dest, src=str(src_path), ref=target_version, pretend=pretend)
 
 
-def _check_migrations_format_at_source(source: str, ref: str | None) -> None:
-    """Re-clone the template at the target ref and check _migrations format.
-
-    Discovery.has_migrations tells us *if* migrations exist, but we need the raw
-    config to check their format.  This thin wrapper clones shallowly and delegates
-    to discovery._check_migrations_format (the same static YAML parse).
-    """
-    import shutil
-    import subprocess
-    import tempfile
-
-    versions = discovery.list_versions(source)
-    resolved = ref or (versions[-1] if versions else None)
-    if resolved is None:
-        return  # no version → discover would have already raised DiscoveryError
-    tmp = Path(tempfile.mkdtemp(prefix="clerk-mig-check-"))
-    try:
-        subprocess.run(
-            ["git", "clone", "--quiet", "--depth", "1", "--branch", resolved, source, str(tmp)],
-            capture_output=True,
-            check=False,
-        )
-        config_path = tmp / "copier.yml"
-        if not config_path.exists():
-            config_path = tmp / "copier.yaml"
-        if not config_path.exists():
-            return
-        try:
-            raw = yaml.safe_load(config_path.read_text()) or {}
-        except Exception:  # noqa: BLE001
-            return
-        if isinstance(raw, dict):
-            discovery._check_migrations_format(raw, source)  # noqa: SLF001
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 def update_many(
     dest: str,
     *,
@@ -743,7 +706,7 @@ def update_many(
         disc = discovery.discover(str(src_path), vcs_ref)
 
         # Format pre-check and trust pre-check before any run_update call.
-        _check_migrations_format_at_source(str(src_path), vcs_ref)
+        discovery.check_migrations_format_at_source(str(src_path), vcs_ref)
         _require_trust_if_update_action_taking(str(src_path), vcs_ref)
 
         basename = str(src_path).rstrip("/").rsplit("/", 1)[-1]
@@ -786,33 +749,8 @@ def update_many(
         # After upgrading a layer, commit the changes so the next layer's run_update
         # sees a clean state. pretend=True writes nothing so no commit is needed.
         if not pretend:
-            _git_commit_if_dirty(dest, f"clerk: upgrade {basename}")
+            # copier's run_update requires a clean git tree before each layer.
+            # Commit after each layer so the next layer's run_update sees clean state.
+            # This is multi-layer coordination copier cannot do cross-template (C-11).
+            discovery.git_commit_if_dirty(dest, f"clerk: upgrade {basename}")
     return results
-
-
-def _git_commit_if_dirty(dest: str, message: str) -> None:
-    """Stage and commit any changes in ``dest`` if the working tree is dirty.
-
-    Required between layers in multi-layer upgrade: copier's run_update refuses
-    to run if the destination git repo has uncommitted changes (it checks
-    ``subproject.is_dirty()``).  This is a multi-layer coordination concern that
-    copier cannot handle cross-template — the C-11-sanctioned glue.
-    """
-    import subprocess
-
-    dst = Path(dest)
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=dst,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 or not result.stdout.strip():
-        return  # not a git repo or already clean
-    subprocess.run(["git", "add", "-A"], cwd=dst, capture_output=True, check=False)
-    subprocess.run(
-        ["git", "commit", "-qm", message],
-        cwd=dst,
-        capture_output=True,
-        check=False,
-    )

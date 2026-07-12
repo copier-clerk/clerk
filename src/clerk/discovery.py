@@ -252,6 +252,65 @@ def _check_migrations_format(raw: dict[str, Any], source: str) -> None:
             )
 
 
+def check_migrations_format_at_source(source: str, ref: str | None) -> None:
+    """Shallow-clone the template at the target ref and check _migrations format.
+
+    Re-clones because Discovery does not expose the raw config dict.  Delegates to
+    _check_migrations_format (same static YAML parse).  Lives in discovery so all
+    subprocess/git calls remain here and runner.py stays subprocess-free (FR-004:
+    secret values must never appear in argv/process listings).
+    """
+    versions = list_versions(source)
+    resolved = ref or (versions[-1] if versions else None)
+    if resolved is None:
+        return  # no version → discover would have already raised DiscoveryError
+    tmp = Path(tempfile.mkdtemp(prefix="clerk-mig-check-"))
+    try:
+        subprocess.run(
+            ["git", "clone", "--quiet", "--depth", "1", "--branch", resolved, source, str(tmp)],
+            capture_output=True,
+            check=False,
+        )
+        config_path = tmp / "copier.yml"
+        if not config_path.exists():
+            config_path = tmp / "copier.yaml"
+        if not config_path.exists():
+            return
+        try:
+            raw = yaml.safe_load(config_path.read_text()) or {}
+        except Exception:  # noqa: BLE001
+            return
+        if isinstance(raw, dict):
+            _check_migrations_format(raw, source)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def git_commit_if_dirty(dest: str, message: str) -> None:
+    """Stage and commit any changes in ``dest`` if the working tree is dirty.
+
+    Required between layers in multi-layer upgrade: copier's run_update refuses
+    to run if the destination git repo has uncommitted changes.  Lives in discovery
+    so all subprocess calls remain here and runner.py stays subprocess-free (FR-004).
+    """
+    dst = Path(dest)
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=dst,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return  # not a git repo or already clean
+    subprocess.run(["git", "add", "-A"], cwd=dst, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-qm", message],
+        cwd=dst,
+        capture_output=True,
+        check=False,
+    )
+
+
 def _ships_answers_file(clone: Path, subdirectory: str) -> bool:
     """True if the template ships a ``{{ _copier_conf.answers_file }}.jinja`` file.
 
