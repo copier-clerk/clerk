@@ -11,6 +11,39 @@ author: Sjors Robroek
 license: Apache-2.0
 target: claude,codex
 includes: auto
+
+# ---------------------------------------------------------------------------
+# Marketplace — clerk as a distributable skill (spec 008)
+#
+# Build both a Claude and Codex marketplace artifact from one config:
+#   just pack          → apm pack --marketplace=claude,codex
+#   just release       → vendor → check-vendor → apm pack (release-gated)
+#
+# Consumer install (Claude):
+#   apm marketplace add copier-clerk/clerk
+#
+# Consumer install (Codex):
+#   apm marketplace add --marketplace=codex copier-clerk/clerk
+# ---------------------------------------------------------------------------
+marketplace:
+  owner:
+    name: copier-clerk
+    url: https://github.com/copier-clerk
+  build:
+    tagPattern: "v{version}"  # default version-range resolution for consumers
+  outputs:
+    claude: {}  # → .claude-plugin/marketplace.json
+    codex: {}   # → .agents/plugins/marketplace.json (requires category: on every package)
+  packages:
+    - name: clerk
+      description: >-
+        Agentic conductor for copier — a skill + bundled deterministic scripts.
+        Inspects templates, authors run-specs, drives init and faithful reproduce.
+      source: ./packages/clerk   # local-path: clerk ships itself, not a remote tag
+      version: 0.1.0
+      category: Productivity     # REQUIRED when outputs includes codex (apm pack hard-errors without it)
+      license: Apache-2.0        # REQUIRED to avoid SBOM NOASSERTION
+
 dependencies:
   apm:
     # SpecKit mechanism (v5: workflow gates come from speckit-gate on PyPI; the

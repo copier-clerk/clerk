@@ -1,0 +1,12 @@
+name: clerk
+version: 0.1.0
+description: >-
+  Agentic conductor for copier — a skill + bundled deterministic scripts.
+  Inspects templates, authors run-specs, drives init and faithful reproduce.
+  Portable: vendored src/clerk modules; dep-checks with environment-aware
+  install suggestion (no package manager assumed).
+author: Sjors Robroek
+license: Apache-2.0
+type: hybrid     # ships a skill (SKILL.md) and a plugin descriptor (plugin.json)
+target: all
+includes: auto

@@ -1,0 +1,68 @@
+# CI gate for the APM marketplace pack + vendor drift check (spec 008, T010).
+# NOT the fan-out pipeline (that is deferred to spec 008b/009).
+#
+# Runs on every PR. Guards against:
+#  - vendored copy drifting from src/clerk/ (check-vendor)
+#  - apm.yml marketplace block producing invalid manifests (apm pack --dry-run)
+#  - manifest content drifting from committed output (apm pack --check-clean)
+#
+# apm-dependent steps are conditional: skipped if `apm` is not on PATH
+# (forks / contributors without apm installed will not fail the basic lint gate).
+name: pack
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Python deps
+        run: uv sync --dev
+
+      - name: Lint + type-check
+        run: |
+          uv run ruff check src/ tests/ scripts/
+          uv run ruff format --check src/ tests/ scripts/
+          uv run mypy
+
+      # Vendor BEFORE the test suite: the vendored clerk/ dir is gitignored
+      # (generate-at-pack), and tests/loop/test_packaging.py's drift check reads it.
+      # Running vendor first means pytest validates a fresh vendored copy against src/.
+      - name: Vendor clerk modules
+        run: just vendor
+
+      - name: Check vendor drift (vendored copy must match src/clerk/)
+        run: just check-vendor
+
+      - name: Test suite
+        run: uv run pytest -q
+
+      - name: Pack dry-run (both Claude + Codex marketplaces)
+        if: ${{ hashFiles('.github/workflows/pack.yml') != '' }}  # always run
+        run: |
+          if command -v apm &>/dev/null; then
+            apm pack --marketplace=claude,codex --dry-run
+          else
+            echo "apm not installed — skipping pack dry-run (install apm to enable)"
+          fi
+
+      - name: Validate marketplace manifests
+        run: |
+          if command -v apm &>/dev/null; then
+            apm marketplace validate .claude-plugin/marketplace.json
+            apm marketplace validate .agents/plugins/marketplace.json
+          else
+            echo "apm not installed — skipping marketplace validate"
+          fi

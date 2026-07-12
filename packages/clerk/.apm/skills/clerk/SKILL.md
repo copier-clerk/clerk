@@ -179,7 +179,7 @@ If you skip this, `init` refuses with exit 3 and prints the exact
 `scripts/clerk.py trust add` command — that refusal is the safety gate working,
 not an error to route around. Never auto-trust; consent is the user's, per turn.
 
-### 4. Author the run-spec — and handle secret questions
+### 4. Author the run-spec
 
 Write a run-spec file (JSON/YAML) per
 `specs/001-clerk-vertical-slice/contracts/answers-doc.md`:
@@ -192,32 +192,10 @@ answers:
   <key>: <value>
 ```
 
-Omit `today` (the script injects it).
-
-**Secrets — do NOT collect, do NOT put in the run-spec (spec 005):**
-
-If discovery reports any key in `secret_questions` (for a third-party template):
-
-- **NEVER ask the user for the value.** Never place it in the run-spec or in any
-  field you author. A secret must not enter the LLM context (Constitution II).
-- **Explain the situation** and direct **out-of-band supply**:
-  - copier's own **masked interactive prompt** at the deterministic step (the
-    human types it directly into copier, not to you), OR
-  - an environment mechanism the user controls.
-- **If the run is non-interactive (reproduce/CI):** a required secret with no
-  value supplied **fails loud** naming the question — clerk does NOT silently
-  render copier's placeholder default (Constitution V). The user must supply the
-  real value out-of-band before reproducing.
-- **clerk enforces this mechanically.** `scripts/clerk.py init` rejects any
-  run-spec that supplies a value for a discovery-flagged secret key — fail loud,
-  naming the key — regardless of what you put in the run-spec. Do not try to
-  work around this; it is the security boundary.
-- clerk-authored templates (`clerk-mod-*`) avoid `secret: true` questions
-  entirely; if you encounter one it is a third-party template. See
-  `specs/005-secrets/contracts/secrets.md` for the full policy.
-
-Secrets and hidden `when:false` edges are never written to the recorded answers
-regardless (copier's own behavior).
+Omit `today` (the script injects it). For `secret: true` questions, do not
+hard-code the secret into a committed run-spec — in this slice, prompt for it at
+run time; secret injection from a store is a later spec (005). Secrets and hidden
+`when:false` edges are never written to the recorded answers regardless.
 
 ### 5. Dry-run, then generate
 

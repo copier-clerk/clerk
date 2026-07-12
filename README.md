@@ -46,6 +46,51 @@ copier's `settings.yml` trust list, recorded by an explicit consent step, never 
 blanket `unsafe=True`. See [`0003`](docs/decisions/0003-selector-template-and-runtime-injection.md)
 and [`0001`](docs/decisions/0001-copier-as-engine.md).
 
+## Install
+
+clerk is distributed as an APM skill package — installable into any
+**macOS/Linux/WSL** project that uses Claude Code or Codex. There is no PyPI
+`clerk` package; the skill bundles its own Python modules.
+
+### Install into a Claude Code project
+
+```sh
+# Add the clerk marketplace (one-time per machine / project):
+apm marketplace add copier-clerk/clerk
+
+# Install the clerk skill:
+apm install clerk
+
+# Check that runtime deps (copier, pyyaml, packaging, tomli-w) are present:
+python "$(apm skill-path clerk)/scripts/clerk.py" doctor
+```
+
+### Install into a Codex project
+
+```sh
+apm marketplace add --marketplace=codex copier-clerk/clerk
+apm install --marketplace=codex clerk
+```
+
+### Runtime dependencies
+
+clerk checks its deps at startup. If any are missing or version-incompatible
+(esp. `copier>=9.16,<10`), it prints an environment-aware install suggestion
+and exits cleanly — no traceback. Run `clerk.py doctor` for an explicit check.
+
+Quick install (choose one):
+
+```sh
+uv pip install copier pyyaml packaging tomli-w    # uv (recommended)
+pip install copier pyyaml packaging tomli-w        # pip
+brew install copier && pip install pyyaml packaging tomli-w   # macOS brew (copier only via brew)
+```
+
+Or use `uv run scripts/clerk.py <verb>` — `uv` reads the PEP 723 header and
+auto-provisions a hermetic ephemeral environment on every invocation.
+
+---
+
 ## Invocation
 
 clerk ships as a **bundled script** (not an installed CLI or PyPI package):

@@ -1,0 +1,20 @@
+{
+  "name": "clerk",
+  "interface": {
+    "displayName": "clerk"
+  },
+  "plugins": [
+    {
+      "name": "clerk",
+      "source": {
+        "source": "local",
+        "path": "./packages/clerk"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
