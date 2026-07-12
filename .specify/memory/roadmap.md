@@ -236,17 +236,19 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   N=1 unchanged (uniform loop, spec 010). Q-004 resolved: ordering glue is a small
   helper (one module, pure functions); no crystallized tool needed.
 
-### 004 — Global per-template defaults  [status: planned]
+### 004 — Global per-template defaults  [status: implemented]
 
 - **Description:** Stop re-entering the same values every run.
-- **Outcome:** the skill/helper pre-fills per-template defaults from a user config,
-  still overridable.
-- **Scope (in):** read a `~/.config/clerk` defaults file; select keys relevant to
-  each template; pass as `user_defaults=` (soft) — a small helper or a documented
-  skill step, whichever is simpler; optionally fold copier `settings.yml defaults:`.
-- **Scope (out):** secret values (005).
+- **Outcome (implemented):** `src/clerk/defaults.py` loads `~/.config/clerk/defaults.yml`
+  (YAML, `yaml.safe_load`; env-overridable via `CLERK_DEFAULTS_PATH`); selects keys
+  relevant to each template's questions (excluding secrets + `when:false` edges);
+  passes as `user_defaults=` (soft default — still overridable). `runner.init` and
+  `runner.init_many` each use it: load+fold once per call, select per-layer. Optional
+  best-effort fold of copier `settings.yml defaults:` as lower-priority fallback.
+  `DefaultsError(ClerkError)` added to `errors.py`. SKILL.md documents the feature.
+- **Scope (out):** secret values (005); template-specific sections (YAGNI).
 - **Depends on:** 003.
-- **Governed by:** ADR-0005; C-11.
+- **Governed by:** ADR-0005 (file is YAML, aligned — no deviation); C-11.
 
 ### 005 — Secrets policy + guardrail  [status: implemented]
 

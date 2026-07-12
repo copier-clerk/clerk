@@ -8,7 +8,7 @@
 
 **Input**: Roadmap spec 004 (Global per-template defaults), governed by the
 constitution (I, II, V) and ADR-0005. Consumes spec 003's multi-layer init path
-(`runner.init_many`) and the TOML user-config pattern established in spec 002
+(`runner.init_many`) and the path-resolution pattern established in spec 002
 (`src/clerk/catalog.py`).
 
 ## Overview
@@ -18,8 +18,8 @@ added multi-template ordering. Users now face a recurring friction: they must su
 the same values — their name, email, GitHub org, preferred license — on every `init`
 run, even when those answers never change.
 
-Spec 004 removes that friction. A user populates a TOML defaults file at
-`~/.config/clerk/defaults.toml` (env-overridable), assigning values keyed by
+Spec 004 removes that friction. A user populates a YAML defaults file at
+`~/.config/clerk/defaults.yml` (env-overridable), assigning values keyed by
 template name or template question. When clerk drives a `copier copy`, it selects
 the keys relevant to that template's questions and passes them as `user_defaults=`
 — copier's own soft-default mechanism — so the values pre-fill the prompt while
@@ -27,8 +27,8 @@ remaining overridable. No change to precedence; no new mechanism; no clerk artif
 written into any generated project.
 
 The feature is a small addition to `runner.py` and a new `src/clerk/defaults.py`
-module that mirrors `catalog.py` in structure: the same TOML, the same
-`platformdirs` path, the same env-override pattern.
+module that mirrors `catalog.py` in structure: the same `platformdirs` path, the
+same env-override pattern.
 
 ## Motivating decisions
 
@@ -45,13 +45,14 @@ module that mirrors `catalog.py` in structure: the same TOML, the same
    silently ignored (no error — portability). This gives per-template scoping without
    a per-template config section.
 
-3. **TOML at platformdirs path, env-overridable, mirroring `catalog.py`.** ADR-0005
-   named the file `defaults.yml`; the orchestrator's steer and this spec use TOML to
-   be consistent with the catalog (spec 002). The resolved decision: **`defaults.toml`
-   at `~/.config/clerk/defaults.toml`** (same `user_config_path("clerk")` base as
-   `catalog.toml`), overridable via `CLERK_DEFAULTS_PATH`. This is a deviation from
-   ADR-0005's literal filename; the ADR must be reconciled in the same change
-   (constitution governance). See Open Questions for the format choice rationale.
+3. **YAML at platformdirs path, env-overridable, aligned to ADR-0005.** ADR-0005
+   named the file `defaults.yml`; this spec uses **YAML** for consistency with
+   clerk's other YAML configs (`settings.yml`, catalog answers, trust store) and
+   with PyYAML already being a project dependency (used in `runner.py`,
+   `discovery.py`, `trust.py`). The resolved decision: **`defaults.yml`
+   at `~/.config/clerk/defaults.yml`** (same `user_config_path("clerk")` base as
+   `catalog.toml`), overridable via `CLERK_DEFAULTS_PATH`. The filename and format
+   align with ADR-0005 — no deviation; see Q-004a below.
 
 4. **Optionally fold copier `settings.yml defaults:`.** ADR-0005 permits clerk to
    load copier's native `settings.yml defaults:` and fold well-known fields
@@ -74,7 +75,7 @@ module that mirrors `catalog.py` in structure: the same TOML, the same
 
 ### US1 — Pre-fill common answers from a defaults file (Priority: P1)
 
-A developer has a `defaults.toml` with `author_name = "Ada"` and
+A developer has a `defaults.yml` with `author_name = "Ada"` and
 `author_email = "ada@example.com"`. When they run `init` against a template that
 asks for those keys, both are pre-filled as soft defaults — the prompt shows the
 default values and the user can override them.
@@ -82,41 +83,41 @@ default values and the user can override them.
 **Why this priority**: the headline feature — the reason the spec exists.
 
 **Independent Test**: local template fixture with questions `author_name` and
-`author_email` (both non-secret, no `copier.yml` defaults); a `defaults.toml`
+`author_email` (both non-secret, no `copier.yml` defaults); a `defaults.yml`
 supplying both; run `init` with `check=True` (dry run) + `check=False`; assert the
 generated answers file records the defaults, and that overriding `author_name` at the
 `data=` level wins (precedence check).
 
 **Acceptance Scenarios**:
-1. **Given** `defaults.toml` has `author_name = "Ada"` and the template asks
+1. **Given** `defaults.yml` has `author_name = "Ada"` and the template asks
    `author_name`, **When** `init` with `defaults=True` and no explicit `data` for
    `author_name`, **Then** the answers file records `author_name: Ada`.
-2. **Given** `defaults.toml` has `author_name = "Ada"` and the run-spec also passes
+2. **Given** `defaults.yml` has `author_name = "Ada"` and the run-spec also passes
    `author_name = "Bob"` in `data=`, **When** `init`, **Then** the answers file
    records `author_name: Bob` (data= wins — precedence FR-002).
-3. **Given** `defaults.toml` has `api_key = "secret"` and the template marks
+3. **Given** `defaults.yml` has `api_key = "secret"` and the template marks
    `api_key` as `secret: true`, **When** `init`, **Then** `api_key` is NOT
    pre-filled from defaults (FR-006).
 
 ### US2 — Defaults apply per-layer in multi-template init (Priority: P1)
 
-A developer runs a multi-template init (spec 003 path). The same `defaults.toml`
+A developer runs a multi-template init (spec 003 path). The same `defaults.yml`
 applies per-layer: each layer's questions are matched independently, so a key present
 in two layers pre-fills both.
 
 **Why this priority**: 003's multi-layer path must be covered uniformly (spec 010).
 
 **Independent Test**: two local template fixtures sharing the question `author_name`;
-a `defaults.toml` supplying it; run `init_many` for both layers; assert both answers
+a `defaults.yml` supplying it; run `init_many` for both layers; assert both answers
 files record the default, and that a threaded answer from layer 1 into layer 2 still
 wins over the default (threading precedence).
 
 **Acceptance Scenarios**:
-1. **Given** two layers A and B each asking `author_name`, and `defaults.toml` has
+1. **Given** two layers A and B each asking `author_name`, and `defaults.yml` has
    `author_name = "Ada"`, **When** `init_many([A, B])`, **Then** both layers record
    `author_name: Ada`.
 2. **Given** layer A answers `author_name = "Org"` and threads it forward; layer B
-   also asks `author_name`; `defaults.toml` has `author_name = "Ada"`, **When**
+   also asks `author_name`; `defaults.yml` has `author_name = "Ada"`, **When**
    `init_many([A, B])`, **Then** B records `author_name: Org` (threaded `data=` wins
    over `user_defaults=`).
 
@@ -124,26 +125,26 @@ wins over the default (threading precedence).
 
 A developer who already has `user_name` and `user_email` set in copier's
 `~/.config/copier/settings.yml` sees those values pre-filled too, without duplicating
-them in `defaults.toml`.
+them in `defaults.yml`.
 
 **Why this priority**: convenience; falls back gracefully if settings.yml is absent.
 
 **Independent Test**: create a test `settings.yml` with `defaults: {user_name:
 "Turing"}`; assert that a template asking `user_name` sees it pre-filled via the
-merged `user_defaults`; assert that `defaults.toml` key wins over `settings.yml` key
-if both are present (TOML file takes priority as a clerk-managed config).
+merged `user_defaults`; assert that `defaults.yml` key wins over `settings.yml` key
+if both are present (YAML defaults file takes priority as a clerk-managed config).
 
 **Acceptance Scenarios**:
-1. **Given** `settings.yml` has `defaults: {user_name: "Turing"}` and `defaults.toml`
+1. **Given** `settings.yml` has `defaults: {user_name: "Turing"}` and `defaults.yml`
    is absent or does not mention `user_name`, **When** `init`, **Then** `user_name`
    is pre-filled as `Turing`.
-2. **Given** both `defaults.toml` and `settings.yml` supply `user_name`, **Then**
-   `defaults.toml` value wins (clerk's own config takes priority over copier's flat
+2. **Given** both `defaults.yml` and `settings.yml` supply `user_name`, **Then**
+   `defaults.yml` value wins (clerk's own config takes priority over copier's flat
    global).
 
 ### US4 — Missing or empty defaults file is silently no-op (Priority: P1)
 
-A developer who has no `defaults.toml` sees no change in behavior — init runs
+A developer who has no `defaults.yml` sees no change in behavior — init runs
 identically to pre-004 behavior.
 
 **Independent Test**: run `init` with the defaults path pointing at a nonexistent
@@ -154,7 +155,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
 - **Key in defaults file not in template questions**: silently ignored (no error;
   portability invariant — the same file can be used across many templates).
 - **All keys filtered as secrets**: `user_defaults={}` is passed; no error.
-- **Malformed TOML in defaults file**: `DefaultsError` with a clear path + reason;
+- **Malformed YAML in defaults file**: `DefaultsError` with a clear path + reason;
   init refuses rather than silently using an empty dict.
 - **`CLERK_DEFAULTS_PATH` points at a nonexistent file**: treated as absent (no
   error) unless the path is explicitly set AND the file is expected to exist (flag
@@ -171,10 +172,10 @@ file; assert no error is raised and copier receives no `user_defaults`.
 
 ### Functional Requirements
 
-- **FR-001**: clerk MUST read a defaults TOML file from `~/.config/clerk/defaults.toml`
+- **FR-001**: clerk MUST read a defaults YAML file from `~/.config/clerk/defaults.yml`
   (resolved via `user_config_path("clerk", appauthor=False)`) or from the path in
   `CLERK_DEFAULTS_PATH`. A missing file MUST be treated as an empty defaults dict
-  (no error). A malformed TOML file MUST raise `DefaultsError`.
+  (no error). A malformed YAML file MUST raise `DefaultsError`.
 - **FR-002**: The precedence ladder MUST be preserved: `data=` (hard override) >
   answers-file last > `user_defaults=` (soft default from this file) > `settings.yml
   defaults:` > `copier.yml default`. clerk MUST NOT break this by using `data=`
@@ -188,10 +189,10 @@ file; assert no error is raised and copier receives no `user_defaults`.
   Hidden questions (`when:false`, used for dependency edges) SHOULD also be excluded
   to avoid confusing copier.
 - **FR-005**: If copier's `settings.yml defaults:` is present, clerk SHOULD merge
-  it as a lower-priority fallback behind the `defaults.toml` values: the merged
-  dict is `{**settings_defaults, **toml_defaults}` (toml wins on collision). This
+  it as a lower-priority fallback behind the `defaults.yml` values: the merged
+  dict is `{**settings_defaults, **yaml_defaults}` (yaml_defaults wins on collision). This
   enrichment MUST be best-effort: if `copier.load_settings()` fails for any reason,
-  clerk continues with only the TOML defaults (no error).
+  clerk continues with only the YAML defaults (no error).
 - **FR-006**: clerk MUST NOT write any defaults-related file into the generated
   project. The defaults file is user-side config only (spec 010 invariant).
 - **FR-007**: The defaults injection MUST apply both to the single-template path
@@ -203,7 +204,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
 
 ### Key Entities
 
-- **Defaults file**: a flat TOML mapping of `question_key = value` at a user-config
+- **Defaults file**: a flat YAML mapping of `question_key: value` at a user-config
   path. No per-template sections. Keys are matched by name against the current
   template's question list at runtime.
 - **Key selection**: the filtering step that produces the `user_defaults` dict for
@@ -211,7 +212,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
   keys (minus secrets, minus hidden `when:false` keys). Output: a subset dict.
 - **`user_defaults=`**: copier's soft-default parameter to `run_copy`. It sits third
   in the precedence ladder (after `data=` and the previous answers file).
-- **`DefaultsError`**: a new `ClerkError` subclass for malformed TOML or other
+- **`DefaultsError`**: a new `ClerkError` subclass for malformed YAML or other
   config-read failures.
 
 ## Success Criteria
@@ -226,7 +227,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
   change relative to pre-004.
 - **SC-005**: The multi-template path applies defaults per-layer; a threaded answer
   wins over the defaults file for the same key in a later layer.
-- **SC-006**: A malformed TOML file raises `DefaultsError` with path + reason (never
+- **SC-006**: A malformed YAML file raises `DefaultsError` with path + reason (never
   silently used as empty).
 - **SC-007**: No defaults-related file is ever written into the generated project.
 
@@ -244,10 +245,12 @@ file; assert no error is raised and copier receives no `user_defaults`.
 
 ## Open Questions
 
-- **Q-004a — ADR-0005 format deviation**: ADR-0005 names the defaults file
-  `defaults.yml`. This spec uses `defaults.toml` for consistency with `catalog.toml`
-  (same user-config dir, same TOML tooling). The ADR MUST be reconciled in the same
-  change. **Flag for orchestrator**: confirm the TOML choice over YAML.
+- **Q-004a — ADR-0005 format alignment**: ADR-0005 names the defaults file
+  `defaults.yml`. This spec uses `defaults.yml` (YAML) — **aligned to ADR-0005**,
+  for consistency with clerk's other YAML configs (`settings.yml`, catalog answers,
+  trust store) and with PyYAML already a project dependency (imported by `runner.py`,
+  `discovery.py`, `trust.py`). No deviation from the ADR; no format reconciliation
+  needed. ADR-0005 Consequences section may optionally note the file is YAML.
 
 - **Q-004b — `settings.yml` fallback: mandatory or best-effort?** ADR-0005 says
   "optionally merge". FR-005 makes it best-effort. If the orchestrator wants it
@@ -271,15 +274,15 @@ file; assert no error is raised and copier receives no `user_defaults`.
 ## Governing constitution & ADRs
 
 - Constitution I (minimal glue — the defaults helper is a small addition to
-  `runner.py` and a new `defaults.py`; no new dependency except `tomllib` which is
-  stdlib in Python 3.11+; copier's own `user_defaults=` mechanism is reused).
+  `runner.py` and a new `defaults.py`; no new dependency — PyYAML is already used;
+  copier's own `user_defaults=` mechanism is reused).
 - Constitution II (two-phase — defaults loading is deterministic, LLM-free, part of
   the helper layer).
 - Constitution V (determinism — user defaults are user-visible answers and appear in
   the committed answers file, so reproduce is not affected; the defaults file is
   user-side config, not project state).
 - ADR-0005 (the governing decision — clerk reads its own config, selects relevant
-  keys, passes as `user_defaults=`; MUST be reconciled to the TOML format choice).
+  keys, passes as `user_defaults=`; file format is YAML, aligned with ADR-0005).
 - Constraints: C-11 (the defaults helper is a small extension of the existing runner
   seam; no new copier surface); spec 010 invariant (no clerk artifact in the
   generated project).

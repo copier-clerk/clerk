@@ -55,6 +55,16 @@ author *inputs only*.
   - `uv run "$SKILL_DIR/scripts/clerk.py"` auto-provisions in an ephemeral env
     if you have `uv` — no manual install needed in that case.
 
+## User defaults (spec 004)
+
+clerk pre-fills copier's soft-default prompt values from a YAML file at
+`~/.config/clerk/defaults.yml` (overridable via `CLERK_DEFAULTS_PATH`). It is a
+flat `question_key: value` mapping — no sections, no nesting. Keys absent from
+the current template's questions are silently ignored (one file works across many
+templates). Secret questions (`secret: true`) are never pre-filled. The file is
+user-side config only — it is never written into the generated project. See
+`specs/004-defaults/contracts/defaults.md` for the full contract.
+
 ## Procedure
 
 ### 0. Catalog: ensure, list, pick, validate

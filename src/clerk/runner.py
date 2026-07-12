@@ -29,6 +29,7 @@ from copier import run_copy, run_recopy
 from copier._types import VcsRef
 from copier.errors import CopierError, UnsafeTemplateError
 
+from clerk import defaults as _defaults
 from clerk import discovery, trust
 from clerk.catalog import TemplateRecord
 from clerk.errors import (
@@ -188,6 +189,11 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     _check_required_secrets_supplied(spec.answers, desc)
     data = _with_today(spec.answers, today)
     _secret_keys = desc.secret_questions
+    # Load user defaults once; select keys relevant to this template (FR-001–003).
+    # check=True (dry-run) receives the same user_defaults as the real run (FR-008).
+    _raw_defaults = _defaults.load(_defaults.defaults_path())
+    _merged_defaults = _defaults.fold_settings_defaults(_raw_defaults)
+    user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
     try:
         run_copy(
             spec.source,
@@ -198,6 +204,7 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
             overwrite=True,
             quiet=True,
             pretend=check,
+            user_defaults=user_defaults or None,
         )
     except UnsafeTemplateError as exc:
         raise UntrustedSourceError(suggest_prefix(spec.source), source=spec.source) from exc
@@ -294,6 +301,10 @@ def init_many(
     plan = ordering.layer_plan(records)
     accumulated: dict[str, Any] = _with_today({}, today)
 
+    # Load and fold defaults once per init_many call; select per-layer below (FR-007).
+    _raw_defaults = _defaults.load(_defaults.defaults_path())
+    _merged_defaults = _defaults.fold_settings_defaults(_raw_defaults)
+
     if not check:
         results: list[RunResult] = []
         for record, af_name in plan:
@@ -308,6 +319,7 @@ def init_many(
             _check_required_secrets_supplied(layer_answers, desc)
             data = {**accumulated, **layer_answers}
             _secret_keys = desc.secret_questions
+            user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
             try:
                 run_copy(
                     record.source,
@@ -319,6 +331,7 @@ def init_many(
                     overwrite=True,
                     quiet=True,
                     pretend=False,
+                    user_defaults=user_defaults or None,
                 )
             except UnsafeTemplateError as exc:
                 raise UntrustedSourceError(
@@ -348,6 +361,7 @@ def init_many(
         _check_required_secrets_supplied(layer_answers, desc)
         data = {**accumulated, **layer_answers}
         _secret_keys = desc.secret_questions
+        user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
         try:
             run_copy(
                 record.source,
@@ -359,6 +373,7 @@ def init_many(
                 overwrite=True,
                 quiet=True,
                 pretend=True,
+                user_defaults=user_defaults or None,
             )
         except UnsafeTemplateError as exc:
             raise UntrustedSourceError(suggest_prefix(record.source), source=record.source) from exc

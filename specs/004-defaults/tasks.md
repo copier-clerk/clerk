@@ -14,14 +14,14 @@ attribute must be present; `conftest.py` multi-template fixtures reused).
 
 **Tests**: INCLUDED. Constitution VII requires per-step hardening: precedence
 verification (`data=` wins; threaded answer wins), secret exclusion, missing-file
-no-op, malformed TOML error, per-layer independence, and `settings.yml` fallback.
+no-op, malformed YAML error, per-layer independence, and `settings.yml` fallback.
 
 **Organization**: grouped by user story (US1–US4 from spec.md).
 
 ## Design decisions this task list assumes (resolved; flagged for review)
 
-- Config format = TOML at `~/.config/clerk/defaults.toml` (mirrors `catalog.toml`;
-  ADR-0005 to be reconciled — Q-004a).
+- Config format = YAML at `~/.config/clerk/defaults.yml` — aligned with ADR-0005
+  and clerk's existing YAML configs (Q-004a: no ADR deviation).
 - `CLERK_DEFAULTS_PATH` pointing at a nonexistent file → `DefaultsError` (Q-004c).
 - `settings.yml` fallback = best-effort; gracefully degrades (Q-004b).
 - Hidden `when:false` questions = SHOULD exclude from `user_defaults=` (Q-004d).
@@ -37,7 +37,7 @@ no-op, malformed TOML error, per-layer independence, and `settings.yml` fallback
 
 ## Phase 1: Setup + error type
 
-- [ ] T001 Add `DefaultsError(ClerkError)` to `src/clerk/errors.py` (malformed TOML
+- [ ] T001 Add `DefaultsError(ClerkError)` to `src/clerk/errors.py` (malformed YAML
   or nonexistent explicit-override path; message includes path + reason). Create the
   `src/clerk/defaults.py` module skeleton (module docstring: user-config store for
   soft per-template defaults — mirrors `catalog.py`'s path-resolution pattern; pure
@@ -52,34 +52,34 @@ clean on skeletons.
 
 - [ ] T002 [US1/US4] `defaults.defaults_path() -> Path`: resolve `CLERK_DEFAULTS_PATH`
   env var → if set and file missing, raise `DefaultsError`; else return `Path(env)`.
-  Fallback: `user_config_path("clerk", appauthor=False) / "defaults.toml"`. Mirror
+  Fallback: `user_config_path("clerk", appauthor=False) / "defaults.yml"`. Mirror
   `catalog.catalog_path()` in `src/clerk/catalog.py:50-59`.
 - [ ] T003 [US1/US4] `defaults.load(path: Path) -> dict[str, Any]`: missing file →
-  return `{}` (no error); malformed TOML → raise `DefaultsError(f"defaults file is
-  not valid TOML: {path}\n  {exc}")`. Use stdlib `tomllib`. Mirror the error-handling
+  return `{}` (no error); malformed YAML → raise `DefaultsError(f"defaults file is
+  not valid YAML: {path}\n  {exc}")`. Use `yaml.safe_load`. Mirror the error-handling
   pattern in `catalog.load()` at `src/clerk/catalog.py:111-138`.
 - [ ] T004 [US1/US3] `defaults.select_keys(defaults: dict, questions: list[Question])
   -> dict`: filter to keys present in `questions`, excluding `question.secret is True`,
   excluding questions whose `when` is statically `False` (SHOULD). Return the filtered
   subset. Pure function — no I/O.
-- [ ] T005 [US3] `defaults.fold_settings_defaults(toml_defaults: dict) -> dict`:
+- [ ] T005 [US3] `defaults.fold_settings_defaults(yaml_defaults: dict) -> dict`:
   best-effort call to `copier.load_settings()` (or the equivalent public surface);
   extract `.defaults` mapping (empty dict if absent); return
-  `{**settings_defaults, **toml_defaults}` (toml wins). Any exception from
-  `load_settings()` is caught and swallowed (debug-log only); return `toml_defaults`
+  `{**settings_defaults, **yaml_defaults}` (yaml wins). Any exception from
+  `load_settings()` is caught and swallowed (debug-log only); return `yaml_defaults`
   unchanged. Flag: if `copier.load_settings` is not part of the public API (verify
   before implementation), use `copier.settings.Settings.from_file()` or skip the
   fold if there is no public surface (document the gap).
 - [ ] T006 [P] [US1–US4] `tests/unit/test_defaults.py` (NEW):
   - `defaults_path()`: env unset → platformdirs path; env set to existing file →
     that path; env set to missing file → `DefaultsError`.
-  - `load()`: missing file → `{}`; malformed TOML → `DefaultsError` with path;
-    valid flat TOML → correct dict.
+  - `load()`: missing file → `{}`; malformed YAML → `DefaultsError` with path;
+    valid flat YAML → correct dict.
   - `select_keys()`: excludes keys absent from questions; excludes `secret: true`
     question; includes non-secret matching keys; handles `when: false` SHOULD
     exclusion.
-  - `fold_settings_defaults()`: toml wins on collision; exception from
-    `load_settings` → returns toml unchanged.
+  - `fold_settings_defaults()`: yaml defaults win on collision; exception from
+    `load_settings` → returns yaml defaults unchanged.
 
 **Checkpoint**: `uv run pytest tests/unit/test_defaults.py` green; `mypy` clean.
 
@@ -96,13 +96,13 @@ clean on skeletons.
   `user_defaults` (FR-008).
 - [ ] T008 [P] [US1] `tests/loop/test_defaults_init.py` (NEW):
   - **US1 SC-001**: fixture with questions `author_name` + `author_email`; write a
-    temp `defaults.toml`; run `init`; assert answers file records the defaults.
+    temp `defaults.yml`; run `init`; assert answers file records the defaults.
   - **US1 SC-002 (precedence)**: same setup but pass `author_name` in `data=`; assert
     answers file records the `data=` value (hard override wins).
   - **US1 SC-003 (secret exclusion)**: fixture with a `secret: true` question and
-    the same key in `defaults.toml`; assert the answers file does NOT record the
+    the same key in `defaults.yml`; assert the answers file does NOT record the
     default value for the secret question.
-  - **US1 SC-004 (missing file)**: no `defaults.toml`; assert init runs without
+  - **US1 SC-004 (missing file)**: no `defaults.yml`; assert init runs without
     error and behavior is identical to pre-004 (no `user_defaults` passed, or empty
     dict).
   - **SC-007 (no project file)**: assert the generated project contains no
@@ -124,10 +124,10 @@ excluded; missing file is a no-op; no clerk file in the project.
   per layer (FR-008).
 - [ ] T010 [P] [US2] `tests/loop/test_defaults_multi.py` (NEW):
   - **US2 SC-005 (per-layer)**: two template fixtures each asking `author_name`;
-    `defaults.toml` with `author_name = "Ada"`; run `init_many`; assert both answers
+    `defaults.yml` with `author_name = "Ada"`; run `init_many`; assert both answers
     files record `author_name: Ada`.
   - **US2 SC-002 (threaded answer wins)**: layer A provides `author_name = "Org"`
-    in `data=`; it threads forward to layer B; `defaults.toml` has `author_name =
+    in `data=`; it threads forward to layer B; `defaults.yml` has `author_name =
     "Ada"`; assert layer B records `author_name: Org` (threaded `data=` wins over
     `user_defaults=` — precedence check across the multi-layer seam).
   - **US2 SC-007**: assert no clerk defaults file in the generated project tree.
@@ -143,12 +143,12 @@ file.
   surface is verifiable):
   - **US3 SC-001**: write a test `settings.yml` with `defaults: {user_name: "Turing"}`
     at a temp path; monkeypatch copier's settings lookup to use it; run `init` with
-    a template asking `user_name` and no entry in `defaults.toml`; assert answers
+    a template asking `user_name` and no entry in `defaults.yml`; assert answers
     file records `user_name: Turing`.
-  - **US3 SC-002 (toml wins)**: same setup but `defaults.toml` also has `user_name =
-    "Babbage"`; assert answers file records `user_name: Babbage`.
+  - **US3 SC-002 (yaml wins)**: same setup but `defaults.yml` also has `user_name: Babbage`;
+    assert answers file records `user_name: Babbage`.
   - **US3 graceful degradation**: monkeypatch `load_settings` to raise; assert init
-    completes without error and falls back to TOML-only defaults.
+    completes without error and falls back to YAML-only defaults.
   - **NOTE**: if `copier.load_settings()` has no stable public surface (verify via
     `copier.settings` module), mark T011 as a research task first; skip the settings
     fold if no public API exists and document the gap in the spec's Open Questions.
@@ -160,7 +160,7 @@ file.
 ## Phase 6: SKILL update
 
 - [ ] T012 [P] Extend `skills/clerk/SKILL.md`: add a note that clerk pre-fills soft
-  defaults from `~/.config/clerk/defaults.toml` (env-overridable via
+  defaults from `~/.config/clerk/defaults.yml` (env-overridable via
   `CLERK_DEFAULTS_PATH`); state that secret questions are never pre-filled; state
   that the defaults file is user-side config and never written into the project;
   point at `specs/004-defaults/contracts/defaults.md`. Keep the update terse — one
@@ -172,17 +172,17 @@ file.
 
 ## Phase 7: ADR reconciliation + gate
 
-- [ ] T013 Reconcile `docs/decisions/0005-global-per-module-defaults.md`: the ADR
-  names `defaults.yml`; this spec uses `defaults.toml`. Update the ADR's
-  Consequences section to reflect the TOML choice and its rationale (consistency
-  with `catalog.toml`, same `platformdirs` base). Constitution: "amending a principle
-  REQUIRES updating the governing ADR in the same change."
+- [ ] T013 Update `docs/decisions/0005-global-per-module-defaults.md`: the ADR
+  names `defaults.yml`; this spec also uses `defaults.yml` (YAML) — aligned.
+  Add one line to the ADR's Consequences section confirming the file is YAML
+  (`yaml.safe_load`), consistent with clerk's other YAML configs and PyYAML
+  already being a project dependency.
 - [ ] T014 Full gate: `uv run ruff check src/ tests/ scripts/ && uv run ruff format
   --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing
   001/010/002/003 tests still pass (NO regression). Run `-m network` if reachable,
   else note untested.
 - [ ] T015 [P] Update `.specify/memory/roadmap.md`: mark spec 004 `planned →
-  implemented` with a completion note (TOML defaults at `~/.config/clerk/defaults.toml`;
+  implemented` with a completion note (YAML defaults at `~/.config/clerk/defaults.yml`;
   `user_defaults=` injection; key selection excludes secrets; multi-layer per-layer;
   settings.yml best-effort fold). Confirm 005/006 entries' dependency on 003 still
   read correctly (004 does not add a new dependency for 005).
@@ -211,5 +211,5 @@ file.
 - SC-003 — secret question not pre-filled (T006, T008).
 - SC-004 — missing file no-op (T006, T008).
 - SC-005 — multi-layer per-layer defaults; threaded answer wins (T009, T010).
-- SC-006 — malformed TOML → `DefaultsError` (T006).
+- SC-006 — malformed YAML → `DefaultsError` (T006).
 - SC-007 — no clerk defaults file written into the generated project (T008, T010).

@@ -54,6 +54,9 @@ template `copier.yml` default.
   which default keys apply to which module.
 - Defaults are per-module scopable because clerk decides which keys to pass per
   invocation — copier never sees the whole set.
+- The defaults file is **YAML** (`defaults.yml`, parsed with `yaml.safe_load`),
+  consistent with clerk's other YAML configs (`settings.yml`, catalog answers,
+  trust store) and with PyYAML already a project dependency (no new import).
 
 ## Related
 

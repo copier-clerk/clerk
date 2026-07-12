@@ -1,14 +1,14 @@
 # Contract — clerk global per-template defaults (spec 004)
 
-clerk pre-fills copier's soft-default prompt values from a user-owned TOML file.
+clerk pre-fills copier's soft-default prompt values from a user-owned YAML file.
 copier's own `user_defaults=` parameter is the injection point; the precedence
 ladder is copier's native one, unmodified. Nothing defaults-related is written
 into the generated project (spec 010 invariant).
 
 ## Defaults config file
 
-**Path**: `~/.config/clerk/defaults.toml`
-(resolved via `user_config_path("clerk", appauthor=False) / "defaults.toml"`)
+**Path**: `~/.config/clerk/defaults.yml`
+(resolved via `user_config_path("clerk", appauthor=False) / "defaults.yml"`)
 
 **Env override**: `CLERK_DEFAULTS_PATH` — must point at an existing file when set;
 raises `DefaultsError` if the path does not exist (an explicit override that
@@ -16,21 +16,19 @@ silently no-ops is surprising — Q-004c resolved).
 
 **Missing file (default path)**: treated as an empty defaults dict, no error.
 
-### TOML shape
+### YAML shape
 
 A flat mapping of question key to default value. No per-template sections, no
 nesting. Values may be strings, integers, booleans, or lists — any type copier
-recognizes for its question types. Comments are preserved on read (tomllib) but
-not on write (if a future management verb writes the file, comments are lost —
-documented).
+recognizes for its question types. Parsed with `yaml.safe_load`.
 
-```toml
-# clerk user defaults — ~/.config/clerk/defaults.toml
-author_name    = "Ada Lovelace"
-author_email   = "ada@example.com"
-github_org     = "acme"
-license        = "MIT"
-python_version = "3.12"
+```yaml
+# clerk user defaults — ~/.config/clerk/defaults.yml
+author_name: Ada Lovelace
+author_email: ada@example.com
+github_org: acme
+license: MIT
+python_version: "3.12"
 ```
 
 Keys that do not appear in the current template's questions are silently ignored.
@@ -54,7 +52,7 @@ selected = {
 
 **Secret exclusion** (FR-004, SC-003): any question whose `copier.yml` entry has
 `secret: true` is excluded. Spec 005 handles secret injection; defaults MUST NOT
-pre-fill secret values from a plaintext TOML file.
+pre-fill secret values from a plaintext YAML file.
 
 **Hidden question exclusion** (FR-004, SHOULD): questions whose `when:` condition
 is statically `false` (the dependency-edge sentinel, per Constitution VI) SHOULD be
@@ -70,8 +68,8 @@ If copier's `~/.config/copier/settings.yml` (or the copier-platform path) contai
 a `defaults:` mapping, clerk merges it as a LOWER-PRIORITY fallback:
 
 ```python
-merged = {**copier_settings_defaults, **toml_defaults}
-# toml_defaults wins on key collision — clerk-managed config outranks copier's flat global
+merged = {**copier_settings_defaults, **yaml_defaults}
+# yaml_defaults wins on key collision — clerk-managed config outranks copier's flat global
 ```
 
 The key-selection algorithm runs on `merged`, not on either source alone. This gives
@@ -79,7 +77,7 @@ users copier's cross-tool convention (`user_name`, `user_email`) for free.
 
 **Graceful degradation**: if `copier.load_settings()` raises for any reason (absent
 file, schema change in a copier upgrade, permissions), clerk logs a debug message and
-uses only the TOML defaults. This is best-effort — FR-005. No error is surfaced.
+uses only the YAML defaults. This is best-effort — FR-005. No error is surfaced.
 
 ## `user_defaults=` injection point
 
@@ -111,7 +109,7 @@ override it interactively. The roadmap scope says "soft default, still overridab
 |---|---|
 | 1 (highest) | `data=` / `--data` (clerk explicit answers, incl. injected `today`) |
 | 2 | Previous answers file (`.copier-answers.yml` / layered) |
-| 3 | `user_defaults=` (this feature — from `defaults.toml` + `settings.yml` fold) |
+| 3 | `user_defaults=` (this feature — from `defaults.yml` + `settings.yml` fold) |
 | 4 | `settings.yml defaults:` (copier's own flat global, if NOT folded into 3) |
 | 5 (lowest) | Template `copier.yml` question `default:` |
 
@@ -122,7 +120,7 @@ and by previously recorded answers at reproduce".
 **Reproduce behavior**: at reproduce, priority 2 (previous answers file) replays the
 answers already recorded — so the defaults file has NO effect at reproduce. Reproduce
 is always driven by the committed answers file, not by the current state of
-`defaults.toml`. A user who changes `defaults.toml` between init and reproduce sees
+`defaults.yml`. A user who changes `defaults.yml` between init and reproduce sees
 no change in reproduce output.
 
 ## Exit codes
@@ -133,7 +131,7 @@ CLI error mapping applies:
 | Code | Meaning |
 |---|---|
 | 0 | success |
-| 1 | `DefaultsError` (malformed TOML, explicit-override path missing) or other `ClerkError` |
+| 1 | `DefaultsError` (malformed YAML, explicit-override path missing) or other `ClerkError` |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` |
 

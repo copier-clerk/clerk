@@ -67,6 +67,15 @@ class OrderingError(ClerkError):
     """
 
 
+class DefaultsError(ClerkError):
+    """A defaults config operation failed.
+
+    Raised for: malformed YAML in the defaults file; an explicit
+    ``CLERK_DEFAULTS_PATH`` pointing at a nonexistent file. The message
+    always includes the offending path and the reason.
+    """
+
+
 class SecretInAnswersError(ClerkError):
     """A run-spec supplies a value for a discovery-flagged secret key.
 

@@ -6,19 +6,20 @@
 
 ## Summary
 
-Add a `src/clerk/defaults.py` module (mirroring `catalog.py` in structure: TOML,
-platformdirs, env override) and extend `runner.init` + `runner.init_many` to load,
-filter, and pass `user_defaults=` to each `copier run_copy` call. The entire feature
-is approximately one new module + small additions to two existing functions.
+Add a `src/clerk/defaults.py` module (mirroring `catalog.py` in structure:
+platformdirs path resolution, env override) and extend `runner.init` + `runner.init_many`
+to load, filter, and pass `user_defaults=` to each `copier run_copy` call. The entire
+feature is approximately one new module + small additions to two existing functions.
 
-No new dependency: `tomllib` is stdlib in Python 3.11+ (already used indirectly
-through other TOML work); `copier`'s `user_defaults=` parameter is already part of
-the public `run_copy` API in copier ≥9.16 (C-04, verified). The `settings.yml`
-fallback uses `copier`'s own `load_settings()` (best-effort, degrades gracefully).
+No new dependency: PyYAML is already a project dependency (`yaml.safe_load` used in
+`runner.py`, `discovery.py`, `trust.py`); `copier`'s `user_defaults=` parameter is
+already part of the public `run_copy` API in copier ≥9.16 (C-04, verified). The
+`settings.yml` fallback uses `copier`'s own `load_settings()` (best-effort, degrades
+gracefully).
 
 Resolved planning decisions (flagged for review):
-- **File format** = TOML at `~/.config/clerk/defaults.toml` (mirrors `catalog.toml`;
-  ADR-0005 to be reconciled) — Q-004a.
+- **File format** = YAML at `~/.config/clerk/defaults.yml` — aligned with ADR-0005
+  and clerk's other YAML configs (Q-004a: no deviation from ADR).
 - **`CLERK_DEFAULTS_PATH` on nonexistent file** = `DefaultsError` (explicit override
   silently no-oping is surprising) — Q-004c.
 - **`settings.yml` fallback** = best-effort (graceful degradation on `load_settings`
@@ -30,10 +31,10 @@ Resolved planning decisions (flagged for review):
 
 **Language/Version**: Python 3.11+ (`src/clerk/` + `scripts/clerk.py`).
 
-**Primary Dependencies**: no new dependencies. `tomllib` (stdlib 3.11+), `platformdirs`
-(already used by `catalog.py`), `copier>=9.16` (`user_defaults=` in `run_copy`).
+**Primary Dependencies**: no new dependencies. `pyyaml` (already a project dependency),
+`platformdirs` (already used by `catalog.py`), `copier>=9.16` (`user_defaults=` in `run_copy`).
 
-**Storage**: `~/.config/clerk/defaults.toml` (user-side config; NEVER written into
+**Storage**: `~/.config/clerk/defaults.yml` (user-side config; NEVER written into
 the generated project — spec 010 invariant). The `discovery.Discovery.questions` list
 already carries `secret` and `when`-condition metadata for key filtering.
 
@@ -48,7 +49,7 @@ already carries `secret` and `when`-condition metadata for key filtering.
 **Performance**: none; the defaults file is tiny; the load + filter is <1 ms.
 
 **Constraints**: no break to the precedence ladder (`user_defaults=` not `data=`);
-never pre-fill secret questions; no clerk file committed to the project; TOML format;
+never pre-fill secret questions; no clerk file committed to the project; YAML format;
 env override; best-effort `settings.yml` fold; per-layer independence in multi path.
 
 **Scale/Scope**: one new module + two function extensions + tests. The multi-template
@@ -69,8 +70,8 @@ Evaluated against constitution **v2.1.0**. Initial gate: **PASS**.
 | IV — Prefer CLI + static config; contain deprecated surface | PASS | `user_defaults=` is a documented parameter of `run_copy` (public API, not deprecated). Key selection reuses the `discovery.Discovery.questions` list already parsed statically. No `Template`/`Worker` adapter needed. |
 | V — Determinism via pinning; trust by source | PASS | User defaults are soft-pre-filled and captured in the committed answers file, so reproduce replays the actual answered values — not the defaults file. The defaults file can change between runs without affecting reproduce (the answers file is pinned). Trust semantics are unchanged. |
 | VI — Template-author contract at discovery | PASS | `secret: true` is statically discoverable from `copier.yml` (part of `discovery.Question`). The key-selection step enforces that secret questions are never pre-filled (FR-004). No template contract change. |
-| VII — Hardening per-step | PASS | DoD = precedence test (`data=` wins over `user_defaults=`; `user_defaults=` wins over `copier.yml` default); secret-exclusion test; missing-file no-op test; malformed TOML error test; per-layer independence test (US2); `settings.yml` fallback test (US3). Unit tests for `defaults.py`; integration via `runner.init` tests. |
-| VIII — Documented, dry-run-validated handoff | PASS | The defaults dict merges into the existing `user_defaults=` parameter at the `run_copy` seam — no new handoff format, no new schema. The `contracts/defaults.md` documents the TOML shape and injection point. Validation unchanged: copier's `--pretend` preflight (FR-008) now runs with the same `user_defaults` as the real init. |
+| VII — Hardening per-step | PASS | DoD = precedence test (`data=` wins over `user_defaults=`; `user_defaults=` wins over `copier.yml` default); secret-exclusion test; missing-file no-op test; malformed YAML error test; per-layer independence test (US2); `settings.yml` fallback test (US3). Unit tests for `defaults.py`; integration via `runner.init` tests. |
+| VIII — Documented, dry-run-validated handoff | PASS | The defaults dict merges into the existing `user_defaults=` parameter at the `run_copy` seam — no new handoff format, no new schema. The `contracts/defaults.md` documents the YAML shape and injection point. Validation unchanged: copier's `--pretend` preflight (FR-008) now runs with the same `user_defaults` as the real init. |
 
 **Complexity deviations**: none. This is the defaults capability the roadmap reserved
 for 004 (C-11 / ADR-0005) — introduced now with two consumers (single path + multi
@@ -92,7 +93,7 @@ specs/004-defaults/
 ├── spec.md              # The defaults spec
 ├── plan.md              # This file
 ├── contracts/
-│   └── defaults.md      # TOML shape, key-selection algorithm, injection point,
+│   └── defaults.md      # YAML shape, key-selection algorithm, injection point,
 │                        #   precedence ladder, settings.yml fallback, exit codes
 └── tasks.md             # Dependency-ordered tasks
 ```
@@ -109,7 +110,7 @@ src/clerk/
 │                        #   defaults.select_keys(loaded_defaults, disc.questions) per template
 │                        #   and pass the result as user_defaults= to run_copy. The load step
 │                        #   is once per init call; the select step is once per template layer.
-├── errors.py            # EXTEND: add DefaultsError(ClerkError) — malformed TOML or
+├── errors.py            # EXTEND: add DefaultsError(ClerkError) — malformed YAML or
 │                        #   nonexistent explicit-override path.
 └── discovery.py         # UNCHANGED — Question.secret already present; questions list reused.
 
@@ -118,18 +119,18 @@ scripts/clerk.py         # NO change needed at the CLI surface: defaults injecti
                          #   `clerk defaults` verb (manage the file) is out of scope (YAGNI).
 
 skills/clerk/SKILL.md    # EXTEND: document that clerk pre-fills soft defaults from
-                         #   ~/.config/clerk/defaults.toml; note that secret questions are
+                         #   ~/.config/clerk/defaults.yml; note that secret questions are
                          #   never defaulted; point at specs/004-defaults/contracts/defaults.md.
 
 tests/
 ├── conftest.py          # EXTEND: add a fixture variant with a secret question (`secret: true`);
-│                        #   add a helper to write a temp defaults.toml at a path and return it.
+│                        #   add a helper to write a temp defaults.yml at a path and return it.
 ├── unit/
-│   └── test_defaults.py # NEW: load() missing file → empty dict; malformed TOML → DefaultsError;
+│   └── test_defaults.py # NEW: load() missing file → empty dict; malformed YAML → DefaultsError;
 │                        #   CLERK_DEFAULTS_PATH pointing at nonexistent file → DefaultsError;
 │                        #   select_keys() excludes secrets; select_keys() excludes keys not in
 │                        #   questions; select_keys() includes non-secret matching keys;
-│                        #   fold_settings_defaults() merges correctly (toml wins on collision);
+│                        #   fold_settings_defaults() merges correctly (yaml wins on collision);
 │                        #   fold_settings_defaults() fails gracefully (no error if load_settings
 │                        #   raises).
 └── loop/
@@ -141,7 +142,7 @@ tests/
 
 **Structure Decision**: `defaults.py` is a separate module (not inlined into
 `runner.py`) for the same reason `catalog.py` is separate — it owns a user-config
-concern (path resolution, load, TOML parse, key selection, settings fold) that is
+concern (path resolution, load, YAML parse, key selection, settings fold) that is
 orthogonal to the execution concern of `runner.py`. Size is small (≈50–80 LOC), but
 the separation keeps `runner.py` focused on driving copier.
 
@@ -153,6 +154,6 @@ consistency; the task decides.
 
 No constitutional violations. One new module of ≈50–80 LOC + small runner.py
 extensions, tied to the genuine copier gap (no per-template scoping in
-`settings.yml defaults:`). No new dependency (stdlib `tomllib`). Four flagged
+`settings.yml defaults:`). No new dependency (PyYAML already imported). Four flagged
 open questions resolved with defaults + rationale; each is a small, easily-revised
 decision.
