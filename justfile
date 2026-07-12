@@ -50,23 +50,30 @@ vendor:
     cp skills/clerk/SKILL.md packages/clerk/.apm/skills/clerk/
     echo "vendor: copied src/clerk/*.py → {{VENDOR_DST}}/"
 
-# Check that the vendored copy in packages/ matches src/clerk/ — fail on drift.
+# Check that the vendored copy in packages/ matches source — fail on drift.
+# Covers the Python modules AND the vendored scripts/clerk.py + SKILL.md, since
+# all three are copied by `vendor` and any can drift from source.
 # Run this in CI and before apm pack to catch stale vendored code.
 check-vendor:
     #!/usr/bin/env bash
     set -euo pipefail
+    PKG="packages/clerk/.apm/skills/clerk"
+    fail() {
+        echo "check-vendor FAILED: $1 differs from source." >&2
+        echo "Run 'just vendor' to regenerate." >&2
+        exit 1
+    }
     TMP=$(mktemp -d)
     trap 'rm -rf "$TMP"' EXIT
     TDST="$TMP/clerk"
     mkdir -p "$TDST"
     cp {{VENDOR_SRC}}/*.py "$TDST/"
-    # Compare — diff exits non-zero if files differ.
-    if ! diff -rq "$TDST/" "{{VENDOR_DST}}/"; then
-        echo "check-vendor FAILED: vendored copy differs from src/clerk/." >&2
-        echo "Run 'just vendor' to regenerate." >&2
-        exit 1
-    fi
-    echo "check-vendor: ok — vendored copy matches src/clerk/"
+    # Python modules.
+    diff -rq "$TDST/" "{{VENDOR_DST}}/" || fail "vendored src/clerk/*.py"
+    # Bundled entrypoint + skill definition (non-Python, but still vendored).
+    diff -q scripts/clerk.py "$PKG/scripts/clerk.py" || fail "vendored scripts/clerk.py"
+    diff -q skills/clerk/SKILL.md "$PKG/SKILL.md" || fail "vendored SKILL.md"
+    echo "check-vendor: ok — vendored copy matches source (modules + clerk.py + SKILL.md)"
 
 # Build both Claude and Codex marketplace artifacts.
 # Always re-vendors first (BLOCKER-2: --check-clean does not cover vendored files).
