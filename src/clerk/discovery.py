@@ -177,6 +177,11 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     secret_questions: list[str] = []
     dependency_edges: dict[str, Any] = {}
 
+    # copier exposes secrets two ways: per-question `secret: true` AND a top-level
+    # `_secret_questions: [keys]` list.  Both must be parsed so our flag set matches
+    # copier's own exclusion set (FR-003b).
+    list_form_secrets: set[str] = set(raw.get("_secret_questions") or [])
+
     for key, spec in raw.items():
         if key.startswith(_SETTINGS_PREFIX):
             continue
@@ -188,8 +193,8 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
             dependency_edges[key] = spec.get("default")
             continue  # hidden edges are not questions and are never persisted
 
-        secret = bool(spec.get("secret", False))
-        if secret:
+        secret = bool(spec.get("secret", False)) or key in list_form_secrets
+        if secret and key not in secret_questions:
             secret_questions.append(key)
         questions.append(
             Question(

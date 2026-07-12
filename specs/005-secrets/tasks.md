@@ -35,8 +35,8 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 ## Phase 1: Policy lint (US1 — clerk templates stay credential-free)
 
-- [ ] T001 [US1] `tests/loop/test_secrets_policy.py` (NEW): a policy check that runs `discovery.discover(...)` over each in-repo clerk-authored template (start with `examples/clerk-template-example/`, and any `templates/*` if present) and asserts `secret_questions == []`. Provide a fixture template that DECLARES a `secret: true` question and assert the same check fails it, naming the question. (This is the enforcement until the full authoring lint of 008b/009 exists; write it so it can be lifted into that lint later.)
-- [ ] T002 [P] [US1] Document the policy in the template-author contract surface: add to the constitution's Principle VI note / a `docs/` or SKILL contributor section that clerk-authored templates MUST NOT declare `secret: true` questions and MUST convey runtime secret needs via `.env.example` + docs. (Docs only; no code.)
+- [X] T001 [US1] `tests/loop/test_secrets_policy.py` (NEW): a policy check that runs `discovery.discover(...)` over each in-repo clerk-authored template (start with `examples/clerk-template-example/`, and any `templates/*` if present) and asserts `secret_questions == []`. Provide a fixture template that DECLARES a `secret: true` question and assert the same check fails it, naming the question. (This is the enforcement until the full authoring lint of 008b/009 exists; write it so it can be lifted into that lint later.)
+- [X] T002 [P] [US1] Document the policy in the template-author contract surface: add to the constitution's Principle VI note / a `docs/` or SKILL contributor section that clerk-authored templates MUST NOT declare `secret: true` questions and MUST convey runtime secret needs via `.env.example` + docs. (Docs only; no code.)
 
 **Checkpoint**: a clerk-authored template with a secret question fails the policy test; clean templates pass.
 
@@ -44,8 +44,8 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 ## Phase 2: Third-party guardrail (US2 — agent never collects a credential)
 
-- [ ] T003 [US2] Extend `skills/clerk/SKILL.md` with a **secrets** step: for ANY secret question surfaced in discovery's `secret_questions` (third-party sources), the agent MUST NOT ask the user for the value and MUST NOT put it in the run-spec; explain out-of-band supply — copier's masked prompt at the deterministic step, or an env mechanism — and note that a required secret with no value in a non-interactive run FAILS LOUD (Constitution V; NOT silently defaulted). Note that clerk mechanically rejects a secret key in the run-spec (Phase 2b) regardless. Reference specs/005-secrets/contracts/secrets.md. Must hold on BOTH single-template and 003 multi-layer (`init_many`) paths.
-- [ ] T004 [P] [US2] `tests/loop/test_secrets_policy.py` (extend): with a fixture third-party template declaring a `secret: true` question, assert discovery surfaces it in `secret_questions`, and that the documented run-spec authoring path does NOT include the secret key (i.e. a secret question is never a required agent-collected answer in the inputs clerk builds). Cover the multi-layer case once 003's `init_many` is on main.
+- [X] T003 [US2] Extend `skills/clerk/SKILL.md` with a **secrets** step: for ANY secret question surfaced in discovery's `secret_questions` (third-party sources), the agent MUST NOT ask the user for the value and MUST NOT put it in the run-spec; explain out-of-band supply — copier's masked prompt at the deterministic step, or an env mechanism — and note that a required secret with no value in a non-interactive run FAILS LOUD (Constitution V; NOT silently defaulted). Note that clerk mechanically rejects a secret key in the run-spec (Phase 2b) regardless. Reference specs/005-secrets/contracts/secrets.md. Must hold on BOTH single-template and 003 multi-layer (`init_many`) paths.
+- [X] T004 [P] [US2] `tests/loop/test_secrets_policy.py` (extend): with a fixture third-party template declaring a `secret: true` question, assert discovery surfaces it in `secret_questions`, and that the documented run-spec authoring path does NOT include the secret key (i.e. a secret question is never a required agent-collected answer in the inputs clerk builds). Cover the multi-layer case once 003's `init_many` is on main.
 
 **Checkpoint**: a third-party secret question is surfaced as "do not collect"; no path threads its value through the agent inputs.
 
@@ -55,12 +55,12 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 **Depends on 003** (`runner.init_many` multi-layer path). The guard must hold on both paths.
 
-- [ ] T004a [US2] `src/clerk/discovery.py` (FR-003b): populate `secret_questions` from BOTH per-question `secret: true` AND the top-level `_secret_questions: [keys]` list form (copier honors both — verified). Add the list-form parse after the per-question loop; dedupe. So clerk's flag set matches copier's own exclusion set.
-- [ ] T004b [US2] `src/clerk/errors.py`: add `SecretInAnswersError(ClerkError)` — carries the offending KEY name(s), NEVER the value; message names the key + explains secrets are supplied out-of-band, not in the run-spec.
-- [ ] T004c [US2] `src/clerk/runner.py` (FR-003a): in `init` AND `init_many`, before calling copier, compute `set(answers) & secret_questions` for each layer's source (via `discovery`); if non-empty, raise `SecretInAnswersError(keys)` — fail loud, non-zero exit, on BOTH paths. This is the enforced boundary behind the SKILL rule.
-- [ ] T004d [US2] `src/clerk/runner.py` (FR-004): redact secret answer values before wrapping/surfacing copier errors — the current `raise InvalidRunSpecError(f"...{exc}")` at ~line 146 (and the multi-layer error paths) can echo a `validator`-carried secret. For runs involving secret keys, use a generic message / scrub the value from `{exc}` before re-raising.
-- [ ] T004e [US2] `src/clerk/runner.py` (FR-003c): for a required secret question with no value supplied in a non-interactive run, fail loud naming the question rather than proceeding on copier's placeholder default.
-- [ ] T004f [P] [US2] `tests/loop/test_secrets_enforcement.py` (NEW): bypass the SKILL entirely — construct a run-spec that DOES supply a secret key's value → assert `SecretInAnswersError` (single + `init_many` multi-layer), non-zero exit, KEY named but VALUE absent from the message/output; `_secret_questions:` list-form fixture → flagged + rejected the same way; a `validator`-echoing-the-secret fixture → the surfaced error does NOT contain the value; a required secret with no value in non-interactive mode → fails loud, not defaulted.
+- [X] T004a [US2] `src/clerk/discovery.py` (FR-003b): populate `secret_questions` from BOTH per-question `secret: true` AND the top-level `_secret_questions: [keys]` list form (copier honors both — verified). Add the list-form parse after the per-question loop; dedupe. So clerk's flag set matches copier's own exclusion set.
+- [X] T004b [US2] `src/clerk/errors.py`: add `SecretInAnswersError(ClerkError)` — carries the offending KEY name(s), NEVER the value; message names the key + explains secrets are supplied out-of-band, not in the run-spec.
+- [X] T004c [US2] `src/clerk/runner.py` (FR-003a): in `init` AND `init_many`, before calling copier, compute `set(answers) & secret_questions` for each layer's source (via `discovery`); if non-empty, raise `SecretInAnswersError(keys)` — fail loud, non-zero exit, on BOTH paths. This is the enforced boundary behind the SKILL rule.
+- [X] T004d [US2] `src/clerk/runner.py` (FR-004): redact secret answer values before wrapping/surfacing copier errors — the current `raise InvalidRunSpecError(f"...{exc}")` at ~line 146 (and the multi-layer error paths) can echo a `validator`-carried secret. For runs involving secret keys, use a generic message / scrub the value from `{exc}` before re-raising.
+- [X] T004e [US2] `src/clerk/runner.py` (FR-003c): for a required secret question with no value supplied in a non-interactive run, fail loud naming the question rather than proceeding on copier's placeholder default.
+- [X] T004f [P] [US2] `tests/loop/test_secrets_enforcement.py` (NEW): bypass the SKILL entirely — construct a run-spec that DOES supply a secret key's value → assert `SecretInAnswersError` (single + `init_many` multi-layer), non-zero exit, KEY named but VALUE absent from the message/output; `_secret_questions:` list-form fixture → flagged + rejected the same way; a `validator`-echoing-the-secret fixture → the surfaced error does NOT contain the value; a required secret with no value in non-interactive mode → fails loud, not defaulted.
 
 **Checkpoint**: a secret value in a run-spec is rejected in code (both paths); list-form secrets are caught; no secret leaks through a surfaced error; required-secret-no-value fails loud.
 
@@ -68,8 +68,8 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 ## Phase 3: Leak assertions + runtime pattern (US3)
 
-- [ ] T005 [US3] Extend `tests/loop/test_secret_edge_exclusion.py`: keep the non-persistence assertion; ADD assertions that when a secret value IS supplied at the deterministic step (programmatic `run_copy(data=…)`), the value does NOT appear in (a) `.copier-answers.yml`, (b) captured stdout/stderr, (c) `--pretend`/`--check` output. Confirm clerk never builds a `copier --data key=value` argv for a secret.
-- [ ] T006 [P] [US3] (Optional, demonstrates the pattern) Add `.env.example.jinja` + README guidance to `examples/clerk-template-example/` showing the runtime-secret pattern — the generated project owns its secrets at runtime, NOT via copier answers. Keep it minimal; it doubles as living documentation for SC-005.
+- [X] T005 [US3] Extend `tests/loop/test_secret_edge_exclusion.py`: keep the non-persistence assertion; ADD assertions that when a secret value IS supplied at the deterministic step (programmatic `run_copy(data=…)`), the value does NOT appear in (a) `.copier-answers.yml`, (b) captured stdout/stderr, (c) `--pretend`/`--check` output. Confirm clerk never builds a `copier --data key=value` argv for a secret.
+- [X] T006 [P] [US3] (Optional, demonstrates the pattern) Add `.env.example.jinja` + README guidance to `examples/clerk-template-example/` showing the runtime-secret pattern — the generated project owns its secrets at runtime, NOT via copier answers. Keep it minimal; it doubles as living documentation for SC-005.
 
 **Checkpoint**: no secret value leaks to a committed file, log, or dry-run; the runtime pattern is demonstrated.
 
@@ -77,9 +77,9 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
 
 ## Phase 4: Gate + closeout
 
-- [ ] T007 Full gate: `uv run ruff check src/ tests/ scripts/ && uv run ruff format --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing 001/010/002/003 tests still pass (esp. the existing secret_edge_exclusion + multi-template).
-- [ ] T008 Update `.specify/memory/roadmap.md`: mark spec 005 `planned → implemented` with a completion note (secrets handled by POLICY — clerk templates avoid secret questions; agent never collects; no store dependency; roadmap's op-read/store-inject model superseded). Confirm Q1 (which store first) is resolved to "none" under this policy.
-- [ ] T009 Update `README.md` (brief) if secrets warrant a note; open the PR (title = user-facing changelog entry, no spec IDs; `## Spec Context` body per the hook); push via `dgit push`. Do NOT merge without the user's go-ahead.
+- [X] T007 Full gate: `uv run ruff check src/ tests/ scripts/ && uv run ruff format --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing 001/010/002/003 tests still pass (esp. the existing secret_edge_exclusion + multi-template).
+- [X] T008 Update `.specify/memory/roadmap.md`: mark spec 005 `planned → implemented` with a completion note (secrets handled by POLICY — clerk templates avoid secret questions; agent never collects; no store dependency; roadmap's op-read/store-inject model superseded). Confirm Q1 (which store first) is resolved to "none" under this policy.
+- [X] T009 Update `README.md` (brief) if secrets warrant a note; open the PR (title = user-facing changelog entry, no spec IDs; `## Spec Context` body per the hook); push via `dgit push`. Do NOT merge without the user's go-ahead.
 
 ---
 

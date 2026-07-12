@@ -35,6 +35,7 @@ from clerk.errors import (
     ClerkError,
     InvalidRunSpecError,
     NotReproducibleError,
+    SecretInAnswersError,
     UntrustedSourceError,
 )
 from clerk.trust import suggest_prefix
@@ -112,6 +113,57 @@ def _require_trust_if_action_taking(source: str, ref: str | None) -> None:
         raise UntrustedSourceError(suggest_prefix(source), source=source)
 
 
+def _check_no_secrets(answers: dict[str, Any], desc: discovery.Discovery) -> None:
+    """Fail loud if the run-spec supplies a value for any discovery-flagged secret key.
+
+    Named key, never the value — that is the invariant (FR-003a / SC-003a).  This
+    runs before any copier call so a secret never flows through even if the SKILL
+    rule is violated.  Takes a pre-fetched ``Discovery`` so the caller pays for one
+    clone per layer, not one per check.
+    """
+    secret_set = set(desc.secret_questions)
+    offenders = [k for k in answers if k in secret_set]
+    if offenders:
+        raise SecretInAnswersError(offenders)
+
+
+def _check_required_secrets_supplied(answers: dict[str, Any], desc: discovery.Discovery) -> None:
+    """Fail loud if a required secret question has no value in non-interactive mode.
+
+    copier would silently render the placeholder default — clerk refuses instead
+    (FR-003c / SC-003c / Constitution V).  A question is "required" in our context
+    when it has a falsy default (empty string or None), matching copier's own
+    check for secret questions.
+    """
+    for q in desc.questions:
+        if not q.secret:
+            continue
+        if q.key in answers:
+            continue
+        # default_raw is reported un-rendered; treat falsy as "no real default"
+        if not q.default_raw:
+            raise InvalidRunSpecError(
+                f"secret question {q.key!r} has no value and no usable default. "
+                f"Supply it out-of-band via copier's masked interactive prompt or "
+                f"an environment mechanism — not through the run-spec. "
+                f"(Constitution V: non-interactive run must not silently default a credential.)"
+            )
+
+
+def _redact_secrets(message: str, secret_keys: list[str], answers: dict[str, Any]) -> str:
+    """Scrub secret answer values from an error message before surfacing it.
+
+    copier validator errors can embed the answer value; we replace each secret
+    value found in the message with a redaction marker (FR-004 / SC-003).
+    Only replaces non-empty values to avoid over-redacting on empty defaults.
+    """
+    for key in secret_keys:
+        val = answers.get(key)
+        if val and str(val) in message:
+            message = message.replace(str(val), "<redacted>")
+    return message
+
+
 def _translate(exc: CopierError) -> ClerkError:
     """Map a copier error to a legible clerk error (FR-010)."""
     if isinstance(exc, UnsafeTemplateError):
@@ -127,7 +179,15 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     """
     _require_reproducible(spec.source, spec.ref)
     _require_trust_if_action_taking(spec.source, spec.ref)
+    # Discover once; reuse for both secret checks and error redaction below.
+    desc = discovery.discover(spec.source, spec.ref)
+    # Mechanical enforcement (FR-003a): reject secret keys in the run-spec before
+    # any copier call, regardless of SKILL behavior.
+    _check_no_secrets(spec.answers, desc)
+    # Fail loud on required secrets with no value (FR-003c / Constitution V).
+    _check_required_secrets_supplied(spec.answers, desc)
     data = _with_today(spec.answers, today)
+    _secret_keys = desc.secret_questions
     try:
         run_copy(
             spec.source,
@@ -143,9 +203,11 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
         raise UntrustedSourceError(suggest_prefix(spec.source), source=spec.source) from exc
     except ValueError as exc:
         # copier raises a bare ValueError for a missing required answer (verified).
-        raise InvalidRunSpecError(f"invalid or incomplete answers: {exc}") from exc
+        msg = _redact_secrets(str(exc), _secret_keys, data)
+        raise InvalidRunSpecError(f"invalid or incomplete answers: {msg}") from exc
     except CopierError as exc:
-        raise _translate(exc) from exc
+        msg = _redact_secrets(str(exc), _secret_keys, data)
+        raise ClerkError(f"copier could not complete the operation: {msg}") from exc
     return RunResult(dest=spec.dest, src=spec.source, ref=spec.ref, pretend=check)
 
 
@@ -237,7 +299,15 @@ def init_many(
         for record, af_name in plan:
             _require_reproducible(record.source, record.ref)
             _require_trust_if_action_taking(record.source, record.ref)
-            data = {**accumulated, **answers_map.get(record.full_id, {})}
+            layer_answers = answers_map.get(record.full_id, {})
+            # Discover once per layer; reuse for both secret checks and redaction.
+            desc = discovery.discover(record.source, record.ref)
+            # FR-003a: reject secrets in per-layer answers before any copier call.
+            _check_no_secrets(layer_answers, desc)
+            # FR-003c: fail loud on required secrets with no value.
+            _check_required_secrets_supplied(layer_answers, desc)
+            data = {**accumulated, **layer_answers}
+            _secret_keys = desc.secret_questions
             try:
                 run_copy(
                     record.source,
@@ -255,9 +325,11 @@ def init_many(
                     suggest_prefix(record.source), source=record.source
                 ) from exc
             except ValueError as exc:
-                raise InvalidRunSpecError(f"invalid or incomplete answers: {exc}") from exc
+                msg = _redact_secrets(str(exc), _secret_keys, data)
+                raise InvalidRunSpecError(f"invalid or incomplete answers: {msg}") from exc
             except CopierError as exc:
-                raise _translate(exc) from exc
+                msg = _redact_secrets(str(exc), _secret_keys, data)
+                raise ClerkError(f"copier could not complete the operation: {msg}") from exc
             results.append(RunResult(dest=dest, src=record.source, ref=record.ref, pretend=False))
             _merge_layer_answers(accumulated, dest, af_name)
         return results
@@ -267,7 +339,15 @@ def init_many(
     for record, af_name in plan:
         _require_reproducible(record.source, record.ref)
         _require_trust_if_action_taking(record.source, record.ref)
-        data = {**accumulated, **answers_map.get(record.full_id, {})}
+        layer_answers = answers_map.get(record.full_id, {})
+        # Discover once per layer; reuse for both secret checks and redaction.
+        desc = discovery.discover(record.source, record.ref)
+        # FR-003a: reject secrets in per-layer answers even in preflight mode.
+        _check_no_secrets(layer_answers, desc)
+        # FR-003c: fail loud on required secrets with no value.
+        _check_required_secrets_supplied(layer_answers, desc)
+        data = {**accumulated, **layer_answers}
+        _secret_keys = desc.secret_questions
         try:
             run_copy(
                 record.source,
@@ -283,9 +363,11 @@ def init_many(
         except UnsafeTemplateError as exc:
             raise UntrustedSourceError(suggest_prefix(record.source), source=record.source) from exc
         except ValueError as exc:
-            errors.append(f"{record.full_id}: {exc}")
+            msg = _redact_secrets(str(exc), _secret_keys, data)
+            errors.append(f"{record.full_id}: {msg}")
         except CopierError as exc:
-            errors.append(f"{record.full_id}: {exc}")
+            msg = _redact_secrets(str(exc), _secret_keys, data)
+            errors.append(f"{record.full_id}: {msg}")
         # pretend=True writes nothing — thread what we have so later layers get the
         # best possible coverage even in preflight mode.
     if errors:

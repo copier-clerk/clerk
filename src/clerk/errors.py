@@ -65,3 +65,22 @@ class OrderingError(ClerkError):
     (names the missing dependency), or a basename collision among selected
     templates (names the colliding basename). Always raised before any write.
     """
+
+
+class SecretInAnswersError(ClerkError):
+    """A run-spec supplies a value for a discovery-flagged secret key.
+
+    Carries the offending KEY name(s) only — never the value. The agent must
+    not collect secret values; they are supplied out-of-band via copier's masked
+    prompt or an env mechanism (spec FR-003a / Constitution II).
+    """
+
+    def __init__(self, keys: list[str]) -> None:
+        self.keys = keys
+        key_list = ", ".join(repr(k) for k in keys)
+        super().__init__(
+            f"run-spec supplies values for secret question(s): {key_list}. "
+            f"Secret values must never enter the run-spec or the agent context. "
+            f"Supply them out-of-band via copier's masked interactive prompt or "
+            f"an environment mechanism at the deterministic step."
+        )
