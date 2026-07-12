@@ -271,7 +271,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 003 (multi-layer path covered).
 - **Governed by:** ADR-0001 (secrets); C-05, C-11; Constitution II, V.
 
-### 006 — Upgrade + copier migrations  [status: planned]
+### 006 — Upgrade + copier migrations  [status: implemented]
 
 - **Description:** Move a generated project to a newer template version safely.
 - **Outcome:** an explicit `upgrade` (announced from→to) runs `copier update` (smart
@@ -283,6 +283,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Scope (out):** brownfield adoption (deferred).
 - **Depends on:** 003.
 - **Governed by:** ADR-0001; Constitution III, VI; C-11.
+- **Completion note (2026-07-12):** `runner.update` + `runner.update_many` added to
+  `src/clerk/runner.py`; `_check_migrations_format` + `has_migrations` in
+  `src/clerk/discovery.py`; `DeprecatedMigrationFormatError`/`MergeConflictError`/
+  `DowngradeError` in `src/clerk/errors.py`; `update` verb in `scripts/clerk.py`;
+  DAG re-solved at target versions (Q-006b dangling-edge refuse); conflict scan
+  post-`run_update` (exit 4); multi-layer inter-layer git commit between layers.
+  Q-006c verified: `skip_tasks` does NOT suppress migrations (copier calls
+  `migration_tasks()` unconditionally in `_apply_update()`); documented.
+  Q-006a resolved: post-update marker scan (not copier return value).
+  Q-006b resolved: refuse with dangling-edge OrderingError.
+  Q-006d resolved: single `--vcs-ref` applies to all layers.
 
 ### 007 — Agentic-ecosystem module (template content)  [status: planned]
 

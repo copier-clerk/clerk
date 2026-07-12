@@ -163,6 +163,36 @@ See `skills/clerk/SKILL.md` (multi-template section) and
 `specs/003-multi-template/contracts/ordering.md` for the run-spec shape, edge
 semantics, and ordering algorithm.
 
+## Upgrade
+
+Move a project from one template version to a newer one:
+
+```bash
+# Upgrade all layers to the latest PEP 440 tag (single-layer or multi-layer):
+uv run scripts/clerk.py update <project-dir>
+
+# Target a specific version:
+uv run scripts/clerk.py update <project-dir> --vcs-ref v1.2.0
+
+# Dry-run preview:
+uv run scripts/clerk.py update <project-dir> --pretend
+```
+
+Upgrade is the **only** clerk path that advances a template version — reproduce
+always stays pinned. copier's 3-way merge handles local edits; clerk supplies the
+version announcement, the cross-template ordering, and the conflict report.
+
+- **Multi-layer**: layers are upgraded in dependency order (DAG re-solved at target
+  versions). New dependencies introduced in a newer template version are detected and
+  refused until the user adds the missing layer.
+- **Migrations** (`_migrations` in `copier.yml`): version-crossing migration commands
+  run automatically via copier, trust-gated identically to `_tasks`. The new format
+  is enforced; the deprecated `before`/`after` dict form is refused at discovery.
+- **Conflicts**: if copier's 3-way merge leaves conflict markers, clerk reports the
+  conflicted files and exits 4. Resolve and re-run.
+
+Exit codes: `0` ok, `1` error, `3` untrusted source, `4` merge conflicts.
+
 ## Design decisions
 
 - [0001 — copier is the engine; clerk is the conductor](docs/decisions/0001-copier-as-engine.md)

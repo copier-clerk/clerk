@@ -439,6 +439,281 @@ def multi_template_set(tmp_path: Path) -> MultiTemplateSet:
     )
 
 
+# --------------------------------------------------------------------------- #
+# spec 006: upgrade fixtures                                                   #
+# --------------------------------------------------------------------------- #
+
+
+def bump_template_repo(
+    repo: Path,
+    *,
+    files: dict[str, str],
+    tag: str,
+) -> None:
+    """Add a second (or later) tagged commit to an existing template repo.
+
+    Writes/overwrites ``files`` on top of the current working tree and commits
+    them as a new tag.  Used to simulate a v1.0.0 → v1.1.0 template bump.
+    The caller keeps the same ``TemplateRepo`` object; only the git history grows.
+    """
+    for rel, body in files.items():
+        dest = repo / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(body)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", f"bump to {tag}")
+    _git(repo, "tag", tag)
+
+
+@dataclass(frozen=True)
+class UpgradeFixture:
+    """Single-template upgrade fixture: one template with v1.0.0 and v1.1.0."""
+
+    repo: TemplateRepo  # .tag is still "v1.0.0" (initial); v1.1.0 is the bump
+    repo_path: Path
+
+
+@pytest.fixture
+def single_upgrade_fixture(tmp_path: Path) -> UpgradeFixture:
+    """Template repo with v1.0.0 and v1.1.0.
+
+    v1.0.0: renders hello.txt; ships the answers-file template.
+    v1.1.0: adds new_file.txt + a _migrations entry that creates .migrated.
+    """
+    repo_root = tmp_path / "tpl-upgrade"
+    copier_v1 = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        """
+    )
+    repo = build_template_repo(
+        repo_root,
+        files={
+            "copier.yml": copier_v1,
+            "template/hello.txt.jinja": "hello {{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+    # v1.1.0: adds new_file.txt + migration entry
+    copier_v2 = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        _migrations:
+          - command: "touch .migrated"
+            version: "v1.1.0"
+        """
+    )
+    bump_template_repo(
+        repo_root,
+        files={
+            "copier.yml": copier_v2,
+            "template/hello.txt.jinja": "hello {{ project_name }}\n",
+            "template/new_file.txt.jinja": "added in v1.1.0\n",
+        },
+        tag="v1.1.0",
+    )
+    return UpgradeFixture(repo=repo, repo_path=repo_root)
+
+
+@pytest.fixture
+def deprecated_migrations_fixture(tmp_path: Path) -> TemplateRepo:
+    """Template with the deprecated before/after dict form in _migrations.
+
+    Should be refused by _check_migrations_format before run_update is called.
+    """
+    repo_root = tmp_path / "tpl-deprecated-migrations"
+    copier_yml = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        _migrations:
+          - version: "v1.1.0"
+            before:
+              - "echo before"
+            after:
+              - "echo after"
+        """
+    )
+    return build_template_repo(
+        repo_root,
+        files={
+            "copier.yml": copier_yml,
+            "template/hello.txt.jinja": "hello {{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+
+
+@dataclass(frozen=True)
+class MultiUpgradeFixture:
+    """Two-template upgrade fixture: A (no deps) + B (depends_on A), both v1.0.0/v1.1.0."""
+
+    tpl_a_path: Path
+    tpl_b_path: Path
+    tpl_a_tag_v1: str = "v1.0.0"
+    tpl_b_tag_v1: str = "v1.0.0"
+
+
+@pytest.fixture
+def multi_upgrade_fixture(tmp_path: Path) -> MultiUpgradeFixture:
+    """Two templates A (no deps) + B (depends_on A); both have v1.0.0 and v1.1.0."""
+    a_root = tmp_path / "tpl-mu-a"
+    b_root = tmp_path / "tpl-mu-b"
+
+    copier_a_v1 = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        """
+    )
+    build_template_repo(
+        a_root,
+        files={
+            "copier.yml": copier_a_v1,
+            "template/a_out.txt.jinja": "a={{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+    bump_template_repo(
+        a_root,
+        files={"template/a_out.txt.jinja": "a={{ project_name }} v1.1\n"},
+        tag="v1.1.0",
+    )
+
+    copier_b_v1 = dedent(
+        """\
+        project_name:
+          type: str
+        depends_on:
+          type: yaml
+          default: ["tpl-mu-a"]
+          when: false
+        _subdirectory: template
+        """
+    )
+    build_template_repo(
+        b_root,
+        files={
+            "copier.yml": copier_b_v1,
+            "template/b_out.txt.jinja": "b={{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+    bump_template_repo(
+        b_root,
+        files={"template/b_out.txt.jinja": "b={{ project_name }} v1.1\n"},
+        tag="v1.1.0",
+    )
+    return MultiUpgradeFixture(tpl_a_path=a_root, tpl_b_path=b_root)
+
+
+@dataclass(frozen=True)
+class NewDepUpgradeFixture:
+    """Single template that gains a depends_on edge in v1.1.0.
+
+    Used to test Q-006b: refuse when upgraded template declares a new dep not in
+    the project.
+    """
+
+    tpl_b_path: Path  # The template gaining the new dependency in v1.1.0
+    tpl_c_path: Path  # The new dependency (a separate template, NOT in the project)
+
+
+@pytest.fixture
+def new_dep_upgrade_fixture(tmp_path: Path) -> NewDepUpgradeFixture:
+    """Template B gains depends_on C in v1.1.0; C is not in the project."""
+    b_root = tmp_path / "tpl-nd-b"
+    c_root = tmp_path / "tpl-nd-c"
+
+    # Build C first so it exists as a valid template
+    build_template_repo(
+        c_root,
+        files={
+            "copier.yml": "project_name:\n  type: str\n_subdirectory: template\n",
+            "template/c_out.txt.jinja": "c={{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+
+    copier_b_v1 = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        """
+    )
+    build_template_repo(
+        b_root,
+        files={
+            "copier.yml": copier_b_v1,
+            "template/b_out.txt.jinja": "b={{ project_name }}\n",
+        },
+        tag="v1.0.0",
+    )
+    # v1.1.0: adds depends_on C
+    copier_b_v2 = dedent(
+        """\
+        project_name:
+          type: str
+        depends_on:
+          type: yaml
+          default: ["tpl-nd-c"]
+          when: false
+        _subdirectory: template
+        """
+    )
+    bump_template_repo(
+        b_root,
+        files={"copier.yml": copier_b_v2},
+        tag="v1.1.0",
+    )
+    return NewDepUpgradeFixture(tpl_b_path=b_root, tpl_c_path=c_root)
+
+
+@dataclass(frozen=True)
+class ConflictUpgradeFixture:
+    """Template where v1.0.0→v1.1.0 changes a line also edited locally."""
+
+    repo_path: Path
+
+
+@pytest.fixture
+def conflict_upgrade_fixture(tmp_path: Path) -> ConflictUpgradeFixture:
+    """Template v1.0.0 renders hello.txt='line1'; v1.1.0 changes it to 'changed_line1'.
+
+    The project will also edit hello.txt to 'local_edit', producing a 3-way conflict.
+    """
+    repo_root = tmp_path / "tpl-conflict"
+    copier_v1 = dedent(
+        """\
+        project_name:
+          type: str
+        _subdirectory: template
+        """
+    )
+    build_template_repo(
+        repo_root,
+        files={
+            "copier.yml": copier_v1,
+            "template/hello.txt.jinja": "line1\n",
+        },
+        tag="v1.0.0",
+    )
+    # v1.1.0: changes hello.txt
+    bump_template_repo(
+        repo_root,
+        files={"template/hello.txt.jinja": "changed_line1\n"},
+        tag="v1.1.0",
+    )
+    return ConflictUpgradeFixture(repo_path=repo_root)
+
+
 def make_multi_run_spec(
     dest: Path,
     layers: list[tuple[str, TemplateRepo, dict]],

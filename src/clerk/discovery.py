@@ -29,7 +29,7 @@ from typing import Any
 import yaml
 from packaging.version import InvalidVersion, Version
 
-from clerk.errors import DiscoveryError
+from clerk.errors import ClerkError, DeprecatedMigrationFormatError, DiscoveryError
 
 # copier writes ``.copier-answers.yml`` ONLY if the template ships a file named
 # with this Jinja expression (verified). Its absence ⇒ the generated project has
@@ -70,6 +70,7 @@ class Discovery:
     questions: list[Question]
     secret_questions: list[str]
     dependency_edges: dict[str, Any] = field(default_factory=dict)
+    has_migrations: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """The documented, JSON-serializable shape the agent reads (FR-004)."""
@@ -79,6 +80,7 @@ class Discovery:
             "versions": self.versions,
             "reproducible": self.reproducible,
             "has_tasks": self.has_tasks,
+            "has_migrations": self.has_migrations,
             "jinja_extensions": self.jinja_extensions,
             "questions": [
                 {
@@ -172,6 +174,7 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     subdirectory = raw.get("_subdirectory", "")
     jinja_extensions = list(raw.get("_jinja_extensions", []) or [])
     has_tasks = bool(raw.get("_tasks"))
+    has_migrations = bool(raw.get("_migrations"))
 
     questions: list[Question] = []
     secret_questions: list[str] = []
@@ -217,11 +220,113 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
         versions=versions,
         reproducible=reproducible,
         has_tasks=has_tasks,
+        has_migrations=has_migrations,
         jinja_extensions=jinja_extensions,
         questions=questions,
         secret_questions=secret_questions,
         dependency_edges=dependency_edges,
     )
+
+
+def _check_migrations_format(raw: dict[str, Any], source: str) -> None:
+    """Refuse the deprecated before/after dict form in _migrations (Constitution VI).
+
+    The new format allows: bare string, bare list, or a dict with a 'command' key.
+    The deprecated form has a dict entry with 'before' or 'after' keys — that form
+    emits DeprecationWarning from copier and is refused here at discovery time.
+
+    Detection is purely static (no copier runtime call); this runs before run_update.
+    """
+    migrations = raw.get("_migrations")
+    if not migrations:
+        return
+    if not isinstance(migrations, list):
+        return
+    for entry in migrations:
+        if isinstance(entry, dict) and ("before" in entry or "after" in entry):
+            raise DeprecatedMigrationFormatError(
+                f"template {source!r} uses the deprecated _migrations format "
+                f"(entry with 'before'/'after' keys). "
+                f"Migrate to the new format: use a 'command' key instead of "
+                f"'before'/'after'. See contracts/upgrade.md for the new format."
+            )
+
+
+def check_migrations_format_at_source(source: str, ref: str | None) -> None:
+    """Shallow-clone the template at the target ref and check _migrations format.
+
+    Re-clones because Discovery does not expose the raw config dict.  Delegates to
+    _check_migrations_format (same static YAML parse).  Lives in discovery so all
+    subprocess/git calls remain here and runner.py stays subprocess-free (FR-004:
+    secret values must never appear in argv/process listings).
+    """
+    versions = list_versions(source)
+    resolved = ref or (versions[-1] if versions else None)
+    if resolved is None:
+        return  # no version → discover would have already raised DiscoveryError
+    tmp = Path(tempfile.mkdtemp(prefix="clerk-mig-check-"))
+    try:
+        subprocess.run(
+            ["git", "clone", "--quiet", "--depth", "1", "--branch", resolved, source, str(tmp)],
+            capture_output=True,
+            check=False,
+        )
+        config_path = tmp / "copier.yml"
+        if not config_path.exists():
+            config_path = tmp / "copier.yaml"
+        if not config_path.exists():
+            return
+        try:
+            raw = yaml.safe_load(config_path.read_text()) or {}
+        except Exception:  # noqa: BLE001
+            return
+        if isinstance(raw, dict):
+            _check_migrations_format(raw, source)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _git_identity_configured(dst: Path) -> bool:
+    """True if both user.name and user.email are set for the repo at ``dst``."""
+    name = subprocess.run(["git", "config", "user.name"], cwd=dst, capture_output=True, text=True)
+    email = subprocess.run(["git", "config", "user.email"], cwd=dst, capture_output=True, text=True)
+    return bool(name.stdout.strip()) and bool(email.stdout.strip())
+
+
+def git_commit_if_dirty(dest: str, message: str) -> None:
+    """Stage and commit any changes in ``dest`` if the working tree is dirty.
+
+    Required between layers in multi-layer upgrade: copier's run_update refuses
+    to run if the destination git repo has uncommitted changes.  Lives in discovery
+    so all subprocess calls remain here and runner.py stays subprocess-free (FR-004).
+
+    Uses the repo's configured git identity when present (these are the user's own
+    project changes); falls back to a clerk identity so the between-layer commit still
+    succeeds where no identity is configured (CI, fresh containers).  A failed commit
+    is raised rather than swallowed — otherwise the next layer's run_update refuses on
+    a still-dirty tree with a misleading "repository is dirty" error.
+    """
+    dst = Path(dest)
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=dst,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return  # not a git repo or already clean
+    subprocess.run(["git", "add", "-A"], cwd=dst, capture_output=True, check=False)
+    cmd = ["git"]
+    if not _git_identity_configured(dst):
+        cmd += ["-c", "user.name=clerk", "-c", "user.email=clerk@localhost"]
+    cmd += ["-c", "commit.gpgsign=false", "commit", "-qm", message]
+    commit = subprocess.run(cmd, cwd=dst, capture_output=True, text=True)
+    if commit.returncode != 0:
+        detail = commit.stderr.strip() or commit.stdout.strip()
+        raise ClerkError(
+            f"clerk could not commit intermediate upgrade state in {dest!r} "
+            f"between template layers: {detail}"
+        )
 
 
 def _ships_answers_file(clone: Path, subdirectory: str) -> bool:

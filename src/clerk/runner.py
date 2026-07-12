@@ -1,10 +1,10 @@
-"""The deterministic phase-2 executor: drive copier to init / check / reproduce.
+"""The deterministic phase-2 executor: drive copier to init / check / reproduce / update.
 
 This module contains ZERO agent involvement. It reads a frozen inputs document (the
 run-spec the skill authored), then calls copier's **public** functions —
-``run_copy`` / ``run_recopy`` — and translates copier's outcomes into clerk's small
-error types (spec FR-005, FR-010, FR-011, FR-015). It uses no deprecated copier
-surface.
+``run_copy`` / ``run_recopy`` / ``run_update`` — and translates copier's outcomes into
+clerk's small error types (spec FR-005, FR-010, FR-011, FR-015). It uses no deprecated
+copier surface.
 
 Invariants (constitution III/V):
 
@@ -13,6 +13,8 @@ Invariants (constitution III/V):
   — faithful replay at the recorded commit; NEVER bare recopy (which upgrades).
 * check     → ``run_copy(pretend=True, …)`` — copier's own dry run validates without
   writing; clerk adds no bespoke validator.
+* update    → ``run_update(data=…, defaults=True, overwrite=True, settings=…)``
+  — the ONLY place clerk advances a template version; announced, explicit (spec 006).
 * The current date is injected as the ``today`` answer so it freezes into the
   recorded answers and replays on reproduce (FR-007).
 * Trust is never written here; an untrusted source raises ``UntrustedSourceError``.
@@ -25,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from copier import run_copy, run_recopy
+from copier import run_copy, run_recopy, run_update
 from copier._types import VcsRef
 from copier.errors import CopierError, UnsafeTemplateError
 
@@ -34,7 +36,9 @@ from clerk import discovery, trust
 from clerk.catalog import TemplateRecord
 from clerk.errors import (
     ClerkError,
+    DowngradeError,
     InvalidRunSpecError,
+    MergeConflictError,
     NotReproducibleError,
     SecretInAnswersError,
     UntrustedSourceError,
@@ -495,4 +499,277 @@ def reproduce_many(dest: str) -> list[RunResult]:
         af_path = file_by_basename[basename]
         result = reproduce(dest, answers_file=af_path)
         results.append(result)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Update path (spec 006) — the ONLY place clerk advances a template version
+# ---------------------------------------------------------------------------
+
+
+def _read_answers_metadata(af_path: Path) -> dict[str, Any]:
+    """Read the copier-written metadata from an answers file (best-effort)."""
+    try:
+        raw = yaml.safe_load(af_path.read_text()) or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _scan_conflicts(dest: str, conflict: str) -> list[str]:
+    """Post-update scan for conflict markers or .rej files in the destination tree.
+
+    Phase 0 / T002 finding: copier's run_update does NOT raise on conflict — it
+    writes inline markers (``<<<<<<< before updating`` / ``>>>>>>> after updating``)
+    or .rej files and returns the Worker normally.  We must detect them ourselves.
+    The ``<<<<<<< `` prefix catches both copier's own markers and the standard git
+    ``<<<<<<< HEAD`` form (future-proofing at no cost).
+    """
+    dst = Path(dest)
+    conflicted: list[str] = []
+    if conflict == "rej":
+        for path in dst.rglob("*.rej"):
+            if ".git" not in path.parts:
+                conflicted.append(str(path.relative_to(dst)))
+    else:
+        # inline mode: scan all text-like files for the conflict-marker prefix
+        for path in dst.rglob("*"):
+            if not path.is_file():
+                continue
+            if ".git" in path.parts:
+                continue
+            try:
+                text = path.read_bytes()
+                if b"<<<<<<< " in text:
+                    conflicted.append(str(path.relative_to(dst)))
+            except OSError:
+                continue
+    return conflicted
+
+
+def _require_trust_if_update_action_taking(source: str, desc: discovery.Discovery) -> None:
+    """Trust pre-check for update: refuse if source has migrations OR tasks and is untrusted.
+
+    Migrations run code → same trust surface as _tasks (spec 006 FR-004,
+    Constitution V).  Discovery is safe to call on untrusted sources (no code runs).
+
+    Takes an already-computed ``Discovery`` (the caller has discovered the source at
+    the target ref) so this pre-check does not re-clone the template.
+    """
+    if (desc.has_tasks or desc.has_migrations or desc.jinja_extensions) and not trust.is_trusted(
+        source
+    ):
+        raise UntrustedSourceError(suggest_prefix(source), source=source)
+
+
+def update(
+    dest: str,
+    *,
+    answers_file: Path,
+    vcs_ref: str | None = None,
+    pretend: bool = False,
+    conflict: str = "inline",
+    skip_tasks: bool = False,
+) -> RunResult:
+    """Upgrade one layer of ``dest`` to a newer template version (spec 006 FR-009).
+
+    Mirrors ``reproduce`` in structure: reads the committed answers file, pre-checks
+    trust and format, calls ``run_update``, then scans for conflicts.
+
+    Phase 0 / T001 finding: ``skip_tasks=True`` suppresses ``_tasks`` but NOT
+    ``_migrations`` — copier calls migration_tasks() unconditionally in _apply_update().
+    A separate ``--skip-migrations`` flag would require copier API support that does
+    not exist; we document this constraint rather than silently misrepresent it.
+    """
+    dst = Path(dest)
+    if not answers_file.is_file():
+        raise ClerkError(f"no answers file at {answers_file!r}; nothing to update")
+
+    raw = _read_answers_metadata(answers_file)
+    src_path = raw.get("_src_path")
+    current_commit = raw.get("_commit")
+    if not src_path:
+        raise ClerkError(
+            f"answers file {answers_file!r} has no _src_path; cannot update this layer"
+        )
+
+    # Discovery at target version (None = latest PEP 440 tag).
+    # We also need the raw copier.yml to format-check _migrations (Constitution VI).
+    # _check_migrations_format_at_source re-clones shallowly — acceptable because
+    # discover() already clones once; the extra clone is needed to get the raw YAML.
+    desc = discovery.discover(str(src_path), vcs_ref)
+
+    # Format pre-check: refuse deprecated _migrations form before any run_update call.
+    discovery.check_migrations_format_at_source(str(src_path), vcs_ref)
+
+    # Trust pre-check: untrusted source with migrations or tasks → refuse (FR-004).
+    # Reuses the `desc` discovered above — no extra clone.
+    _require_trust_if_update_action_taking(str(src_path), desc)
+
+    # Already-at-target: if the target version matches current commit, nothing to do.
+    target_version = vcs_ref or (desc.versions[-1] if desc.versions else None)
+    if target_version and current_commit == target_version:
+        return RunResult(dest=dest, src=str(src_path), ref=target_version, pretend=pretend)
+
+    # Downgrade check: copier's run_update also checks this (raises UserMessageError),
+    # but we check here to surface a typed DowngradeError before calling copier.
+    if target_version and current_commit and desc.versions:
+        from packaging.version import InvalidVersion, Version
+
+        try:
+            current_v = Version(str(current_commit).lstrip("v"))
+            target_v = Version(str(target_version).lstrip("v"))
+            if target_v < current_v:
+                raise DowngradeError(
+                    f"cannot downgrade {str(src_path)!r}: "
+                    f"current version {current_commit!r} is newer than "
+                    f"target {target_version!r}. Downgrades are not supported; "
+                    f"use copier CLI directly if you need to downgrade."
+                )
+        except InvalidVersion:
+            pass  # non-PEP-440 commits (SHA) — let copier handle it
+
+    # Announce the upgrade
+    src_basename = str(src_path).rstrip("/").rsplit("/", 1)[-1]
+    if src_basename.endswith(".git"):
+        src_basename = src_basename[:-4]
+    from_label = current_commit or "unknown"
+    to_label = target_version or "latest"
+    print(f"Upgrading {src_basename}: {from_label} → {to_label}")
+
+    # Build the accumulated answers from the committed file (non-_ keys only)
+    data: dict[str, Any] = {k: v for k, v in raw.items() if not k.startswith("_")}
+
+    rel_answers = answers_file.relative_to(dst)
+
+    try:
+        run_update(
+            dest,
+            data=data,
+            answers_file=rel_answers,
+            vcs_ref=vcs_ref or None,
+            defaults=True,
+            overwrite=True,
+            quiet=True,
+            conflict=conflict,  # type: ignore[arg-type]
+            pretend=pretend,
+            skip_tasks=skip_tasks,
+        )
+    except UnsafeTemplateError as exc:
+        raise UntrustedSourceError(suggest_prefix(str(src_path)), source=str(src_path)) from exc
+    except CopierError as exc:
+        raise _translate(exc) from exc
+
+    if not pretend:
+        conflicted = _scan_conflicts(dest, conflict)
+        if conflicted:
+            conflict_list = ", ".join(conflicted)
+            print(
+                f"  ✗ {src_basename}: merge conflict in "
+                f"{conflict_list} — resolve and re-run upgrade"
+            )
+            raise MergeConflictError(conflicted)
+
+    print(f"  ✓ {src_basename} upgraded to {to_label}")
+    return RunResult(dest=dest, src=str(src_path), ref=target_version, pretend=pretend)
+
+
+def update_many(
+    dest: str,
+    *,
+    vcs_ref: str | None = None,
+    today: str | None = None,
+    pretend: bool = False,
+    conflict: str = "inline",
+    skip_tasks: bool = False,
+) -> list[RunResult]:
+    """Upgrade all layers of ``dest`` in dependency order (spec 006 FR-009, FR-010).
+
+    Algorithm (mirrors reproduce_many, but resolves DAG at TARGET versions):
+    1. Enumerate committed .copier-answers*.yml files.
+    2. For each, read _src_path + _commit.
+    3. Discover each template at the TARGET version (vcs_ref or latest).
+    4. Format-check migrations + trust pre-check per layer.
+    5. Rebuild DAG at target versions (may add new deps from upgraded templates).
+       Refuse if any new dep is not in the project (Q-006b → dangling edge → OrderingError).
+    6. Emit per-layer upgrade announcements.
+    7. Loop update() per layer in order.
+
+    N=1 behaves identically to single-layer update (uniform loop, spec 010).
+    """
+    from clerk import ordering  # local import avoids circular at module load
+
+    answers_files = enumerate_answers_files(dest)
+    if not answers_files:
+        raise ClerkError(f"no .copier-answers*.yml at {dest!r}; nothing to update")
+
+    records: list[TemplateRecord] = []
+    edges_by_basename: dict[str, dict[str, Any]] = {}
+    file_by_basename: dict[str, Path] = {}
+
+    for af_path in answers_files:
+        raw = _read_answers_metadata(af_path)
+        if not isinstance(raw, dict):
+            raise ClerkError(f"answers file {af_path} did not parse to a mapping")
+
+        src_path = raw.get("_src_path")
+        commit = raw.get("_commit")
+        if not src_path:
+            raise ClerkError(f"answers file {af_path!r} has no _src_path; cannot update this layer")
+        if not commit:
+            raise ClerkError(f"answers file {af_path!r} has no _commit; cannot update this layer")
+
+        # Discover at TARGET version (not pinned commit) — this is what makes upgrade
+        # different from reproduce: we re-solve edges at the version we're upgrading TO.
+        disc = discovery.discover(str(src_path), vcs_ref)
+
+        # Format pre-check and trust pre-check before any run_update call.
+        # Trust check reuses `disc` (discovered just above) — no extra clone.
+        discovery.check_migrations_format_at_source(str(src_path), vcs_ref)
+        _require_trust_if_update_action_taking(str(src_path), disc)
+
+        basename = str(src_path).rstrip("/").rsplit("/", 1)[-1]
+        if basename.endswith(".git"):
+            basename = basename[:-4]
+        full_id = f"_recorded/{basename}"
+
+        record = TemplateRecord(
+            full_id=full_id,
+            source=str(src_path),
+            ref=vcs_ref or (disc.versions[-1] if disc.versions else str(commit)),
+            versions=disc.versions,
+            reproducible=disc.reproducible,
+            has_tasks=disc.has_tasks,
+            questions=[q.key for q in disc.questions],
+        )
+        records.append(record)
+        edges_by_basename[basename] = disc.dependency_edges
+        file_by_basename[basename] = af_path
+
+    # Recompute DAG at target versions.  build_dag raises OrderingError on dangling
+    # edges — this is the Q-006b enforcement point: a new dep in the upgraded template
+    # that is not in the project appears as a dangling edge and is refused here.
+    plan = ordering.layer_plan_from_edges(records, edges_by_basename)
+
+    results: list[RunResult] = []
+    for record, _af_name in plan:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        af_path = file_by_basename[basename]
+        result = update(
+            dest,
+            answers_file=af_path,
+            vcs_ref=vcs_ref,
+            pretend=pretend,
+            conflict=conflict,
+            skip_tasks=skip_tasks,
+        )
+        results.append(result)
+        # copier's run_update requires a clean git working tree before each layer.
+        # After upgrading a layer, commit the changes so the next layer's run_update
+        # sees a clean state. pretend=True writes nothing so no commit is needed.
+        if not pretend:
+            # copier's run_update requires a clean git tree before each layer.
+            # Commit after each layer so the next layer's run_update sees clean state.
+            # This is multi-layer coordination copier cannot do cross-template (C-11).
+            discovery.git_commit_if_dirty(dest, f"clerk: upgrade {basename}")
     return results

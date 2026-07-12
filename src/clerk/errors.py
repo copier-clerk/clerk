@@ -93,3 +93,38 @@ class SecretInAnswersError(ClerkError):
             f"Supply them out-of-band via copier's masked interactive prompt or "
             f"an environment mechanism at the deterministic step."
         )
+
+
+class DeprecatedMigrationFormatError(ClerkError):
+    """A template uses the deprecated before/after dict form in _migrations.
+
+    Constitution VI: the new _migrations format is required; the deprecated form
+    (a dict entry with 'before' or 'after' keys) is refused at upgrade discovery
+    time, before any run_update call. Names the template source and offending entry.
+    """
+
+
+class MergeConflictError(ClerkError):
+    """upgrade left unresolved conflict markers or .rej files in the destination.
+
+    Exit 4 (distinct from other ClerkError exit 1) so callers can distinguish
+    "hard failure" from "soft: conflicts to resolve." Carries the relative paths
+    of all conflicted files so the user knows exactly what to fix.
+    """
+
+    def __init__(self, conflicted_paths: list[str]) -> None:
+        self.conflicted_paths = conflicted_paths
+        paths_str = "\n  ".join(conflicted_paths)
+        super().__init__(
+            f"upgrade left merge conflicts in {len(conflicted_paths)} file(s):\n"
+            f"  {paths_str}\n"
+            f"Resolve the conflicts and re-run upgrade."
+        )
+
+
+class DowngradeError(ClerkError):
+    """Target version is older than the currently recorded _commit version.
+
+    Downgrades are not supported; the user must use copier CLI directly if they
+    really want to downgrade.
+    """
