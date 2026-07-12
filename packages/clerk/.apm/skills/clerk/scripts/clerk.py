@@ -262,7 +262,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
 
     def _load_multi_run_spec(
         path: str,
-    ) -> tuple[str, list[tuple[TemplateRecord, dict]]]:
+    ) -> tuple[str, list[tuple[TemplateRecord, dict[str, object]]]]:
         raw = Path(path).read_text()
         data = yaml.safe_load(raw)
         if not isinstance(data, dict):
@@ -273,7 +273,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
         selection_raw = data.get("selection")
         if not isinstance(selection_raw, list) or not selection_raw:
             raise InvalidRunSpecError("multi run-spec 'selection' must be a non-empty list")
-        result: list[tuple[TemplateRecord, dict]] = []
+        result: list[tuple[TemplateRecord, dict[str, object]]] = []
         for i, entry in enumerate(selection_raw):
             if not isinstance(entry, dict):
                 raise InvalidRunSpecError(f"selection[{i}] must be a mapping")

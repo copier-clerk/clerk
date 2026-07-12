@@ -1,6 +1,6 @@
 ---
 name: clerk
-description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Portable — the deterministic steps run via the bundled script, no clerk CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/clerk.py`) does all rendering, and reproduce is agent-free.
+description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run clerk", init a project from a clerk-mod-* template, or set one up interactively. Portable (macOS/Linux/WSL) — the deterministic steps run via the bundled script, no clerk CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/clerk.py`) does all rendering, and reproduce is agent-free.
 ---
 
 # clerk — conduct copier
@@ -22,10 +22,38 @@ author *inputs only*.
 
 ## Prerequisites
 
-- `uv` on PATH (to run `scripts/clerk.py`), `copier`, and `git`.
+- **Platform:** macOS, Linux, or WSL on Windows.
+- `git` on PATH.
 - The example template's LICENSE task needs `gh` authenticated (`gh auth status`).
-- `scripts/clerk.py` is the bundled script; invoke it as `uv run scripts/clerk.py`
-  or `./scripts/clerk.py` — no `clerk` console command on PATH is needed or expected.
+- `scripts/clerk.py` is the bundled script — **invoke it by the path anchored to
+  the skill's install location**, not as `./scripts/clerk.py` (the agent's CWD is
+  normally the consumer project root, not the skill dir, so a bare relative path
+  will not resolve when the skill is installed via APM). Example:
+
+  ```sh
+  # When clerk is installed via APM, the skill dir is the resolved base:
+  python "$SKILL_DIR/scripts/clerk.py" <verb> …
+  # or with uv (frictionless if uv is on PATH — reads the PEP 723 header):
+  uv run "$SKILL_DIR/scripts/clerk.py" <verb> …
+  ```
+
+  where `$SKILL_DIR` is the directory containing this `SKILL.md`.
+
+- **Third-party deps** (`copier>=9.16,<10`, `pyyaml`, `packaging`, `tomli-w`) must
+  be installed. The script checks them at startup and prints an environment-aware
+  install suggestion if any are missing or version-incompatible — no traceback.
+  Run `scripts/clerk.py doctor` for an explicit readiness check:
+
+  ```sh
+  python "$SKILL_DIR/scripts/clerk.py" doctor   # exit 0 = ready; exit 4 = issues
+  ```
+
+  Install suggestions (detected automatically):
+  - **uv** on PATH: `uv pip install copier pyyaml packaging tomli-w`
+  - **pip** on PATH: `pip install copier pyyaml packaging tomli-w`
+  - **macOS brew** (copier only): `brew install copier` (then pip/uv for the rest)
+  - `uv run "$SKILL_DIR/scripts/clerk.py"` auto-provisions in an ephemeral env
+    if you have `uv` — no manual install needed in that case.
 
 ## Procedure
 
