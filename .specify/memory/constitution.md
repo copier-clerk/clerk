@@ -185,9 +185,21 @@ dependency edges as `when: false` hidden answers (`depends_on` / `run_after` /
 `_migrations` format (the `before`/`after` dict form is deprecated). Published
 version labels are treated as immutable.
 
+**Secrets (spec 005):** clerk-authored templates (`clerk-mod-*`, examples) MUST
+NOT declare `secret: true` questions. Scaffolding generates files and structure —
+credentials are virtually never needed. Secrets belong in the **generated
+project's runtime config** (a template-authored `.env.example` + docs) or are
+read from the **ambient environment** by tasks (e.g. `GH_TOKEN`, like the
+existing LICENSE task). A `_task` that needs a token reads it from the env —
+never a copier answer, never persisted, never agent-visible (Constitution II).
+Enforcement: a contract lint (`tests/loop/test_secrets_policy.py`) reusing
+`discovery.secret_questions` fails any in-repo clerk template that declares a
+secret question.
+
 Rationale: these are copier's real, verified constraints; enforcing (a) and
 version-resolvability at discovery turns silent unreproducibility into a loud,
-early failure.
+early failure. The secrets rule eliminates the credential-in-answers risk by
+construction rather than mitigating it — the maximally simple outcome (C-11).
 
 ### VII. Hardening Is a Per-Step Mandate
 

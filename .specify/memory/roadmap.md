@@ -248,18 +248,26 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 003.
 - **Governed by:** ADR-0005; C-11.
 
-### 005 — Secrets injection  [status: planned]
+### 005 — Secrets policy + guardrail  [status: implemented]
 
-- **Description:** Inject secret answers per-run without persisting them.
-- **Outcome:** secret questions filled from an external store at run time, never
-  written to the answers file, identically at init and reproduce.
-- **Scope (in):** detect secret questions (static `copier.yml` read); a thin script
-  (e.g. `op read …` → `--data secret=…`) — genuinely bash-shaped; the reproduce path
-  re-fetches secrets the same way at reproduce as at init (a bundled skill step, not
-  a committed recipe — see [[spec 010]]).
-- **Scope (out):** store implementations beyond a first adapter.
-- **Depends on:** 003.
-- **Governed by:** ADR-0001 (secrets); C-05, C-11.
+- **Description:** Handle secrets by POLICY, not a store engine. clerk-authored
+  templates avoid `secret: true` questions entirely; the phase-1 agent never
+  collects a credential; clerk depends on no secret store.
+- **Outcome (implemented):** (a) policy lint test over in-repo templates
+  (SC-001); (b) SKILL guardrail documenting out-of-band supply (SC-002);
+  (c) `runner.init` + `runner.init_many` mechanically reject a secret key in any
+  run-spec on both single and multi-layer paths (`SecretInAnswersError`, SC-003a);
+  (d) `discovery` parses both `secret: true` per-question AND `_secret_questions`
+  list form (SC-003b); (e) fail-loud on required-secret-no-value in non-interactive
+  mode (SC-003c); (f) copier error messages are redacted of any secret values
+  (SC-003 / FR-004); (g) `.env.example.jinja` runtime-secret pattern added to the
+  example template (SC-005). Roadmap's `op read → --data secret=` store-inject
+  model is **superseded** by this policy.
+- **Scope (out):** secret-injection engine, resolver chain, store adapters.
+  Q1 (which store first) resolves to **none** under this policy — escalation is
+  evidence-gated (FR-007 / C-11).
+- **Depends on:** 003 (multi-layer path covered).
+- **Governed by:** ADR-0001 (secrets); C-05, C-11; Constitution II, V.
 
 ### 006 — Upgrade + copier migrations  [status: planned]
 
@@ -378,7 +386,9 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 ## Open Questions
 
 - **Q1 — Secret store adapters:** which store(s) does spec 005 support first (env,
-  1Password, both)? Resolved when 005 is scoped.
+  1Password, both)? **Resolved (005):** none — the policy supersedes store
+  injection. Escalation is evidence-gated; if a concrete template proves a
+  scaffold-time secret is unavoidable, spec a mechanism then (FR-007).
 - **Q2 — 009 base re-split:** keep `clerk-mod-base` as one template or re-split?
   Resolved when 009 is scoped.
 - **Q3 — Third-party discovery fidelity:** if static `copier.yml` parsing cannot
