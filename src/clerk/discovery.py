@@ -29,7 +29,7 @@ from typing import Any
 import yaml
 from packaging.version import InvalidVersion, Version
 
-from clerk.errors import DeprecatedMigrationFormatError, DiscoveryError
+from clerk.errors import ClerkError, DeprecatedMigrationFormatError, DiscoveryError
 
 # copier writes ``.copier-answers.yml`` ONLY if the template ships a file named
 # with this Jinja expression (verified). Its absence ⇒ the generated project has
@@ -286,12 +286,25 @@ def check_migrations_format_at_source(source: str, ref: str | None) -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _git_identity_configured(dst: Path) -> bool:
+    """True if both user.name and user.email are set for the repo at ``dst``."""
+    name = subprocess.run(["git", "config", "user.name"], cwd=dst, capture_output=True, text=True)
+    email = subprocess.run(["git", "config", "user.email"], cwd=dst, capture_output=True, text=True)
+    return bool(name.stdout.strip()) and bool(email.stdout.strip())
+
+
 def git_commit_if_dirty(dest: str, message: str) -> None:
     """Stage and commit any changes in ``dest`` if the working tree is dirty.
 
     Required between layers in multi-layer upgrade: copier's run_update refuses
     to run if the destination git repo has uncommitted changes.  Lives in discovery
     so all subprocess calls remain here and runner.py stays subprocess-free (FR-004).
+
+    Uses the repo's configured git identity when present (these are the user's own
+    project changes); falls back to a clerk identity so the between-layer commit still
+    succeeds where no identity is configured (CI, fresh containers).  A failed commit
+    is raised rather than swallowed — otherwise the next layer's run_update refuses on
+    a still-dirty tree with a misleading "repository is dirty" error.
     """
     dst = Path(dest)
     result = subprocess.run(
@@ -303,12 +316,17 @@ def git_commit_if_dirty(dest: str, message: str) -> None:
     if result.returncode != 0 or not result.stdout.strip():
         return  # not a git repo or already clean
     subprocess.run(["git", "add", "-A"], cwd=dst, capture_output=True, check=False)
-    subprocess.run(
-        ["git", "commit", "-qm", message],
-        cwd=dst,
-        capture_output=True,
-        check=False,
-    )
+    cmd = ["git"]
+    if not _git_identity_configured(dst):
+        cmd += ["-c", "user.name=clerk", "-c", "user.email=clerk@localhost"]
+    cmd += ["-c", "commit.gpgsign=false", "commit", "-qm", message]
+    commit = subprocess.run(cmd, cwd=dst, capture_output=True, text=True)
+    if commit.returncode != 0:
+        detail = commit.stderr.strip() or commit.stdout.strip()
+        raise ClerkError(
+            f"clerk could not commit intermediate upgrade state in {dest!r} "
+            f"between template layers: {detail}"
+        )
 
 
 def _ships_answers_file(clone: Path, subdirectory: str) -> bool:
