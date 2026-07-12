@@ -18,9 +18,10 @@ all building on the existing `discovery.secret_questions` + non-persistence test
 Resolved planning decisions (flagged in spec Open Questions):
 - **Lint home (Q-005a)** = a **small standalone test now** over in-repo clerk-authored
   templates (`examples/`), folded into the full authoring-lint when 008b/009 lands.
-- **Third-party non-interactive behavior (Q-005b)** = **use copier's required
-  default** (clerk stays non-prompting per Constitution V); document that a real
-  secret must be supplied out-of-band interactively. No clerk prompt in CI.
+- **Third-party non-interactive behavior (Q-005b)** = **fail loud** naming the
+  question (decision 4b / FR-003c) — clerk does NOT let copier render its placeholder
+  default. clerk stays non-prompting per Constitution V (never prompts in CI, fails
+  loud); a real secret must be supplied out-of-band interactively.
 
 ## Technical Context
 

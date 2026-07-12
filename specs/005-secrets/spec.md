@@ -281,12 +281,13 @@ as needing a secret, never a value).
   `examples/`/`templates/` now, or (b) documented-only until the lint lands? Lean:
   **(a) a small test now** over any in-repo clerk-authored templates, folded into the
   full lint later. Resolve at planning.
-- **Q-005b — Third-party masked-prompt vs fail-loud default**: for a third-party
-  secret question in a non-interactive reproduce, do we (a) let copier use its
-  required default, or (b) fail loud demanding out-of-band supply? Lean: **(a) use the
-  default** (copier's own contract; clerk stays non-prompting per Constitution V) and
-  document that a real secret must be supplied out-of-band interactively. Resolve at
-  planning.
+- **Q-005b — Third-party non-interactive: fail loud vs default (RESOLVED)**: for a
+  third-party `secret: true` question with no value in a non-interactive reproduce/CI
+  run, clerk **fails loud** naming the question (decision 4b / FR-003c / SC-003c) — it
+  does NOT let copier render its placeholder default into output. Fail-loud is the
+  Constitution V choice; silently shipping a placeholder credential is the option 4b
+  rejects. A real secret is supplied out-of-band interactively (copier's masked
+  prompt) or via env.
 
 ## Governing constitution & ADRs
 

@@ -20,8 +20,9 @@ the leak (persistence/log/dry-run) assertions are this spec's definition-of-done
   `discovery.secret_questions` (slice 001) is the whole detection mechanism.
 - Lint home (Q-005a) = a small standalone policy test now over in-repo clerk-authored
   templates; fold into the full authoring lint when 008b/009 lands.
-- Third-party non-interactive (Q-005b) = use copier's required default; clerk never
-  prompts (Constitution V); document out-of-band interactive supply.
+- Third-party non-interactive (Q-005b) = fail loud naming the question (decision 4b /
+  FR-003c); clerk never prompts (Constitution V) and does NOT render copier's
+  placeholder default; document out-of-band interactive supply.
 - Depends on 003 for the multi-layer guardrail surface (the policy lint itself is
   003-independent).
 
