@@ -97,7 +97,9 @@ def _make_module(
     if add_readme:
         (mod / "README.md").write_text(f"# {name}\n")
     if add_changelog:
-        (mod / "CHANGELOG.md").write_text("")
+        # A valid module CHANGELOG carries cog's `- - -` insertion separator
+        # (check_modules gates on it — cog bump needs it). Write a minimal one.
+        (mod / "CHANGELOG.md").write_text("# Changelog\n\n## [Unreleased]\n\n- - -\n")
     return mod
 
 
@@ -191,6 +193,20 @@ def test_missing_readme_fails(mono: Path, capsys) -> None:
     captured = capsys.readouterr()
     assert "clerk-mod-noreadme" in captured.err
     assert "README" in captured.err
+
+
+def test_changelog_without_separator_fails(mono: Path, capsys) -> None:
+    """A CHANGELOG lacking cog's `- - -` separator fails (would break cog bump)."""
+    mod = _make_module(mono / "templates", "clerk-mod-nosep")
+    (mod / "CHANGELOG.md").write_text("# Changelog\n\n## [Unreleased]\n")  # no separator
+    _make_cog_toml(mono, ["clerk-mod-nosep"])
+
+    with patch.object(_cm, "_REPO_ROOT", mono):
+        result = _cm.check_modules(mono / "templates")
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "clerk-mod-nosep" in captured.err
+    assert "separator" in captured.err
 
 
 # ---------------------------------------------------------------------------

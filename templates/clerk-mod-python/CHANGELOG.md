@@ -33,3 +33,5 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - installable src-package layout (`uv init --package`) is **flagged, not
   ported**: it is a uv-driven task, not a static render; Phase 0 seeds a flat
   manifest.
+
+- - -
