@@ -295,7 +295,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   Q-006b resolved: refuse with dangling-edge OrderingError.
   Q-006d resolved: single `--vcs-ref` applies to all layers.
 
-### 007 — Agentic-ecosystem module (template content)  [status: specced]
+### 007 — Agentic-ecosystem module (template content)  [status: implemented]
 
 - **Description:** clerk's distinctive value — wire the agentic ecosystem into
   generated projects. **Clarified 2026-07-13 to an APM-only v1** (see spec 007
@@ -310,10 +310,16 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   future `clerk-mod-*` module (no longer part of 007). Base/language templates (009).
 - **Depends on:** 003; 002. Independent of 009 (007 Q5; tests against a stub base).
 - **Governed by:** ADR-0001/0003; C-06, C-11.
-- **Status detail:** spec clarified + `plan.md`/`tasks.md` regenerated (19 tasks,
-  Phase-structured, Constitution-checked) and merged (PR #21). Implementation not
-  started; it branches fresh off `main` (which already carries the 008b authoring
-  tooling `plan.md` T001 depends on — no rebase needed).
+- **Status detail:** IMPLEMENTED. `templates/clerk-mod-apm/` authored via
+  `just new-module` + `check_modules.py` (3 modules now: base, python, apm). APM-only
+  v1 (Q1). Q1–Q5 realised in copier terms: runtime-injected `apm_packages`
+  (`type: yaml`, no `choices:`, persisted — Q2); managed `apm.yml` byte-reproducible +
+  task-output `apm.lock.yaml` external state (Q3); empty-set refusal via an
+  `apm_packages` validator (Q4); empty `when:false` edges, built/tested against a stub
+  base (Q5). APM CLI facts confirmed against apm-cli 0.24.1: install verb `apm install`
+  (pinned `uvx --from apm-cli==<ver> apm install`); no consumer catalogue block (inline
+  per-dependency sources). MCP/SpecKit/steering remain DEFERRED to their own future
+  `clerk-mod-*` modules.
 
 ### 008 — Skill packaging: installable via Claude + Codex APM marketplaces  [status: implemented]
 
