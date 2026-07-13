@@ -29,3 +29,9 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
     by the spec-003 engine from the selected layers' edges.
 
 - - -
+## clerk-mod-apm-v0.1.0 - 2026-07-13
+#### Features
+- add APM ecosystem module template (#34) - (94b34ec) - Sjors Robroek
+
+- - -
+
