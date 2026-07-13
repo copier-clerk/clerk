@@ -15,3 +15,9 @@ pre_bump_hooks = ["just check-modules || true"]
 # Package entries added here by `just new-module <name>`.
 # Format: [monorepo.packages.<name>]  path = "templates/<name>"
 [monorepo.packages]
+
+[monorepo.packages.clerk-mod-base]
+path = "templates/clerk-mod-base"
+
+[monorepo.packages.clerk-mod-python]
+path = "templates/clerk-mod-python"

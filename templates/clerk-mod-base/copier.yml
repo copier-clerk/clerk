@@ -1,0 +1,16 @@
+# copier.yml — clerk-mod-base
+#
+# Answers-file key — MUST match the shipped .jinja file (FR-016).
+_answers_file: "{{ _copier_conf.answers_file }}.jinja"
+
+# --- Questions ---------------------------------------------------------------
+# Replace these placeholders with real questions for this module.
+
+project_name:
+  type: str
+  help: "Name of the generated project."
+
+description:
+  type: str
+  default: ""
+  help: "One-line description of the project."
