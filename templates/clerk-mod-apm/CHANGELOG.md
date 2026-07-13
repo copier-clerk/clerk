@@ -27,3 +27,5 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   - `depends_on` / `run_after` / `run_before` declared as empty `when:false`
     hidden answers (Q5 / FR-005): no hardcoded base layer; ordering is computed
     by the spec-003 engine from the selected layers' edges.
+
+- - -
