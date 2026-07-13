@@ -24,3 +24,11 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   (SC-008). `cog.toml` `pre_bump_hooks` can drop its `|| true` guard.
 
 - - -
+## clerk-mod-base-v0.1.0 - 2026-07-13
+#### Features
+- add base and Python project templates (#26) - (dd704d2) - Sjors Robroek
+#### Bug Fixes
+- (**008b**) add cog changelog separator; gate on it in check-modules (#31) - (26a8db7) - Sjors Robroek
+
+- - -
+
