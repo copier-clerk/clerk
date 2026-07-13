@@ -1,238 +1,237 @@
 ---
-description: "Task list for clerk agentic-ecosystem module (spec 007)"
+description: "Task list for clerk agentic-ecosystem module — clerk-mod-apm (spec 007)"
 ---
 
-# Tasks: clerk agentic-ecosystem module (spec 007)
+# Tasks: clerk agentic-ecosystem module — `clerk-mod-apm` (spec 007)
 
 **Input**: Design documents from `specs/007-agentic-module/`
-**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
+**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md) (Clarified 2026-07-13),
 [contracts/agentic-module.md](./contracts/agentic-module.md),
 [constitution](../../.specify/memory/constitution.md) v2.1.0
 
-> **STATUS: BLOCKED — do not begin implementation until Open Questions are resolved.**
->
-> This task list is a STRUCTURAL PLACEHOLDER drafted alongside the spec to show the
-> shape of work, establish the phase ordering, and make the blocked decisions
-> explicit. The actual task content (file paths, question keys, `_task` commands,
-> component list) MUST be updated once the following open questions are resolved by
-> the orchestrator + user:
->
-> - **OQ-007-a** — Fixed vs runtime-injected multiselect (determines `copier.yml` question shape)
-> - **OQ-007-b** — v1 component scope (determines rendered file count + `_tasks`)
-> - **OQ-007-c** — SpecKit bridge depth (determines whether SpecKit needs a `_task`)
-> - **OQ-007-e** — Reproduce contract for `apm.lock.yaml` + `_task` pin form
-> - **OQ-007-f** — Monolith vs split (determines directory structure + number of templates)
->
-> Re-generate with `/speckit.tasks` after those decisions are documented in `spec.md`
-> and `contracts/agentic-module.md`.
+**Scope (clarified, Q1)**: v1 ships `clerk-mod-apm` ONLY. MCP / SpecKit / steering-ADR
+are deferred to their own future `clerk-mod-*` modules and are NOT part of this task
+list. Tests are included (Constitution VII makes per-step hardening mandatory).
 
----
-
-## Design decisions this task list assumes (TO BE CONFIRMED after OQ resolution)
-
-The tasks below assume the following defaults (placeholder — each is marked [TBD]):
-
-- **[TBD-A]** OQ-007-a: Option (C) hybrid — baked-in curated choices + free-text
-  additions. The `copier.yml` uses `multiselect` with a fixed `choices:` list.
-- **[TBD-B]** OQ-007-b: v1 scope = APM + SpecKit scaffold. MCP servers and
-  steering/ADR are deferred to a follow-on minor version.
-- **[TBD-C]** OQ-007-c: SpecKit = config-only (rendered `.specify/` skeleton,
-  no additional `_task`).
-- **[TBD-E]** OQ-007-e: `apm.lock.yaml` = task side-effect, not committed render.
-  The `_task` pins the APM CLI version. Reproduce is process-deterministic, not
-  byte-identical for the lock file (documented in contract and SKILL.md).
-- **[TBD-F]** OQ-007-f: Monolithic `clerk-mod-apm` template in v1. Split is
-  deferred until a second component is developed.
-- Reuse: spec 003 `ordering.py` + `runner.init_many` / `reproduce_many` (no
-  changes). Spec 010 invocation surface (no changes). Discovery parses
-  `depends_on` edge from the new template's `copier.yml` automatically.
+**Delivery**: pure template + task content (no `src/clerk/` code, no new
+`scripts/clerk.py` verb). Authored via the spec-008b tooling (`just new-module`,
+`scripts/check_modules.py`), driven by the existing spec-003/010 engine.
 
 ---
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: parallelizable (different files, no incomplete-task dependency)
-- Exact file paths included where known; [TBD] where pending OQ resolution
+- **[Story]**: US1 (generate) or US2 (reproduce); unlabelled = setup/foundational/polish
+- Concrete file paths included in each task
 
 ---
 
-## Phase 0: Pre-work and OQ resolution [GATE]
+## Phase 1: Setup (prerequisites + scaffold)
 
-> These tasks must complete BEFORE any template content is authored.
+**Purpose**: get the authoring tooling in place and lay down a contract-complete stub.
 
-- [ ] T001 Resolve OQ-007-a through OQ-007-g by reviewing `spec.md` Open Questions
-  with the user/orchestrator. Document each decision in `spec.md` (update the
-  relevant OQ entry with "RESOLVED: ...") and in `contracts/agentic-module.md`
-  (fill in [TBD] items). Mark this task complete when all blocking OQs are resolved.
-- [ ] T002 [P] Verify the APM CLI interface: confirm the exact `apm install` command
-  form (or its equivalent) and that it is invokable via `uv run --with 'apm==X.Y.Z'
-  apm install`. Document the resolved form in `contracts/agentic-module.md` under
-  `_tasks`. If no CLI install command exists, record the correct equivalent and
-  update T012 accordingly.
+- [ ] T001 Confirm the spec-008b authoring tooling is present on the implementation
+  branch (rebase onto `main` if needed): `_meta/module-template/`, `just new-module`,
+  `scripts/check_modules.py`, `scripts/_meta_register.py`, `cog.toml`,
+  `catalog-sources.toml`. If absent, 007 implementation is BLOCKED on that merge
+  (spec 008b / PR #22). Record the resolved state.
+- [ ] T002 [P] Verify the APM CLI install interface and record it in
+  `specs/007-agentic-module/contracts/agentic-module.md`: the exact pinned command
+  (`uv run apm==X.Y.Z <verb>`), whether it reads `apm.yml` and writes `apm.lock.yaml`,
+  and the `apm.yml` **catalogue/registry-source** key (Residual Open Item #1/#2 in
+  plan.md). Supply a sensible default catalogue source. If APM has no CLI install
+  command, record the correct equivalent and adjust T007 accordingly.
+- [ ] T003 Scaffold the module: `just new-module name=clerk-mod-apm`. Confirm it
+  creates `templates/clerk-mod-apm/` with `copier.yml`,
+  `{{ _copier_conf.answers_file }}.jinja`, `README.md`, `CHANGELOG.md`, and the
+  registration edits in `cog.toml [monorepo.packages.clerk-mod-apm]` +
+  `catalog-sources.toml`. Run `just check-modules` — the fresh stub MUST pass.
 
-**Checkpoint**: all [TBD-*] decisions documented; contract file has no [TBD] items
-in the tasks, question, or file-inventory sections.
-
----
-
-## Phase 1: Template skeleton
-
-- [ ] T003 Create `clerk-mod-apm/` directory in the monorepo root (or the resolved
-  location per OQ-007-f). Scaffold the minimum valid copier template:
-  `copier.yml` (stub — no real questions yet, just settings and the `when:false`
-  `depends_on` edge declaration), `{{ _copier_conf.answers_file }}.jinja`, and a
-  `CHANGELOG.md`. Ensure `discovery.discover` returns `reproducible: true` and
-  `dependency_edges` contains the expected edge.
-- [ ] T004 [P] Add a local-git fixture to `tests/conftest.py` for `clerk-mod-apm`:
-  a minimal stub template with the `depends_on` edge, an `apm_packages` question
-  (type `str`, empty default), and the answers-file `.jinja`. Follows the same
-  fixture-builder pattern as the existing spec 003 multi-template fixtures. Confirm
-  that `ordering.layer_plan([base_record, apm_record])` returns `[base, apm]` (edge
-  honoured by spec 003 ordering).
-
-**Checkpoint**: `discovery.discover` on the skeleton returns the correct shape;
-ordering engine sequences apm after base; fixture builds hermetically.
+**Checkpoint**: `templates/clerk-mod-apm/` exists, is registered three ways, and
+passes `check_modules.py` as an empty stub.
 
 ---
 
-## Phase 2: Component content — APM [TBD details]
+## Phase 2: Foundational (template contract + threading)
 
-> Content depends on OQ-007-a and OQ-007-b. The task structure below assumes
-> [TBD-A] (fixed choices) and [TBD-B] (APM + SpecKit in v1).
+**Purpose**: the copier.yml shell every user story depends on — questions, the
+dependency edge, and answer threading — before any rendered content or tasks.
 
-- [ ] T005 Add APM component questions to `copier.yml` [TBD: exact keys, choices list
-  for the curated package set — to be confirmed with OQ-007-a resolution and the
-  current clerk `apm.yml` package list]. Add `speckit_enabled` bool question.
-- [ ] T006 Add `apm.yml.jinja`: renders a valid `apm.yml` for the generated project
-  with the selected packages in `dependencies.apm[]`. Use the authoring repo's
-  `apm.yml` (at `/apm.yml`) as the reference schema. Conditional on
-  `apm_packages | length > 0`.
-- [ ] T007 Add the trust-gated APM install `_task` to `copier.yml`: runs
-  `uv run --with 'apm=={{ apm_cli_version }}' apm install` (or the form resolved in
-  T002); conditional on `apm_packages | length > 0`; pinned to the resolved APM CLI
-  version.
+**⚠️ Blocks US1 and US2.**
 
-**Checkpoint**: `copier copy <source> <dest> --data apm_packages=[…]` renders a
-correct `apm.yml`; the `_task` command is syntactically valid (can be dry-run
-inspected).
+- [ ] T004 Author the `apm_packages` question in
+  `templates/clerk-mod-apm/copier.yml` as a **runtime-injected list-typed answer**
+  (ADR-0003 / Q2 / FR-002): `type: str`, `multiselect: true`, `default: []`, populated
+  by the agent via `--data apm_packages=[…]`; NO frozen `choices:` list. Ensure it
+  **persists to the answers file** (it is a real `--data` answer, not `when:false`).
+- [ ] T005 [P] Author the threaded `project_name` question in `copier.yml` with
+  `default: "{{ project_name }}"` (ADR-0003 threading via `data=`) and a standalone
+  fallback default (FR-006, SC-006). Author the `apm_cli_version` question (pinned
+  APM tool version, `default:` the version confirmed in T002) used by the install
+  `_task` (FR-009). Author `today` as an injected answer (VI/C-05), mirroring
+  `examples/clerk-template-example/copier.yml`.
+- [ ] T006 [P] Declare the dependency edge in `copier.yml` as a `when:false` hidden
+  answer `depends_on` with `default: []` (Q5 / FR-005): 007 does NOT hardcode a base
+  layer; ordering is computed at reproduce time by the spec-003 engine from edges.
+  Confirm `uv run scripts/clerk.py discover templates/clerk-mod-apm` returns
+  `reproducible: true`, `has_tasks: true` (after T007), and the `apm_packages` question.
 
----
-
-## Phase 3: Component content — SpecKit scaffold [TBD details]
-
-> Depends on OQ-007-c. Assumes [TBD-C] (config-only, no task).
-
-- [ ] T008 Add `.specify/` scaffold files (conditional on `speckit_enabled: true`):
-  `constitution.md.jinja` (stub — project name + date injected), `extensions.yml.jinja`
-  (empty skeleton), `feature.json.jinja` (minimal SpecKit integration config).
-  Use the authoring repo's `.specify/` structure as the reference.
-- [ ] T009 [P] Add `apm.yml.jinja` entries for SpecKit APM packages when
-  `speckit_enabled: true` (i.e. merge speckit package entries into the rendered
-  `apm.yml`). Ensure deduplication if the user also selected them in `apm_packages`.
-
-**Checkpoint**: with `speckit_enabled: true`, `.specify/` directory is rendered;
-with `speckit_enabled: false`, it is absent.
+**Checkpoint**: discovery reports the correct shape; `project_name` threads;
+`check_modules.py` still passes.
 
 ---
 
-## Phase 4: Answer threading + standalone mode
+## Phase 3: User Story 1 — Generate a project with APM wiring (Priority: P1) 🎯 MVP
 
-- [ ] T010 Verify that `project_name` is threaded correctly from a base layer:
-  in a two-layer init [base, apm], `apm.yml.jinja` renders with the correct
-  `project_name` without the user re-answering it. Add an assertion to the test.
-- [ ] T011 Verify standalone mode: applying `clerk-mod-apm` WITHOUT a base layer
-  (no `project_name` threaded) falls back to a sensible default (e.g. the copier
-  `default: "myproject"` or prompts the user). Add a standalone test.
+**Goal**: selecting `clerk-mod-apm` with an injected package set produces a valid
+`apm.yml` (packages + ≥ 1 catalogue) and runs the trust-gated pinned install task;
+an empty set is refused; an untrusted source is refused at exit 3.
 
-**Checkpoint**: threading works; standalone works with defaults.
+**Independent Test**: `copier`/`clerk init` a `[stub_base, clerk-mod-apm]` selection
+with `--data apm_packages=[…]` on a trusted source → `apm.yml` present and correct;
+repeat with `apm_packages=[]` → refusal; repeat untrusted → exit 3.
 
----
+### Implementation for US1
 
-## Phase 5: Trust + reproduce hardening
+- [ ] T007 [US1] Add the **trust-gated APM install `_task`** to
+  `templates/clerk-mod-apm/copier.yml` (FR-004, FR-009, Q3): a portable shell command
+  using the pinned form from T002 (`uv run apm=={{ apm_cli_version }} <verb>`), guarded
+  by `when: "{{ apm_packages | length > 0 }}"`, idempotent at reproduce. Document that
+  it writes `apm.lock.yaml` as external state.
+- [ ] T008 [US1] Author `templates/clerk-mod-apm/apm.yml.jinja` (FR-003): render
+  `dependencies.apm[]` from the injected `apm_packages`, plus **≥ 1 catalogue/registry
+  source** (Q2 / FR-002a) — supply the default from T002 when the injected data yields
+  none. Mirror the schema of the repo's own `/apm.yml`
+  (`name`/`version`/`description`/`target`/`dependencies.apm[]`), using threaded
+  `{{ project_name }}`.
+- [ ] T009 [US1] Implement the **empty-set refusal** (Q4 / FR-002b): a template-side
+  guard so a reached-with-zero-packages render fails loudly with a message directing
+  the user to drop the module — NOT an empty `apm.yml`. Use copier's validator/`when`
+  mechanism (e.g. an `apm_packages` validator that rejects an empty list, or a guard
+  question); confirm no `apm.yml` is written on refusal.
+- [ ] T010 [P] [US1] Add the `clerk-mod-apm` fixture + minimal **stub base layer** to
+  `tests/conftest.py` (FR-007), reusing the `build_template_repo` / `multi_template_set`
+  pattern. The stub base provides the threaded `project_name`; the install `_task` is
+  stubbed to a deterministic offline no-op (writes a marker, no network) so the suite
+  stays hermetic.
+- [ ] T011 [P] [US1] `tests/loop/test_apm_render.py` (US1 acceptance #1, SC-001, SC-006,
+  Q2, Q4): render `[stub_base, clerk-mod-apm]` with an injected `apm_packages` set →
+  assert `apm.yml` has the right `dependencies.apm[]` and ≥ 1 catalogue; render
+  standalone (no base) → defaults hold; render with `apm_packages=[]` → refusal, no
+  `apm.yml` written.
+- [ ] T012 [P] [US1] `tests/loop/test_apm_trust.py` (US1 acceptance #2, SC-004): an
+  untrusted source with `_tasks` refuses at exit 3 naming `trust add`, before any write.
 
-- [ ] T012 Trust-refusal test: `tests/loop/test_apm_trust.py` — with an untrusted
-  source that has `_tasks`, `init` refuses at exit 3 naming the `trust add` command,
-  nothing is written.
-- [ ] T013 [P] Reproduce test: `tests/loop/test_apm_reproduce.py` — from a
-  generated project, `reproduce` re-renders `apm.yml` + `.specify/` byte-identically.
-  Assert no clerk-specific order file in the project. Assert N=1 (apm only, no
-  base) reproduces correctly through `reproduce_many`.
-- [ ] T014 [P] Component-deselection test: `tests/loop/test_apm_render.py` — with
-  `apm_packages=[]`, `apm.yml` is absent or empty-skeleton only. With
-  `speckit_enabled: false`, `.specify/` is absent. Assert each conditional file
-  correctly absent/present.
-
-**Checkpoint**: trust refusal, reproduce byte-identity, and deselection all verified
-hermetically.
-
----
-
-## Phase 6: Ordering integration
-
-- [ ] T015 Multi-template ordering test: `tests/loop/test_apm_ordering.py` — a
-  selection of [base_stub, apm] where `clerk-mod-apm` declares `depends_on:
-  [base_stub]`; assert `init_many` applies base before apm; assert `reproduce_many`
-  recomputes the same order from committed state; assert `project_name` is threaded
-  from base to apm.
-
-**Checkpoint**: spec 003 ordering engine drives apm correctly; no special-casing.
-
----
-
-## Phase 7: Skill + documentation
-
-- [ ] T016 Extend `skills/clerk/SKILL.md`: add the agentic-module step — when to
-  offer `clerk-mod-apm`, what the multiselect presents, trust consent walkthrough,
-  handoff shape (reference `contracts/agentic-module.md`). Note the `apm.lock.yaml`
-  variance documented in OQ-007-e resolution.
-- [ ] T017 [P] Update `contracts/agentic-module.md`: fill all remaining [TBD]
-  sections using the OQ resolution decisions from T001. Confirm the discovery
-  contract table, rendered file inventory, and `_task` form are accurate.
-
-**Checkpoint**: SKILL.md documents the full flow; contract is complete with no [TBD].
+**Checkpoint**: US1 fully functional and independently testable — correct `apm.yml`,
+empty-set refusal, trust refusal.
 
 ---
 
-## Phase 8: Gate + closeout
+## Phase 4: User Story 2 — Reproduce a project with APM wiring (Priority: P1)
 
-- [ ] T018 Full gate: `uv run ruff check src/ tests/ scripts/ && uv run ruff format
-  --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing
-  001/002/003/010 tests still pass (NO regression — this spec adds zero Python code).
-  Confirm `clerk-mod-apm` fixture tests pass hermetically.
+**Goal**: reproduce re-renders `apm.yml` byte-identically from committed answers +
+pinned commit; the install `_task` re-runs under trust; `apm.lock.yaml` is treated as
+external state (NOT asserted byte-identical).
+
+**Independent Test**: generate an APM-wired project, then `reproduce` it → `apm.yml`
+byte-identical; assert the lock is regenerated by the task, not diffed.
+
+### Implementation for US2
+
+- [ ] T013 [US2] `tests/loop/test_apm_reproduce.py` (US2 acceptance #1/#2, SC-002, Q3):
+  from a generated `clerk-mod-apm` project, `reproduce` re-renders `apm.yml`
+  byte-identically (same recorded `apm_packages` + pinned `_commit`). Assert the
+  install `_task` re-runs under trust and that `apm.lock.yaml` is regenerated as
+  external state — explicitly do NOT assert lock byte-identity. Cover N=1 (apm only)
+  and the multi-layer case through `reproduce_many`.
+- [ ] T014 [P] [US2] `tests/loop/test_apm_ordering.py` (SC-005, Q5): a
+  `[stub_base, clerk-mod-apm]` selection where the edge (if declared) sequences base
+  first; assert `init_many` order, `reproduce_many` recomputes the same order from
+  committed state, and `project_name` threads from base into the rendered `apm.yml`.
+  Confirm no clerk-specific recipe file is committed to the project (spec-010 invariant).
+
+**Checkpoint**: reproduce byte-identity for `apm.yml`, lock-as-external-state, and
+ordering/threading all verified hermetically.
+
+---
+
+## Phase 5: Documentation, contract reconciliation, and gate
+
+**Purpose**: make the flow discoverable and prove the module is contract-clean.
+
+- [ ] T015 [P] Extend `skills/clerk/SKILL.md` (FR-010): add the `clerk-mod-apm` step —
+  when to include it; that the AGENT builds the runtime-injected `apm_packages` list
+  from user input + project requirements and the user MAY override; the ≥ 1-package
+  precondition and empty-set refusal (Q4); trust consent for the install `_task`; the
+  `apm.lock.yaml` external-state note (Q3); and the run-spec handoff shape (reference
+  `contracts/agentic-module.md`).
+- [ ] T016 [P] Finalize `specs/007-agentic-module/contracts/agentic-module.md`: ensure
+  it matches the APM-only scope + the verified APM command/catalogue key from T002
+  (no residual MCP/SpecKit/steering content, no `[TBD]` in the questions / rendered-
+  file / `_task` sections).
+- [ ] T017 `just check-modules` on the finished `templates/clerk-mod-apm/`: passes all
+  contract checks (answers-file `.jinja`, README, CHANGELOG, three-way registration
+  parity, published-label immutability). Update `CHANGELOG.md` for the module.
+- [ ] T018 Full gate: `uv run ruff check . && uv run ruff format --check . &&
+  uv run mypy && uv run pytest -q`. Confirm existing 001/002/003/006/008 suites still
+  pass (007 adds zero Python glue) and the new `test_apm_*` fixtures pass hermetically.
 - [ ] T019 Update `.specify/memory/roadmap.md`: mark spec 007 `planned → implemented`
-  with a completion note (template content, component categories shipped, OQ
-  resolutions). Confirm 008/009 entries' dependency on 007 still read correctly.
-- [ ] T020 Open the PR (title = user-facing changelog entry, no spec IDs; `##
-  Spec Context` body per the hook); push via `dgit push`. Do NOT merge without the
-  user's go-ahead.
+  with a completion note (clerk-mod-apm; APM-only v1; Q1–Q5 resolutions; MCP/SpecKit/
+  steering deferred to future modules). Confirm 008/009 dependency wording still reads
+  correctly (007 independent of 009, Q5).
 
 ---
 
-## Dependencies & parallelism
+## Dependencies & Execution Order
 
-- **Phase 0 (T001–T002)** is the gate; ALL other phases are blocked until T001 is
-  complete (OQs resolved).
-- **Phase 1 (T003–T004)** can start once T001 is done. T004 is parallelizable with T003.
-- **Phases 2–3 (T005–T009)** depend on Phase 1 skeleton. T008–T009 are parallelizable
-  with T005–T007 (different files, no Python dependency).
-- **Phase 4 (T010–T011)** depends on Phases 2–3.
-- **Phase 5 (T012–T014)** depends on Phase 2 (needs `_task`). T012–T014 are
-  parallelizable with each other.
-- **Phase 6 (T015)** depends on Phase 1 skeleton + spec 003 ordering being available.
-  Can run in parallel with Phases 2–5 if using the skeleton fixture.
-- **Phase 7 (T016–T017)** depends on Phases 2–6 being functionally correct.
-- **Phase 8 (T018–T020)** is closeout; T019/T020 can run in parallel with T018 if
-  tests pass.
+### Phase dependencies
+
+- **Phase 1 (T001–T003)**: T001 is the prerequisite gate (008b tooling present). T002
+  is parallelizable with T001. T003 depends on T001.
+- **Phase 2 (T004–T006)**: depends on T003 (stub exists). T005/T006 parallelizable with
+  T004 (different concerns in the same file — coordinate edits if working concurrently).
+- **Phase 3 / US1 (T007–T012)**: depends on Phase 2. T007→T008→T009 touch the same
+  template files (sequential); T010 is parallelizable; T011/T012 depend on T007–T010.
+- **Phase 4 / US2 (T013–T014)**: depends on US1 (needs a generatable project + fixture).
+  T014 parallelizable with T013.
+- **Phase 5 (T015–T019)**: T015/T016 parallelizable and can start once the contract is
+  stable (after Phase 3). T017 depends on the finished template (Phase 3). T018 depends
+  on all tests (Phases 3–4). T019 is closeout after T018.
+
+### Parallel opportunities
+
+- T001 ∥ T002.
+- Within US1: T010 ∥ T007-line; T011 ∥ T012 (different test files) once deps are met.
+- T014 ∥ T013.
+- T015 ∥ T016.
 
 ---
 
 ## Definition of done (maps to spec Success Criteria)
 
-- SC-001 — APM-wired project contains correct `apm.yml` and task-produced
-  `apm.lock.yaml` (T006/T007/T018).
-- SC-002 — Reproduce re-renders `apm.yml` byte-identically (T013).
-- SC-003 — Component deselection leaves files absent (T014).
+- SC-001 — APM-wired project has a correct `apm.yml` (deps + ≥ 1 catalogue); install
+  task produces `apm.lock.yaml` on a trusted source (T007/T008/T011).
+- SC-002 — Reproduce re-renders `apm.yml` byte-identically; lock is external state, not
+  asserted byte-identical; task pins the APM version (T013).
+- SC-003 — (Component deselection) reduced to the empty-set refusal in v1 (Q1/Q4):
+  zero packages → refusal, no `apm.yml` (T009/T011).
 - SC-004 — Untrusted source refused at exit 3 before any write (T012).
-- SC-005 — Multi-template [base, apm] applies base first; threads `project_name`
-  (T010/T015).
-- SC-006 — Standalone application (no base layer) works with defaults (T011).
+- SC-005 — Multi-layer `[stub_base, apm]` orders base first and threads `project_name`
+  (T014).
+- SC-006 — Standalone application (no base layer) renders with defaults (T011).
+- Contract: `clerk-mod-apm` passes `check_modules.py` (T017); SKILL.md documents the
+  step (T015).
+
+---
+
+## Notes
+
+- [P] = different files, no incomplete-task dependency.
+- No `src/clerk/` or `scripts/clerk.py` changes — pure template + task content
+  (Principle I / C-11). Any discovered copier gap must be justified against C-11 first.
+- MCP, SpecKit-bridge, and steering/ADR are OUT of v1 (Q1) — do not add their questions,
+  files, or tasks here; each is a future `clerk-mod-*` spec.
+- The stale US3/US4 scenarios and the "MCP config skeleton" phrase in `spec.md` predate
+  the clarification; the Clarifications section governs. Prune them in a separate
+  spec-refine pass (not part of these tasks).
