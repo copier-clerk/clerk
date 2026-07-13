@@ -1,16 +1,103 @@
 # copier.yml — clerk-mod-python
 #
-# Answers-file key — MUST match the shipped .jinja file (FR-016).
-_answers_file: "{{ _copier_conf.answers_file }}.jinja"
+# The Python language overlay: ports project-setup's `lang-python` module (add
+# Python tooling — uv, ruff, pytest) as a copier layer that `run_after`
+# clerk-mod-base (spec 009 Phase 0). Threads `project_name` from base; seeds a
+# pyproject.toml (SEED-ONCE) pinned to the chosen `python_version`; contributes
+# its language token into base's shared `gitignore_stack` (single .gitignore
+# writer — see clerk-mod-base).
+#
+# SOURCE CAVEAT (spec 009 tasks.md T001 / plan Assumptions): lang-python's full
+# manifest (module.toml + module.py) is NOT locally present. This overlay is
+# built from the addon catalog.json description ("Add Python tooling (uv, ruff,
+# pytest) to a scaffolded project. Appends Python .gitignore entries and ruff
+# pre-commit hooks.") + the SKILL.md characterization (pins 3.13, uv +
+# pyproject.toml). Every inferred behaviour carries a
+# `# TODO(009): confirm against lang-python manifest when available` flag so it
+# is reconcilable later. No behaviour is invented beyond these sources (FR-011).
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions; edges are when:false hidden answers.
 
-# --- Questions ---------------------------------------------------------------
-# Replace these placeholders with real questions for this module.
+# Note: no _answers_file override — copier's default is used (see clerk-mod-base
+# for the rationale); clerk passes .copier-answers.clerk-mod-python.yml at
+# multi-template init.
 
+# --- Threaded + choice questions (FR-010 / Q7) -------------------------------
+
+# Threaded from base via copier's default: "{{ project_name }}" mechanism
+# (ADR-0003 + clerk's data= threading). Standalone fallback: renders empty when
+# no upstream base supplied it (US2 #2 / SC-006-style self-containment). Does
+# NOT hardcode that *base* supplied it (FR-010).
 project_name:
   type: str
-  help: "Name of the generated project."
+  default: "{{ project_name }}"
+  help: "The project's name (threaded from clerk-mod-base; used in pyproject [project].name)."
 
-description:
+# Fixed choices for a finite well-known set (Q7 / FR-007c). Default pinned to
+# 3.13 per the SKILL.md characterization.
+# TODO(009): confirm the exact choices list + default against the lang-python
+# manifest when available.
+python_version:
+  type: str
+  choices:
+    - "3.11"
+    - "3.12"
+    - "3.13"
+  default: "3.13"
+  help: "Python version to pin in pyproject requires-python."
+
+# `today` is injected by clerk at init and frozen into the recorded answers
+# (FR-007); never sourced from jinja2_time (Constitution V). Present so the
+# overlay's answers file is uniform with base.
+today:
   type: str
   default: ""
-  help: "One-line description of the project."
+  help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+# The one edge: this overlay applies AFTER clerk-mod-base (ADR-0003 / plan
+# Ordering). depends_on/run_before default empty.
+run_after:
+  type: yaml
+  default:
+    - clerk-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# --- Seed-once files (FR-005a / Q3 / D-009-7) --------------------------------
+# pyproject.toml is a language manifest: seeded with initial config once, then
+# the project adds/bumps deps. Re-rendering would revert real work. On a
+# fresh-checkout reproduce it does not yet exist so it still renders
+# (Constitution III holds).
+_skip_if_exists:
+  - pyproject.toml
+
+# --- Trust-gated tasks (FR-007b / Q6) ----------------------------------------
+# uv preflight, ordered FIRST: checks `uv` on PATH and fails with the astral
+# install URL before any consequential task runs. This overlay writes no
+# .gitignore itself — its Python entries are contributed through base's shared
+# gitignore_stack (single writer; see clerk-mod-base and the README).
+# NOTE (Phase 0): project-setup's lang-python also "appends ruff pre-commit
+# hooks", but that appends to a .pre-commit-config.yaml owned by the Phase-1
+# `precommit-setup` module, which is absent in Phase 0 — so there is no file to
+# append to. Deliberately NOT fabricating a standalone pre-commit file here.
+# TODO(009): wire the ruff pre-commit hook contribution when precommit-setup lands.
+_tasks:
+  - >-
+    command -v uv >/dev/null 2>&1 ||
+    { echo "clerk-mod-python: required tool 'uv' not found on PATH." >&2;
+    echo "  uv — https://docs.astral.sh/uv/getting-started/installation/" >&2;
+    exit 1; }
