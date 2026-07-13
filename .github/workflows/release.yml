@@ -89,14 +89,29 @@ jobs:
 
       # Step 1: cog bump --auto — creates <name>-vX.Y.Z tags + CHANGELOG commits
       # locally. pre_bump_hooks (just check-modules) gates the bump; cog never pushes.
-      # git-user/-email set the release commit signature.
+      #
+      # We install cog 7.x DIRECTLY rather than use cocogitto/cocogitto-action@v4,
+      # which pins cog 6.4.0. cog 7.0.0's "package resolver for monorepo" is a
+      # BREAKING change: this repo's [monorepo.packages] config bumps cleanly on
+      # 7.x but fails on 6.4.0. Installing directly also surfaces cog's stderr
+      # (the action swallowed it). Pin the exact version for reproducibility.
+      - name: Install cocogitto 7.x
+        env:
+          COG_VERSION: "7.0.0"
+        run: |
+          set -euo pipefail
+          url="https://github.com/cocogitto/cocogitto/releases/download/${COG_VERSION}/cocogitto-${COG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL "$url" -o /tmp/cog.tar.gz
+          tar -xzf /tmp/cog.tar.gz -C /tmp
+          sudo install -m 0755 "$(find /tmp -maxdepth 2 -name cog -type f | head -1)" /usr/local/bin/cog
+          cog --version
+
       - name: Cog bump changed modules
-        uses: cocogitto/cocogitto-action@v4
-        with:
-          command: bump
-          args: --auto
-          git-user: "clerk-fanout[bot]"
-          git-user-email: "clerk-fanout[bot]@users.noreply.github.com"
+        run: |
+          set -euo pipefail
+          git config user.name "clerk-fanout[bot]"
+          git config user.email "clerk-fanout[bot]@users.noreply.github.com"
+          cog bump --auto
 
       # Step 2: finalize the monorepo release BEFORE any fan-out.
       - name: Push bump commit + tags

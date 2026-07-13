@@ -176,9 +176,19 @@ def check_modules(templates_dir: Path | None = None) -> int:
         if not (module_path / "README.md").exists():
             violations.append(f"{name}: missing README.md")
 
-        # Check 3: CHANGELOG.md present
-        if not (module_path / "CHANGELOG.md").exists():
+        # Check 3: CHANGELOG.md present AND contains cog's insertion separator.
+        # `cog bump` fails with "cannot find default separator '- - -'" if the
+        # module CHANGELOG lacks the `- - -` marker it prepends released sections
+        # above (spec 008b). A module can otherwise lint clean yet break the
+        # release pipeline, so gate on the separator here.
+        changelog = module_path / "CHANGELOG.md"
+        if not changelog.exists():
             violations.append(f"{name}: missing CHANGELOG.md")
+        elif not any(line.strip() == "- - -" for line in changelog.read_text().splitlines()):
+            violations.append(
+                f"{name}: CHANGELOG.md missing the cocogitto '- - -' separator "
+                f"(cog bump would fail to find its insertion point)"
+            )
 
         # Check 4: published-label immutability (C-06)
         tags = _git_tags_for_module(name)

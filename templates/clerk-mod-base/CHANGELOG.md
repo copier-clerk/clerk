@@ -22,3 +22,5 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - With this module under `templates/`, `just check-modules` is now a real gate
   (no longer the empty no-op), which unblocks the spec-008b fan-out pipeline
   (SC-008). `cog.toml` `pre_bump_hooks` can drop its `|| true` guard.
+
+- - -
