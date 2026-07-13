@@ -1,0 +1,31 @@
+{#-
+  apm.yml — MANAGED (re-rendered byte-identically at reproduce, Q3).
+
+  Renders the APM dependency layer for the generated project from the injected
+  `apm_packages` list. Mirrors the schema of the clerk repo's own /apm.yml
+  (name / version / description / target / dependencies.apm[]) and the shape
+  `apm init` produces.
+
+  Sources (FR-002a): APM has no separate consumer "catalogue/registry" block in
+  a project apm.yml — each dependency locator carries its own source inline
+  (`owner/repo/packages/name#constraint`), exactly like the clerk repo's apm.yml.
+  So "configure >= 1 source" is satisfied by having >= 1 dependency locator (each
+  IS a source). The empty set is refused before this file renders (Q4 /
+  apm_packages validator), so `dependencies.apm` is always non-empty here.
+
+  The install task (uvx --from apm-cli==<ver> apm install) resolves these and
+  writes apm.lock.yaml as external state (NOT rendered here, NOT byte-guaranteed).
+-#}
+name: {{ project_name | default('project', true) }}
+version: 0.1.0
+description: {{ description | default('APM dependency layer for ' ~ (project_name | default('project', true)), true) }}
+# Which agent platforms to deploy to. Claude + Codex is clerk's own default
+# target pair; adjust to your project's runtimes.
+target: claude,codex
+includes: auto
+
+dependencies:
+  apm:
+{%- for pkg in apm_packages %}
+    - {{ pkg }}
+{%- endfor %}

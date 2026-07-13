@@ -1,0 +1,139 @@
+# copier.yml — clerk-mod-apm
+#
+# The APM dependency layer (spec 007, v1 = APM only per Q1). ONE copier template
+# that wires an APM package layer into a generated project: it renders a valid
+# apm.yml (selected packages + inline sources) and runs a trust-gated, version-
+# pinned `apm install` task that writes apm.lock.yaml as external state.
+#
+# Lifecycles (Q3):
+#   MANAGED (re-rendered byte-identically): apm.yml and the .copier-answers file.
+#   TASK-OUTPUT (process-deterministic, outside the byte-identical set):
+#     apm.lock.yaml — written by the pinned `apm install` task, NOT byte-guaranteed
+#     at reproduce (Constitution III's process-deterministic model).
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja
+# so every generated project records its own source + commit; declares NO
+# secret: questions (APM tokens are read from ambient env by the CLI, never a
+# copier answer — spec 005); edges are when:false hidden answers.
+
+# Note: no _answers_file override — copier's default (.copier-answers.yml) is
+# used, matching clerk-mod-base/python. clerk passes a per-layer answers_file
+# name at multi-template init (.copier-answers.clerk-mod-apm.yml). The shipped
+# template/{{ _copier_conf.answers_file }}.jinja renders whichever name is in
+# effect (Constitution VI / FR-016).
+
+# --- Threaded identity (FR-006 / SC-006) -------------------------------------
+# Threaded from a base layer via copier's default: "{{ project_name }}" mechanism
+# (ADR-0003 + clerk's data= threading). Standalone fallback: renders "project"
+# when no upstream layer supplied it (SC-006 self-containment). Does NOT hardcode
+# that clerk-mod-base specifically supplied it (FR-006 / FR-010).
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "The project's name (threaded from a base layer; used in apm.yml [name])."
+
+description:
+  type: str
+  default: ""
+  help: "One-line description of the APM layer (fills apm.yml [description])."
+
+# --- APM package set — runtime-injected list (Q2 / FR-002) -------------------
+# The phase-1 AGENT determines this list from user input + project requirements
+# and injects it via `--data apm_packages=[…]`; the user MAY override. It is a
+# real (persisted) answer so reproduce replays the same set (FR-002, FR-008).
+#
+# type: yaml (NOT multiselect) is the proven injected-list convention in this
+# repo (see clerk-mod-base's gitignore_stack / agent_editable_globs): copier
+# passes a data= list straight through to a yaml-typed question, whereas a
+# `multiselect: true` question WITHOUT a frozen `choices:` list does not accept
+# injected values. There is deliberately NO `choices:` here — the module carries
+# no baked-in package catalogue (Q2), so published-label immutability does not
+# bind this question (C-06).
+#
+# Each entry is an APM dependency locator, e.g.
+#   srobroek/agentic-packages/packages/speckit#>=5.0.0 <6.0.0
+# i.e. `owner/repo/packages/name#constraint` — the same inline-source shape the
+# clerk repo's own apm.yml uses (APM has no separate consumer catalogue block;
+# the source is inline in each dependency).
+apm_packages:
+  type: yaml
+  default: []
+  # Empty-set refusal (Q4 / FR-002b): the module presupposes >= 1 package. If it
+  # is reached with an empty set it MUST refuse loudly rather than render an empty
+  # apm.yml. A non-empty validator message aborts the render before any write.
+  validator: >-
+    {% if apm_packages | length == 0 %}clerk-mod-apm requires at least one APM
+    package (FR-002b). This module presupposes >= 1 package to install: drop it
+    from the layer selection, or inject a non-empty apm_packages list via
+    --data.{% endif %}
+  help: "APM package locators (agent-populated from project requirements; you may override)."
+
+# --- Pinned APM CLI version (FR-009) -----------------------------------------
+# The install _task pins the APM CLI to this version for process-determinism
+# (uvx --from apm-cli==<version>). Bumped by a template minor release, never
+# taken from ambient PATH.
+apm_cli_version:
+  type: str
+  default: "0.24.1"
+  help: "APM CLI version the install task pins (uvx --from apm-cli==<version>)."
+
+# `today` is injected by clerk at init (`--data today=…`) and frozen into the
+# recorded answers, so reproduce replays the original generation date rather than
+# the wall clock (FR-007). Never sourced from jinja2_time (Constitution V).
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-005) -------------------
+# Q5: 007 hardcodes NO base layer. depends_on is declared empty so the shape is
+# uniform across the family and discovery parses it as an edge (never a
+# question). Ordering is computed at reproduce time by the spec-003 engine from
+# whatever edges the SELECTED layers declare; any real adjacency (e.g. a future
+# project-setup module needing to run before/after apm) is declared by THAT
+# module, never baked in here.
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_after:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree
+# (copier.yml never lands in the generated project).
+_subdirectory: template
+
+# --- Trust-gated tasks (FR-004 / FR-009 / Q3) --------------------------------
+# Because this template runs commands (code execution), clerk requires the
+# source to be trusted before they run (Constitution V). Tasks run post-render
+# at BOTH init and reproduce.
+_tasks:
+  # PREFLIGHT — ordered first: verify `uv`/`uvx` is on PATH (the pinned APM CLI
+  # is launched via uvx), and fail with install guidance before the install runs.
+  - >-
+    command -v uvx >/dev/null 2>&1 ||
+    { echo "clerk-mod-apm: required tool 'uvx' (from uv) not found on PATH." >&2;
+    echo "  uv/uvx — https://docs.astral.sh/uv/getting-started/installation/" >&2;
+    exit 1; }
+
+  # APM install (Q3 / FR-004 / FR-009). Reads the rendered apm.yml in the project
+  # root and writes apm.lock.yaml (EXTERNAL STATE — regenerated at reproduce, NOT
+  # asserted byte-identical). Pins the APM CLI via `uvx --from apm-cli==<ver>` for
+  # process-determinism (no bare `apm` on ambient PATH). `apm install` is
+  # non-interactive by default and idempotent (re-installs against the same
+  # apm.yml at reproduce). Guarded so it never runs on the (already-refused)
+  # empty set.
+  # NOTE(T002, confirmed against apm-cli 0.24.1): `apm install` is the verb that
+  # reads apm.yml and writes apm.lock.yaml; it takes no --yes flag. APM tokens
+  # (if any) are read from ambient env by the CLI — never a copier answer (spec 005).
+  - command: >-
+      uvx --from apm-cli=={{ apm_cli_version }} apm install
+    when: "{{ apm_packages | length > 0 }}"
