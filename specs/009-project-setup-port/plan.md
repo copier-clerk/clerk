@@ -165,13 +165,13 @@ byte-identical set — like `clerk-template-example`'s LICENSE).
 is a no-op that only provides the upstream answers `project_name`/`org`/`description`/
 `layout`/`license`). In the collapsed template these become plain `copier.yml` questions.
 
-### `clerk-mod-python` (ports lang-python — manifest NOT locally present; see Assumptions)
+### `clerk-mod-python` (ports lang-python — reconciled against `lang-python-v1.3.0`)
 
 | Output | Lifecycle | Notes |
 |---|---|---|
 | `pyproject.toml` | **seed-once** (`_skip_if_exists`) | Language manifest (FR-005a explicit): uv/ruff/pytest config + `requires-python` pinned from `python_version`; threaded `{{ project_name }}` in `[project].name`. Project bumps deps after init → never re-rendered. |
 | Python `.gitignore` entries | **task-output** (via base gitnr) | lang-python's "appends Python .gitignore entries" is realized by threading `python` into the base `gitignore_stack` answer that base's gitnr task consumes — one `.gitignore` generation point, no double-append (see *Ordering*). |
-| ruff pre-commit hook fragment | **DEFERRED / flagged** | project-setup's lang-python "appends ruff pre-commit hooks" to a `.pre-commit-config.yaml` **owned by `precommit-setup`** (a Phase-1 module). With no precommit-setup in Phase 0 there is no file to append to. Flagged as a residual (manifest not local) — do not invent a standalone precommit file in Phase 0. |
+| ruff pre-commit hook fragment | **DEFERRED / flagged** | lang-python-v1.3.0 appends its ruff hook block (`astral-sh/ruff-pre-commit` `rev: v0.6.9`, `ruff --fix` + `ruff-format`) to a `.pre-commit-config.yaml` **owned by `precommit-setup`** (a Phase-1 module). With no precommit-setup in Phase 0 there is no file to append to — do not invent a standalone precommit file in Phase 0. Moves in (rev pinned from `ruff_version`) when `clerk-mod-precommit` lands. |
 
 **Managed vs seed-once summary**: MANAGED = base dir scaffold + copier-answers files;
 SEED-ONCE = `AGENTS.md`, `pyproject.toml`; TASK-OUTPUT = `.gitignore` (gitnr), `LICENSE`

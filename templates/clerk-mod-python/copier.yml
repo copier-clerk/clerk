@@ -7,14 +7,12 @@
 # its language token into base's shared `gitignore_stack` (single .gitignore
 # writer — see clerk-mod-base).
 #
-# SOURCE CAVEAT (spec 009 tasks.md T001 / plan Assumptions): lang-python's full
-# manifest (module.toml + module.py) is NOT locally present. This overlay is
-# built from the addon catalog.json description ("Add Python tooling (uv, ruff,
-# pytest) to a scaffolded project. Appends Python .gitignore entries and ruff
-# pre-commit hooks.") + the SKILL.md characterization (pins 3.13, uv +
-# pyproject.toml). Every inferred behaviour carries a
-# `# TODO(009): confirm against lang-python manifest when available` flag so it
-# is reconcilable later. No behaviour is invented beyond these sources (FR-011).
+# SOURCE: reconciled against the real lang-python manifest at tag
+# lang-python-v1.3.0 (srobroek/project-setup: module.toml + module.py). The
+# inputs, ordering and ruff config below match that manifest; clerk-model
+# adaptations (threaded ruff target-version, gitnr instead of a literal
+# .gitignore append, no Phase-0 pre-commit file) are noted inline where they
+# occur.
 #
 # Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
 # NO secret: questions; edges are when:false hidden answers.
@@ -23,29 +21,61 @@
 # for the rationale); clerk passes .copier-answers.clerk-mod-python.yml at
 # multi-template init.
 
-# --- Threaded + choice questions (FR-010 / Q7) -------------------------------
+# --- Identity + config questions (ported from lang-python [[inputs]]) ---------
 
 # Threaded from base via copier's default: "{{ project_name }}" mechanism
 # (ADR-0003 + clerk's data= threading). Standalone fallback: renders empty when
 # no upstream base supplied it (US2 #2 / SC-006-style self-containment). Does
-# NOT hardcode that *base* supplied it (FR-010).
+# NOT hardcode that *base* supplied it (FR-010). In lang-python this drives
+# `uv init --name` and the src/<name>/ package; here it seeds [project].name.
 project_name:
   type: str
   default: "{{ project_name }}"
   help: "The project's name (threaded from clerk-mod-base; used in pyproject [project].name)."
 
-# Fixed choices for a finite well-known set (Q7 / FR-007c). Default pinned to
-# 3.13 per the SKILL.md characterization.
-# TODO(009): confirm the exact choices list + default against the lang-python
-# manifest when available.
+# One-line description → pyproject [project].description (lang-python syncs this
+# over uv init's placeholder; here it is rendered into the seed).
+description:
+  type: str
+  default: ""
+  help: "One-line project description (written into pyproject [project].description)."
+
+# Free-text string, default 3.13 — matches lang-python's `python_version` input
+# (a plain string default, NOT a fixed-choice list). Threaded into
+# requires-python and the ruff target-version.
 python_version:
   type: str
-  choices:
-    - "3.11"
-    - "3.12"
-    - "3.13"
   default: "3.13"
-  help: "Python version to pin in pyproject requires-python."
+  help: "Python version to target (pins requires-python + ruff target-version)."
+
+# Optional framework hint (fastapi/django/flask; empty = none) — mirrors
+# lang-python's `framework` input. Recorded for downstream/agent use; the
+# Phase-0 seed does not branch on it (no framework scaffolding ported).
+framework:
+  type: str
+  default: ""
+  help: "Framework (optional, e.g. fastapi, django, flask — leave empty for none)."
+
+# --- Agent-resolved pins (lang-python's resolve step) ------------------------
+# In lang-python pinned_deps/dev_deps/ruff_version are normally produced by the
+# Tier-2 `resolve` agent step and frozen into answers. clerk Phase 0 has no
+# Tier-2 resolver, so they are plain injectable answers (default empty): a
+# pre-resolving agent or a scripted --data run can supply exact name@version
+# pins; empty → no deps written (faithful to lang-python's "empty → no deps").
+pinned_deps:
+  type: yaml
+  default: []
+  help: "Pinned runtime dependencies (name@version), if pre-resolved; empty = none."
+
+dev_deps:
+  type: yaml
+  default: []
+  help: "Pinned dev dependencies (name@version), if pre-resolved; empty = none."
+
+ruff_version:
+  type: str
+  default: ""
+  help: "Pinned ruff version, if pre-resolved (used by the pre-commit hook when precommit-setup lands)."
 
 # `today` is injected by clerk at init and frozen into the recorded answers
 # (FR-007); never sourced from jinja2_time (Constitution V). Present so the
@@ -56,8 +86,11 @@ today:
   help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
-# The one edge: this overlay applies AFTER clerk-mod-base (ADR-0003 / plan
-# Ordering). depends_on/run_before default empty.
+# lang-python's `[order] after = ["gitignore-generate", "precommit-setup"]`. In
+# clerk Phase 0 gitignore-generate is collapsed inside clerk-mod-base and
+# precommit-setup does not exist yet, so the single edge is run_after
+# clerk-mod-base (ADR-0003 / plan Ordering). When clerk-mod-precommit lands, add
+# it to run_after to restore the second half of the upstream edge.
 run_after:
   type: yaml
   default:
@@ -88,13 +121,19 @@ _skip_if_exists:
 # --- Trust-gated tasks (FR-007b / Q6) ----------------------------------------
 # uv preflight, ordered FIRST: checks `uv` on PATH and fails with the astral
 # install URL before any consequential task runs. This overlay writes no
-# .gitignore itself — its Python entries are contributed through base's shared
-# gitignore_stack (single writer; see clerk-mod-base and the README).
-# NOTE (Phase 0): project-setup's lang-python also "appends ruff pre-commit
-# hooks", but that appends to a .pre-commit-config.yaml owned by the Phase-1
-# `precommit-setup` module, which is absent in Phase 0 — so there is no file to
-# append to. Deliberately NOT fabricating a standalone pre-commit file here.
-# TODO(009): wire the ruff pre-commit hook contribution when precommit-setup lands.
+# .gitignore itself — lang-python appends a literal Python block
+# (templates/gitignore-block.txt: __pycache__, *.py[cod], *.egg-info, dist,
+# build, .venv, .pytest_cache, .ruff_cache); in clerk that block is instead
+# contributed as a gitnr stack token into clerk-mod-base's single gitignore
+# writer (Q7 decision — one .gitignore writer, no double-append).
+#
+# lang-python also appends ruff pre-commit hooks
+# (templates/precommit-block.yaml: astral-sh/ruff-pre-commit rev v0.6.9, hooks
+# `ruff --fix` + `ruff-format`) to the .pre-commit-config.yaml OWNED BY the
+# precommit-setup module. precommit-setup is a Phase-1 module not present in
+# Phase 0, so there is no .pre-commit-config.yaml to append to — this overlay
+# deliberately does not fabricate a standalone one. The hook block moves here
+# (rev pinned from ruff_version) when clerk-mod-precommit lands.
 _tasks:
   - >-
     command -v uv >/dev/null 2>&1 ||

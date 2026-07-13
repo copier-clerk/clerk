@@ -310,7 +310,8 @@ documents the family. (Spec US5 / SC-006, SC-008.)
 - Commit after each logical group; do NOT run the 008b fan-out CI (out of scope).
 - **Residual ambiguities flagged in-doc** (resolve at implementation, do not invent):
   (1) exact base dir list count (20 vs docstring's 21 — T011); (2) `clerk-mod-python`
-  full manifest not locally present — ruff pre-commit hook contribution has no Phase-0
-  file to append to (T022, plan mapping); (3) git-init commit scope (project-setup's
+  reconciled against `lang-python-v1.3.0` (module.toml + module.py) — ruff pre-commit
+  hook contribution still has no Phase-0 file to append to (deferred to precommit-setup;
+  T022, plan mapping); (3) git-init commit scope (project-setup's
   git-init `after`-edges every module including later-phase ones — in Phase 0 the commit
   is simply the last base `_task`, which is faithful for a base+python selection).
