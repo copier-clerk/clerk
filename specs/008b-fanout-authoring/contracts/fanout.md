@@ -73,10 +73,13 @@ Step 5  regenerate catalog.json
           and the latest v* tag from each split repo.
           Commits catalog.json to monorepo root; pushes.
 
-Step 6  GitHub Pages deployment
-          Triggered by catalog.json change on main.
-          Stable URL (e.g. https://copier-clerk.github.io/clerk/catalog.json)
-          is the URL spec 002 catalog consumers configure.
+Step 6  (SUPERSEDED — no separate hosting step)
+          Catalog hosting is now raw git off the PUBLIC monorepo: the
+          catalog.json committed in Step 5 IS the published catalog. Consumers
+          configure the stable raw URL
+          https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json
+          The original GitHub Pages deployment was dropped (Pages on a private
+          repo needs a paid plan; raw git is simpler and plan-independent).
 
 Step 7  gh release create <name>-vX.Y.Z \
           --title "<name> vX.Y.Z" \

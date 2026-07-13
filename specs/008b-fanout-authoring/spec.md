@@ -21,11 +21,17 @@
 > **The pipeline is correct-by-construction but UNPROVEN end-to-end.** It cannot run
 > until a `copier-clerk` org-admin performs one-time manual setup a code agent
 > cannot do: create + install the `clerk-fanout` GitHub App, add the org secrets
-> `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY`, and enable GitHub Pages. A live
-> canary release (and a `discovery.discover()` check against a fanned-out repo) is
-> the final verification gate. See
+> `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY`, and arm the workflow
+> (`CLERK_FANOUT_ARMED=true`). A live canary release (and a `discovery.discover()`
+> check against a fanned-out repo) is the final verification gate. See
 > [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
 > Until that canary passes, do **not** mark this spec `verified`.
+>
+> **Catalog hosting update (2026-07-13):** GitHub Pages was DROPPED. Pages on a
+> private repo requires a paid plan; instead the monorepo was made **public** and
+> the already-committed `catalog.json` is served via raw git
+> (`https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`).
+> References to "GitHub Pages" below are superseded by this raw-git hosting.
 
 ---
 

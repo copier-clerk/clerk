@@ -13,18 +13,21 @@ fan-out step is [`scripts/fanout_module.sh`](../../scripts/fanout_module.sh).
 
 **Automatic, on every push to `main`** (once setup is done):
 `cog bump --auto` → push tags → detect changed modules → mirror each to
-`copier-clerk/clerk-mod-<name>` with a clean `vX.Y.Z` tag → regenerate + publish
-`catalog.json` via GitHub Pages → one GitHub Release per changed module.
+`copier-clerk/clerk-mod-<name>` with a clean `vX.Y.Z` tag → regenerate + commit
+`catalog.json` (served via raw git from the public monorepo) → one GitHub Release
+per changed module.
 
-**Manual, one-time, requires `copier-clerk` org-admin** (the pipeline fails
-until all three are done):
+**Manual, one-time, requires `copier-clerk` org-admin** (the pipeline stays
+dormant until done):
 
 1. Create + install the `clerk-fanout` GitHub App.
 2. Store its App ID + private key as org-level Actions secrets.
-3. Enable GitHub Pages on `copier-clerk/clerk` (Source: GitHub Actions).
+3. Arm the workflow (set `CLERK_FANOUT_ARMED=true`).
 
-Until then `release.yml` fails at the "Mint clerk-fanout App token" step, and no
-`clerk-mod-*` split repo or catalog entry exists.
+The monorepo is **public**, so `catalog.json` is served directly via raw git — no
+GitHub Pages setup is needed. Until armed, `release.yml` is skipped cleanly on
+every push; no `clerk-mod-*` split repo or catalog entry exists until the first
+armed release.
 
 ---
 
@@ -76,24 +79,26 @@ Org Settings → Secrets and variables → Actions → **New organization secret
 Scope both to the `clerk` repo (or all repos). The workflow reads them
 via `actions/create-github-app-token@v3`.
 
-### 3. Enable GitHub Pages
+### 3. Catalog hosting — nothing to set up (raw git)
 
-`copier-clerk/clerk` → Settings → Pages → **Source: GitHub Actions**.
-
-This lets the workflow's `deploy-pages` step publish `catalog.json` at the stable
-consumer URL:
+The monorepo `copier-clerk/clerk` is **public**, and the release workflow commits
+`catalog.json` to it (pipeline step 5). Consumers fetch it directly via raw git at
+the stable URL:
 
 ```
-https://copier-clerk.github.io/clerk/catalog.json
+https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json
 ```
 
 That URL is what clerk consumers add as a catalog source. It is empty
 (`{"version":1,"modules":[]}`) until the first module is fanned out (see below).
+No GitHub Pages configuration is required — this replaces the earlier Pages-based
+hosting (dropped because Pages on a private repo needs a paid plan; serving the
+already-committed file via raw git is simpler and plan-independent).
 
 ### 4. Arm the workflow
 
 `release.yml` is guarded by `if: vars.CLERK_FANOUT_ARMED == 'true'` so it stays
-**dormant** (no failed runs) on every push to `main` until steps 1–3 are done.
+**dormant** (no failed runs) on every push to `main` until steps 1–2 are done.
 Once they are, arm it:
 
 ```
@@ -133,9 +138,11 @@ Contract: [`specs/008b-fanout-authoring/contracts/fanout.md`](../../specs/008b-f
    prefix and mirrors `templates/<name>/.` to `copier-clerk/<name>` as a clean
    `vX.Y.Z` snapshot (auto-creating the repo if missing). See invariants below.
 5. **Regenerate `catalog.json`** — enumerate `templates/*/`, read each split
-   repo's published PEP 440 tags, emit JSON; commit + push if changed.
-6. **GitHub Pages deploy** — publish `catalog.json` at the stable URL.
-7. **`gh release create`** — one Release per changed module, notes from
+   repo's published PEP 440 tags, emit JSON; commit + push if changed. Because the
+   monorepo is public, this committed file IS the published catalog — consumers
+   fetch it via `raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`.
+   No separate publish step.
+6. **`gh release create`** — one Release per changed module, notes from
    `cog changelog <name> --at <name>-vX.Y.Z`.
 
 ### Fan-out invariants (`scripts/fanout_module.sh`)
@@ -187,4 +194,4 @@ shellcheck scripts/fanout_module.sh       # fan-out script is clean
 
 A live end-to-end canary (actually mirroring to a staging org and asserting
 `discovery.discover()` reproducibility at a PEP 440 tag) requires the App + org
-secrets + Pages above and has **not** been run yet.
+secrets + arming above and has **not** been run yet.

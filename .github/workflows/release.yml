@@ -6,7 +6,8 @@
 #   2. git push --follow-tags -> monorepo release finalized BEFORE any fan-out
 #   3. detect changed modules -> git tag --points-at HEAD | grep -E '^.+-v[0-9]'
 #   4. fan-out each changed module (scripts/fanout_module.sh) to copier-clerk/<name>
-#   5. regenerate catalog.json, commit + push (skip if no diff)
+#   5. regenerate catalog.json, commit + push (skip if no diff) — served directly
+#      from the public repo via raw.githubusercontent.com (no GitHub Pages)
 #   6. gh release create per changed module with the cog changelog body
 #
 # Steps 3-6 are re-run-safe against already-created tags (fan-out is idempotent),
@@ -21,11 +22,12 @@
 #   2. Store the App credentials as org-level Actions secrets/vars:
 #        - secret CLERK_FANOUT_APP_ID       (the App ID)
 #        - secret CLERK_FANOUT_PRIVATE_KEY  (the App private key, PEM)
-#   3. Enable GitHub Pages on copier-clerk/clerk (Settings -> Pages ->
-#      Source: GitHub Actions) so the catalog Pages deploy below can publish.
-#   4. Arm the workflow: set variable CLERK_FANOUT_ARMED=true (see runbook).
+#   3. Arm the workflow: set variable CLERK_FANOUT_ARMED=true (see runbook).
 # The job is guarded by `if: vars.CLERK_FANOUT_ARMED == 'true'`, so until it is
 # armed it is SKIPPED cleanly on every push (no red failures at the token step).
+# NOTE: catalog.json is served directly from this PUBLIC repo via raw git
+# (https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json) — no
+# GitHub Pages setup is required.
 # ─────────────────────────────────────────────────────────────────────────────
 name: release
 
@@ -40,22 +42,17 @@ concurrency:
 
 permissions:
   contents: write  # push the bump commit, tags, and catalog.json to THIS repo
-  pages: write  # deploy catalog.json to GitHub Pages
-  id-token: write  # required by the Pages deploy action
 
 jobs:
   release:
     runs-on: ubuntu-latest
     # ARMING GUARD: stays dormant until a maintainer completes the one-time org
-    # setup (App + secrets + Pages, see header) and sets org/repo variable
+    # setup (App + secrets, see header) and sets org/repo variable
     # CLERK_FANOUT_ARMED=true. Without this, the job would fail on EVERY push to
     # main at the token step. Once armed, it runs normally. (Set via:
     # `gh variable set CLERK_FANOUT_ARMED --org copier-clerk --body true` or the
     # repo Settings → Variables UI.)
     if: vars.CLERK_FANOUT_ARMED == 'true'
-    environment:
-      name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -165,19 +162,8 @@ jobs:
             gh release create "$tag" --title "$NAME $VERSION" --notes "$notes"
           done
 
-      # ── GitHub Pages: publish catalog.json at the stable consumer URL (T014) ──
-      # Serves https://copier-clerk.github.io/clerk/catalog.json.
-      # Requires Pages "Source: GitHub Actions" enabled on the repo (manual, once).
-      - name: Assemble Pages artifact
-        run: |
-          mkdir -p _site
-          cp catalog.json _site/catalog.json 2>/dev/null || echo '{"version":1,"modules":[]}' > _site/catalog.json
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        id: pages
-        uses: actions/deploy-pages@v4
+      # ── Catalog hosting: served directly from this PUBLIC repo via raw git ──
+      # https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json
+      # catalog.json was already committed + pushed in "Regenerate catalog.json"
+      # (step 5) above, so there is nothing further to publish — no GitHub Pages
+      # build, no deploy step, no pages/id-token permissions, no plan requirement.
