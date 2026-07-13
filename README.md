@@ -137,6 +137,22 @@ lists.
 The skill (step 0 of `skills/clerk/SKILL.md`) manages the catalog on the user's
 behalf: ensure → list → pick → validate → init.
 
+### The `copier-clerk` module catalog
+
+The first-party module family (`clerk-mod-*`) is authored in the
+`copier-clerk/clerk-templates` monorepo and published as a generated JSON index
+served via GitHub Pages at the stable URL:
+
+```
+https://copier-clerk.github.io/clerk-templates/catalog.json
+```
+
+The index is derived from released modules — a module appears only once it has a
+published `vX.Y.Z` tag on its split repo, so the catalog is empty until the first
+release fan-out runs. See
+[`docs/runbooks/fanout-release.md`](docs/runbooks/fanout-release.md) for the
+release/fan-out pipeline and the one-time maintainer setup it requires.
+
 ## Multi-template
 
 Select several templates from the catalog and clerk applies them in dependency
