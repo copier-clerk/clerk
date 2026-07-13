@@ -295,18 +295,25 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   Q-006b resolved: refuse with dangling-edge OrderingError.
   Q-006d resolved: single `--vcs-ref` applies to all layers.
 
-### 007 — Agentic-ecosystem module (template content)  [status: planned]
+### 007 — Agentic-ecosystem module (template content)  [status: specced]
 
-- **Description:** clerk's distinctive value — wire APM/MCP/SpecKit/ADR into
-  generated projects.
-- **Outcome:** a project can opt into a fully wired agentic toolchain.
-- **Scope (in):** an `apm` copier **template** whose internal skills/agents/bundles/
-  mcp multiselect reuses copier's own multiselect; APM install as a trust-gated
-  `_task`; SpecKit bridge; steering/ADR scaffolding. This is template + task
-  content, not tool code.
-- **Scope (out):** base/language templates (009).
-- **Depends on:** 003; likely 002.
-- **Governed by:** ADR-0001/0003; C-06.
+- **Description:** clerk's distinctive value — wire the agentic ecosystem into
+  generated projects. **Clarified 2026-07-13 to an APM-only v1** (see spec 007
+  Clarifications Q1–Q5).
+- **Outcome:** a project can opt into a wired APM toolchain via `clerk-mod-apm`.
+- **Scope (in):** `clerk-mod-apm` ONLY for v1 — a copier template whose APM package
+  set is **runtime-injected** (the agent picks packages from project requirements;
+  user may override) and whose rendered `apm.yml` configures ≥1 catalogue source;
+  APM install as a trust-gated `_task` with the APM tool version pinned; empty
+  package set is refused. Template + task content, not tool code.
+- **Scope (out):** MCP, SpecKit-bridge, steering/ADR — each DEFERRED to its own
+  future `clerk-mod-*` module (no longer part of 007). Base/language templates (009).
+- **Depends on:** 003; 002. Independent of 009 (007 Q5; tests against a stub base).
+- **Governed by:** ADR-0001/0003; C-06, C-11.
+- **Status detail:** spec clarified + `plan.md`/`tasks.md` regenerated (19 tasks,
+  Phase-structured, Constitution-checked) and merged (PR #21). Implementation not
+  started; it branches fresh off `main` (which already carries the 008b authoring
+  tooling `plan.md` T001 depends on — no rebase needed).
 
 ### 008 — Skill packaging: installable via Claude + Codex APM marketplaces  [status: implemented]
 
@@ -340,7 +347,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 001, 002, 003, 010.
 - **Governed by:** Constitution I, II; ADR-0006; spec 010; C-01, C-11.
 
-### 008b — Fan-out + authoring lifecycle (CI)  [status: planned]
+### 008b — Fan-out + authoring lifecycle (CI)  [status: in-progress]
 
 - **Description:** Author templates in one monorepo, distribute as per-template
   read-only repos, and manage the full module lifecycle (scaffold, structure
@@ -369,21 +376,44 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   (rejected — index lives in the monorepo).
 - **Depends on:** 008 (skill packaging), 009 (real clerk-mod-* templates exist).
 - **Governed by:** ADR-0006/0002; C-09.
+- **Status detail:** **Phases 1–4 (T001–T010) implemented + merged (PR #22)** — the
+  authoring plane: `cog.toml`, `just new-module` scaffolder (`_meta/module-template/`),
+  `just check-modules` contract lint (`scripts/check_modules.py`), catalog generator
+  (`scripts/generate_catalog.py`), pre-commit wiring; 22 unit tests green (incl.
+  git-identity-isolated). **Phases 5–7 (T011–T016) remain HARD-BLOCKED on 009** —
+  the release workflow, cross-repo fan-out, GitHub App token wiring, Pages, and e2e
+  smoke need ≥1 real `clerk-mod-*` module to integration-test. The `IMPLEMENTATION
+  BLOCKED ON SPEC 009` callout in `tasks.md` stays until 009 Phase 0 lands.
 
-### 009 — project-setup module port (templates)  [status: planned]
+### 009 — project-setup module port (templates)  [status: specced]
 
-- **Description:** Re-home the mature ~26-module project-setup capability as copier
-  templates.
+- **Description:** Re-home the mature ~25-module project-setup capability as copier
+  templates. **Clarified 2026-07-13** (spec 009 Clarifications Q1–Q7).
 - **Outcome:** the project-setup module set exists as `clerk-mod-*` templates the
-  skill can drive.
-- **Scope (in):** port base + languages + apm/mcp/precommit/ci/readme/justfile/etc.
-  as `clerk-mod-*` templates (template content, driven by the 002/003 machinery).
-- **Scope (out):** new capabilities not in project-setup.
-- **Depends on:** 002, 003, 006, 008.
-- **Governed by:** ADR-0002/0003/0006.
-- **Notes:** a real `clerk-mod-base` module would collapse 5 project-setup base
-  modules; 009 may instead ship them as separate `clerk-mod-*` repos — kept
-  documented. (001 ships only `clerk-template-example`, a demo — not this module.)
+  skill can drive; landing the first slice **unblocks 008b's fan-out (Phases 5–7)**.
+- **Scope (in):** port base + languages + quality + tooling + docs + integration +
+  monorepo as `clerk-mod-*` templates (template content, driven by 002/003). **Base
+  is ONE collapsed `clerk-mod-base`** (Q1, resolving roadmap Q2 — not separate repos).
+- **Scope (out):** new capabilities not in project-setup. **The entire `agentic`
+  category (apm/mcp/speckit/codex) is EXCLUDED** (Q4) — 007's family owns agentic
+  wiring.
+- **Phasing (Q2):** **v1 = Phase 0 = `clerk-mod-base` + `clerk-mod-python`** (the
+  minimal real module slice that unblocks 008b). Phases 1–3 (remaining languages +
+  quality/tooling; agent-steered + integration; there is no agentic phase) are
+  fast-follow, not v1.
+- **Key decisions:** file lifecycle split — **managed** (re-rendered) vs
+  **seed-once/living** (`AGENTS.md`, language manifests, via `_skip_if_exists`) vs
+  **task-output** (`.gitignore` via pinned `gitnr`, `LICENSE` via `gh api`); agent-tier
+  decisions freeze **structured facts** (not prose); consent = safe-defaulting copier
+  booleans + single source-trust gate (no per-action layer); tool prereqs = a
+  first-ordered preflight `_task`.
+- **Depends on:** 002, 003, 006, 008. Independent of 007 (Q4). **Unblocks:** 008b.
+- **Governed by:** ADR-0002/0003/0006; C-11.
+- **Status detail:** spec clarified + Phase-0 `plan.md`/`tasks.md` (35 tasks,
+  Constitution-checked) merged (PRs #23/#24). Implementation not started. Known
+  Phase-0 gaps to resolve at build: `lang-python`'s full manifest not locally present
+  (planned from catalog description); `dirs-scaffold` dir count 20 vs docstring's 21;
+  ruff pre-commit hooks depend on the Phase-1 `precommit-setup` module.
 
 ### 010 — Delivery reshape: skill-bundled copier wrapper  [status: implemented]
 
