@@ -81,7 +81,11 @@ jobs:
           private-key: ${{ secrets.CLERK_FANOUT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           permission-contents: write
-          permission-administration: write
+          # ORG-level administration (creating a new repo is an org action, not
+          # repo-level) — must match the App's `organization_administration:write`
+          # grant. `permission-administration` (repo-level) is NOT what the App has
+          # and yields "permissions requested are not granted to this installation".
+          permission-organization-administration: write
 
       # Step 1: cog bump --auto — creates <name>-vX.Y.Z tags + CHANGELOG commits
       # locally. pre_bump_hooks (just check-modules) gates the bump; cog never pushes.
