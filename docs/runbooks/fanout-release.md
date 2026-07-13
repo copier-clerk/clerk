@@ -48,22 +48,24 @@ Org Settings → Developer settings → GitHub Apps → **New GitHub App**:
 - **Webhook**: disable (uncheck Active).
 - **Repository permissions**:
   - **Contents: Read and write** — push commits + tags to `clerk-mod-*` mirrors.
-- **Organization permissions**:
-  - **Administration: Read and write** — auto-**create** a missing
-    `clerk-mod-<name>` repo on a new module's first release. Creating a repo
-    (`POST /orgs/{org}/repos`) is an org-level action: a *repository*-scoped
-    permission only covers repos the App is already installed on, so the
-    create-new grant MUST be the **Organization**-level Administration permission,
-    not the repository-level one.
 - **Where can this App be installed?**: Only on this account (`copier-clerk`).
 
 Create it, then **Install** it on the `copier-clerk` org and grant **All
-repositories** (new `clerk-mod-*` repos are created on demand, so scoping to a
-fixed list would break auto-create).
+repositories** (so it can push to every current and future `clerk-mod-*` mirror).
 
-> If you drop auto-create and instead `gh repo create` each new module by hand,
-> the App needs NO Administration permission at all — repository **Contents:
-> write** alone suffices (ADR-0006). This avoids granting any org-level admin.
+> **Mirror repos are pre-created by a maintainer — the App does NOT create them.**
+> In practice a GitHub App installation token is refused on `POST /orgs/{org}/repos`
+> ("403 Resource not accessible by integration") even with organization
+> Administration granted — repository *creation* is effectively a human/PAT action.
+> So the App is scoped to **Contents: write only** (no Administration permission),
+> and the fan-out treats a missing mirror as a maintainer to-do, not an auto-create.
+>
+> **When adding a NEW module**, create its mirror once (any org admin):
+> ```
+> gh repo create copier-clerk/clerk-mod-<name> --public
+> ```
+> The fan-out then pushes into it on every release. (The existing
+> `clerk-mod-base` and `clerk-mod-python` mirrors are already created.)
 
 ### 2. Store the App credentials as org secrets
 
