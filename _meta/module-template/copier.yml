@@ -1,0 +1,21 @@
+# copier.yml — meta-template for `just new-module` (spec 008b / FR-005)
+#
+# Renders a contract-complete module stub under templates/{{ module_name }}/.
+# After rendering, `just check-modules` MUST pass immediately (SC-003).
+
+module_name:
+  type: str
+  help: "Module name (e.g. clerk-mod-python). Used as the templates/ subdirectory name."
+
+# Post-render tasks run in the destination (monorepo root) with --trust.
+# Delegate to scripts/_meta_register.py to avoid inline-python shell quoting issues.
+_tasks:
+  # copier skips copier.yml.jinja files to avoid config conflicts — create it here.
+  - command: python3 scripts/_meta_register.py copier_yml "{{ module_name }}"
+  # Create {{ _copier_conf.answers_file }}.jinja — the reproducibility marker.
+  # The filename contains literal Jinja braces and cannot be a regular template file.
+  - command: python3 scripts/_meta_register.py answers "{{ module_name }}"
+  # Append [monorepo.packages.<name>] to cog.toml
+  - command: python3 scripts/_meta_register.py cog "{{ module_name }}"
+  # Append [[sources]] url to catalog-sources.toml
+  - command: python3 scripts/_meta_register.py catalog "{{ module_name }}"
