@@ -37,23 +37,32 @@ if [[ ! -d "${MODULE_SRC}" ]]; then
   exit 1
 fi
 
-# 1. Auto-create the split repo if missing. Uses the REST endpoint
-#    POST /orgs/{org}/repos, which maps directly to the App's ORG-level
-#    administration:write grant (gh repo create goes via GraphQL and does not
-#    reliably honour an App installation token). Idempotent: a 422 "name already
-#    exists" is fine; ANY OTHER failure is surfaced (no blanket `|| true`, which
-#    previously hid a failed create and led to a confusing "Repository not found"
-#    at the clone step).
-create_err="$(GH_TOKEN="${APP_TOKEN}" gh api -X POST "/orgs/${TARGET_OWNER}/repos" \
-  -f name="${NAME}" \
-  -F private=false \
-  -f description="Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
-  2>&1 >/dev/null)" && create_status=0 || create_status=$?
-if [[ "${create_status}" -ne 0 ]]; then
-  if printf '%s' "${create_err}" | grep -qiE "name already exists|already exists on this account"; then
-    echo "fanout: ${TARGET} already exists; reusing"
+# 1. Ensure the split repo exists. If it is already present (the normal steady
+#    state — repos are created once and reused), we push into it with the App's
+#    contents:write and never need to create anything.
+#
+#    Best-effort auto-create for a brand-new module: try POST /orgs/{org}/repos.
+#    NOTE: a GitHub App installation token is frequently NOT authorized to create
+#    org repos ("403 Resource not accessible by integration") even with the
+#    org-administration permission granted — repo creation is effectively a
+#    maintainer action. So a failed create is NOT fatal here: we log it and let
+#    the existence check below decide. A maintainer pre-creates a new module's
+#    mirror once (see docs/runbooks/fanout-release.md); thereafter this is a no-op.
+if GH_TOKEN="${APP_TOKEN}" gh api "/repos/${TARGET}" >/dev/null 2>&1; then
+  echo "fanout: ${TARGET} exists; reusing"
+else
+  echo "fanout: ${TARGET} missing — attempting auto-create (best effort)…"
+  if GH_TOKEN="${APP_TOKEN}" gh api -X POST "/orgs/${TARGET_OWNER}/repos" \
+      -f name="${NAME}" -F private=false \
+      -f description="Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
+      >/dev/null 2>&1; then
+    echo "fanout: created ${TARGET}"
+  elif GH_TOKEN="${APP_TOKEN}" gh api "/repos/${TARGET}" >/dev/null 2>&1; then
+    echo "fanout: ${TARGET} now present (created concurrently); reusing"
   else
-    echo "fanout: failed to create ${TARGET}: ${create_err}" >&2
+    echo "fanout: ${TARGET} does not exist and the App token could not create it." >&2
+    echo "fanout: a maintainer must pre-create it once (see docs/runbooks/fanout-release.md):" >&2
+    echo "        gh repo create ${TARGET} --public" >&2
     exit 1
   fi
 fi
