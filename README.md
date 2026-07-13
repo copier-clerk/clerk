@@ -140,11 +140,11 @@ behalf: ensure → list → pick → validate → init.
 ### The `copier-clerk` module catalog
 
 The first-party module family (`clerk-mod-*`) is authored in the
-`copier-clerk/clerk-templates` monorepo and published as a generated JSON index
+`copier-clerk/clerk` monorepo and published as a generated JSON index
 served via GitHub Pages at the stable URL:
 
 ```
-https://copier-clerk.github.io/clerk-templates/catalog.json
+https://copier-clerk.github.io/clerk/catalog.json
 ```
 
 The index is derived from released modules — a module appears only once it has a

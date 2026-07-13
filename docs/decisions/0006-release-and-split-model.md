@@ -54,7 +54,8 @@ Key verified constraints:
      rather than pin an external action.)
    - Two edge cases: skip-commit-when-no-diff, and token scoping (the GitHub App
      installation token must reach the `copier-clerk/clerk-mod-*` repos, and hold
-     `administration:write` for auto-create — see *CI identity* below).
+     **organization** `administration:write` for auto-create — creating a repo is
+     an org-level action, not repo-level — see *CI identity* below).
    - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
      mirror for a paper trail; rejected. The split repos are generated read-only
      mirrors (nothing to review — the content derives from an already-reviewed,
@@ -83,7 +84,7 @@ Key verified constraints:
 There are two release contexts; the decision is deliberately uniform on
 **cocogitto** to keep one tool across the whole family.
 
-- **Authoring monorepo (`copier-clerk/clerk-templates`)** — cocogitto in monorepo
+- **Authoring monorepo (`copier-clerk/clerk`)** — cocogitto in monorepo
   mode tags each package as `<name>-vX.Y.Z` (the prefix disambiguates components
   and is exactly what the fan-out step strips). This replaces the earlier
   release-please assumption. `cog` generates each package's CHANGELOG.
@@ -226,7 +227,7 @@ layering, not a release topology:
 
 The release mechanics above cover *version bump → tag → fan-out*. This section
 covers the rest of the module lifecycle in the authoring monorepo
-(`copier-clerk/clerk-templates`): creating modules, keeping the family
+(`copier-clerk/clerk`): creating modules, keeping the family
 structured, and deriving the published catalog. It is the design detail behind
 roadmap **spec 008**; slice 001 implements none of it.
 

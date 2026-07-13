@@ -1,4 +1,4 @@
-# Release + fan-out pipeline for the clerk-templates authoring monorepo
+# Release + fan-out pipeline for the clerk authoring monorepo
 # (spec 008b / ADR-0006 / contracts/fanout.md).
 #
 # One job, run on push to main. Steps (contracts/fanout.md "CI release job"):
@@ -15,12 +15,13 @@
 # ── MAINTAINER MANUAL SETUP REQUIRED (one-time) ──────────────────────────────
 # This workflow CANNOT run until a maintainer with copier-clerk org-admin does:
 #   1. Create the org-owned GitHub App "clerk-fanout" (see docs/runbooks/fanout-release.md)
-#      with permissions: contents:write + administration:write; install it on the
+#      with repository Contents:write + ORGANIZATION Administration:write (the
+#      create-new-repo grant is org-level, not repo-level); install it on the
 #      copier-clerk org (all repositories).
 #   2. Store the App credentials as org-level Actions secrets/vars:
 #        - secret CLERK_FANOUT_APP_ID       (the App ID)
 #        - secret CLERK_FANOUT_PRIVATE_KEY  (the App private key, PEM)
-#   3. Enable GitHub Pages on copier-clerk/clerk-templates (Settings -> Pages ->
+#   3. Enable GitHub Pages on copier-clerk/clerk (Settings -> Pages ->
 #      Source: GitHub Actions) so the catalog Pages deploy below can publish.
 #   4. Arm the workflow: set variable CLERK_FANOUT_ARMED=true (see runbook).
 # The job is guarded by `if: vars.CLERK_FANOUT_ARMED == 'true'`, so until it is
@@ -72,8 +73,8 @@ jobs:
         run: uv sync --dev
 
       # Mint a short-lived org App token for cross-repo writes + repo auto-create
-      # (T013). Scoped to the copier-clerk org: contents:write pushes to the
-      # clerk-mod-* mirrors, administration:write auto-creates a missing mirror.
+      # (T013). Scoped to the copier-clerk org: repo Contents:write pushes to the
+      # clerk-mod-* mirrors, org Administration:write auto-creates a missing mirror.
       # Requires the org-level secrets documented in the header + runbook.
       - name: Mint clerk-fanout App token
         id: app-token
@@ -165,7 +166,7 @@ jobs:
           done
 
       # ── GitHub Pages: publish catalog.json at the stable consumer URL (T014) ──
-      # Serves https://copier-clerk.github.io/clerk-templates/catalog.json.
+      # Serves https://copier-clerk.github.io/clerk/catalog.json.
       # Requires Pages "Source: GitHub Actions" enabled on the repo (manual, once).
       - name: Assemble Pages artifact
         run: |

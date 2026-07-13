@@ -75,7 +75,7 @@ Step 5  regenerate catalog.json
 
 Step 6  GitHub Pages deployment
           Triggered by catalog.json change on main.
-          Stable URL (e.g. https://copier-clerk.github.io/clerk-templates/catalog.json)
+          Stable URL (e.g. https://copier-clerk.github.io/clerk/catalog.json)
           is the URL spec 002 catalog consumers configure.
 
 Step 7  gh release create <name>-vX.Y.Z \
@@ -107,7 +107,7 @@ git add -A
 git diff --cached --quiet && echo "no diff, skipping" && exit 0
 
 # 4. Commit + tag + push
-git commit -m "release: ${VERSION} (mirrored from copier-clerk/clerk-templates@${GITHUB_SHA::8})"
+git commit -m "release: ${VERSION} (mirrored from copier-clerk/clerk@${GITHUB_SHA::8})"
 git tag -a "${VERSION}" -m "${NAME} ${VERSION}"
 git push origin HEAD --follow-tags
 ```
@@ -180,7 +180,7 @@ Generated (not hand-maintained). The catalog subsystem in spec 002 consumes this
 - Filter tags to PEP 440; sort; emit `latest_version` + `tags`.
 - Write `catalog.json` to monorepo root; the release CI job commits it.
 
-**Hosting**: committed to `copier-clerk/clerk-templates` root; served via GitHub
+**Hosting**: committed to `copier-clerk/clerk` root; served via GitHub
 Pages at a stable URL. No separate catalog repo. clerk consumers configure this URL
 as a catalog source in `~/.config/clerk/catalog.toml`.
 

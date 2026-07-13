@@ -182,7 +182,7 @@ require a real module (blocked on 009).
 
 ## Phase 6: GitHub Pages (BLOCKED ON 009 end-to-end)
 
-- [~] T014 Configure GitHub Pages for `copier-clerk/clerk-templates`: source =
+- [~] T014 Configure GitHub Pages for `copier-clerk/clerk`: source =
   repository root (or a `docs/` folder if `catalog.json` must be nested); path
   delivers `catalog.json` at the stable URL. Add a Pages deployment workflow step
   (or use the built-in Pages deploy action) triggered by changes to `catalog.json`
@@ -191,7 +191,7 @@ require a real module (blocked on 009).
   AUTHORING DONE: `release.yml` assembles `_site/catalog.json` and deploys via
   `upload-pages-artifact@v3` + `deploy-pages@v4` (`pages:write` + `id-token:write`
   permissions, `github-pages` environment). Stable URL
-  `https://copier-clerk.github.io/clerk-templates/catalog.json` documented in
+  `https://copier-clerk.github.io/clerk/catalog.json` documented in
   `README.md` + the runbook. NOTE: deploy runs as part of the release job (not a
   separate path-filtered workflow) so the freshly-regenerated catalog publishes in
   the same run; a dedicated path-filtered trigger was not added (YAGNI — no second

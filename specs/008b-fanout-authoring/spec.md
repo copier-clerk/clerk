@@ -37,7 +37,7 @@ monorepo release config, the snapshot-mirror fan-out CI job, the `clerk-fanout`
 GitHub App identity, the `just new-module` scaffolder, the `check-modules`
 contract lint, and the generated `catalog.json` published via GitHub Pages.
 
-The outcome is a `copier-clerk/clerk-templates` monorepo that can:
+The outcome is a `copier-clerk/clerk` monorepo that can:
 
 1. Accept authoring of any number of modules under `templates/<name>/`.
 2. Release changed modules (`cog bump --auto`) → push → fan-out each changed

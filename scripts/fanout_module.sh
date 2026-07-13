@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fan-out one released module from the clerk-templates monorepo to its own
+# Fan-out one released module from the clerk monorepo to its own
 # split repo (spec 008b / ADR-0006 / contracts/fanout.md "Fan-out mechanics").
 #
 # Snapshot-mirror, NOT a history-preserving split: copier only needs the correct
@@ -39,7 +39,7 @@ fi
 
 # 1. Auto-create the split repo if missing (idempotent; needs administration:write).
 GH_TOKEN="${APP_TOKEN}" gh repo create "${TARGET}" --public \
-  --description "Mirror of copier-clerk/clerk-templates:templates/${NAME} (generated; do not edit)" \
+  --description "Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
   >/dev/null 2>&1 || true
 
 # 2. Idempotency pre-check: if the version tag already exists remotely, we are
@@ -80,7 +80,7 @@ if git -C "${SPLIT}" diff --cached --quiet && \
   echo "fanout: ${TARGET} content unchanged; tagging existing HEAD"
 else
   git -C "${SPLIT}" commit --quiet \
-    -m "release: ${VERSION} (mirrored from ${TARGET_OWNER}/clerk-templates@${SHORT_SHA})"
+    -m "release: ${VERSION} (mirrored from ${TARGET_OWNER}/clerk@${SHORT_SHA})"
 fi
 
 # 6. Annotated clean tag (guard against a pre-existing local tag) + push.

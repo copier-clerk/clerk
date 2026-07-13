@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["pyyaml", "packaging"]
 # ///
-"""Module contract linter for the clerk-templates monorepo (spec 008b / FR-006, FR-007).
+"""Module contract linter for the clerk monorepo (spec 008b / FR-006, FR-007).
 
 Iterates templates/*/ and verifies each module satisfies the full contract:
   - Valid copier.yml with answers-file .jinja present (reproducible=True)

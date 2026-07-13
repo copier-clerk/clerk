@@ -1,6 +1,6 @@
-# Runbook — clerk-templates release + fan-out
+# Runbook — clerk release + fan-out
 
-How the `copier-clerk/clerk-templates` monorepo releases modules, and the
+How the `copier-clerk/clerk` monorepo releases modules, and the
 one-time maintainer setup the automated pipeline depends on.
 
 Implements spec 008b (ADR-0006). The pipeline is
@@ -21,7 +21,7 @@ until all three are done):
 
 1. Create + install the `clerk-fanout` GitHub App.
 2. Store its App ID + private key as org-level Actions secrets.
-3. Enable GitHub Pages on `copier-clerk/clerk-templates` (Source: GitHub Actions).
+3. Enable GitHub Pages on `copier-clerk/clerk` (Source: GitHub Actions).
 
 Until then `release.yml` fails at the "Mint clerk-fanout App token" step, and no
 `clerk-mod-*` split repo or catalog entry exists.
@@ -33,7 +33,7 @@ Until then `release.yml` fails at the "Mint clerk-fanout App token" step, and no
 ### 1. Create the `clerk-fanout` GitHub App
 
 The fan-out and catalog steps write repos *other than* the workflow's own repo,
-so the default Actions `GITHUB_TOKEN` (scoped to `clerk-templates` only) is
+so the default Actions `GITHUB_TOKEN` (scoped to `clerk` only) is
 insufficient. An org-owned App issues short-lived per-run tokens with a
 cross-repo grant and is not tied to any individual maintainer (ADR-0006 "CI
 identity").
@@ -45,8 +45,13 @@ Org Settings → Developer settings → GitHub Apps → **New GitHub App**:
 - **Webhook**: disable (uncheck Active).
 - **Repository permissions**:
   - **Contents: Read and write** — push commits + tags to `clerk-mod-*` mirrors.
-  - **Administration: Read and write** — auto-create a missing `clerk-mod-<name>`
-    mirror on first release of a new module.
+- **Organization permissions**:
+  - **Administration: Read and write** — auto-**create** a missing
+    `clerk-mod-<name>` repo on a new module's first release. Creating a repo
+    (`POST /orgs/{org}/repos`) is an org-level action: a *repository*-scoped
+    permission only covers repos the App is already installed on, so the
+    create-new grant MUST be the **Organization**-level Administration permission,
+    not the repository-level one.
 - **Where can this App be installed?**: Only on this account (`copier-clerk`).
 
 Create it, then **Install** it on the `copier-clerk` org and grant **All
@@ -54,8 +59,8 @@ repositories** (new `clerk-mod-*` repos are created on demand, so scoping to a
 fixed list would break auto-create).
 
 > If you drop auto-create and instead `gh repo create` each new module by hand,
-> the App no longer needs **Administration: write** — Contents: write alone
-> suffices (ADR-0006).
+> the App needs NO Administration permission at all — repository **Contents:
+> write** alone suffices (ADR-0006). This avoids granting any org-level admin.
 
 ### 2. Store the App credentials as org secrets
 
@@ -68,18 +73,18 @@ Org Settings → Secrets and variables → Actions → **New organization secret
 - `CLERK_FANOUT_PRIVATE_KEY` = the full contents of the downloaded `.pem`
   (including the `-----BEGIN/END PRIVATE KEY-----` lines).
 
-Scope both to the `clerk-templates` repo (or all repos). The workflow reads them
+Scope both to the `clerk` repo (or all repos). The workflow reads them
 via `actions/create-github-app-token@v3`.
 
 ### 3. Enable GitHub Pages
 
-`copier-clerk/clerk-templates` → Settings → Pages → **Source: GitHub Actions**.
+`copier-clerk/clerk` → Settings → Pages → **Source: GitHub Actions**.
 
 This lets the workflow's `deploy-pages` step publish `catalog.json` at the stable
 consumer URL:
 
 ```
-https://copier-clerk.github.io/clerk-templates/catalog.json
+https://copier-clerk.github.io/clerk/catalog.json
 ```
 
 That URL is what clerk consumers add as a catalog source. It is empty

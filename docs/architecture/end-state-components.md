@@ -69,7 +69,7 @@ directly (Constitution I / C-11).
 
 | Component | Kind | What it is | Spec |
 |---|---|---|---|
-| `clerk-templates` monorepo | CI | All templates authored under `templates/<name>/` | 008 |
+| `clerk` monorepo | CI | All templates authored under `templates/<name>/` | 008 |
 | cocogitto config | CI | Monorepo mode, `<name>-vX.Y.Z` tags, `generate_mono_repository_global_tag=false`, `tag_prefix=v` | 008 |
 | Fan-out CI job | CI | `cog bump` → push → `git tag --points-at HEAD` → ~25-line snapshot-mirror (cp+commit+strip-prefix-tag+push, PAT-scoped, skip-if-no-diff) to `clerk-mod-*` | 008 |
 | Catalog index publisher | CI | JSON index of `clerk-mod-*` repos + latest `v*` | 008 |
