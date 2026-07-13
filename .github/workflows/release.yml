@@ -1,0 +1,173 @@
+# Release + fan-out pipeline for the clerk-templates authoring monorepo
+# (spec 008b / ADR-0006 / contracts/fanout.md).
+#
+# One job, run on push to main. Steps (contracts/fanout.md "CI release job"):
+#   1. cog bump --auto        -> per-module <name>-vX.Y.Z tags + CHANGELOG commits (local)
+#   2. git push --follow-tags -> monorepo release finalized BEFORE any fan-out
+#   3. detect changed modules -> git tag --points-at HEAD | grep -E '^.+-v[0-9]'
+#   4. fan-out each changed module (scripts/fanout_module.sh) to copier-clerk/<name>
+#   5. regenerate catalog.json, commit + push (skip if no diff)
+#   6. gh release create per changed module with the cog changelog body
+#
+# Steps 3-6 are re-run-safe against already-created tags (fan-out is idempotent),
+# so a fan-out failure after step 2 can be recovered by re-running from step 3.
+#
+# ── MAINTAINER MANUAL SETUP REQUIRED (one-time) ──────────────────────────────
+# This workflow CANNOT run until a maintainer with copier-clerk org-admin does:
+#   1. Create the org-owned GitHub App "clerk-fanout" (see docs/runbooks/fanout-release.md)
+#      with permissions: contents:write + administration:write; install it on the
+#      copier-clerk org (all repositories).
+#   2. Store the App credentials as org-level Actions secrets/vars:
+#        - secret CLERK_FANOUT_APP_ID       (the App ID)
+#        - secret CLERK_FANOUT_PRIVATE_KEY  (the App private key, PEM)
+#   3. Enable GitHub Pages on copier-clerk/clerk-templates (Settings -> Pages ->
+#      Source: GitHub Actions) so the catalog Pages deploy below can publish.
+# Until then the release job will fail at the create-github-app-token step.
+# ─────────────────────────────────────────────────────────────────────────────
+name: release
+
+on:
+  push:
+    branches: [main]
+
+# cocogitto tags on merge to main; only one release should run at a time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # push the bump commit, tags, and catalog.json to THIS repo
+  pages: write  # deploy catalog.json to GitHub Pages
+  id-token: write  # required by the Pages deploy action
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # cocogitto needs full history + tags to compute the bump.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Python deps
+        run: uv sync --dev
+
+      # Mint a short-lived org App token for cross-repo writes + repo auto-create
+      # (T013). Scoped to the copier-clerk org: contents:write pushes to the
+      # clerk-mod-* mirrors, administration:write auto-creates a missing mirror.
+      # Requires the org-level secrets documented in the header + runbook.
+      - name: Mint clerk-fanout App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.CLERK_FANOUT_APP_ID }}
+          private-key: ${{ secrets.CLERK_FANOUT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-administration: write
+
+      # Step 1: cog bump --auto — creates <name>-vX.Y.Z tags + CHANGELOG commits
+      # locally. pre_bump_hooks (just check-modules) gates the bump; cog never pushes.
+      # git-user/-email set the release commit signature.
+      - name: Cog bump changed modules
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: bump
+          args: --auto
+          git-user: "clerk-fanout[bot]"
+          git-user-email: "clerk-fanout[bot]@users.noreply.github.com"
+
+      # Step 2: finalize the monorepo release BEFORE any fan-out.
+      - name: Push bump commit + tags
+        run: git push --follow-tags
+
+      # Step 3: derive the changed module set from the tags on the bump commit.
+      # Emits one <name>-vX.Y.Z per line; empty when nothing bumped.
+      - name: Detect changed modules
+        id: changed
+        run: |
+          tags="$(git tag --points-at HEAD | grep -E '^.+-v[0-9]' || true)"
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$tags" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          if [ -z "$tags" ]; then
+            echo "no module tags on HEAD — nothing to release"
+          else
+            echo "changed module tags:"; echo "$tags"
+          fi
+
+      # Step 4: fan-out each changed module to its split repo. NAME is everything
+      # before the last -v<digit>; VERSION is the clean vX.Y.Z suffix.
+      - name: Fan-out changed modules
+        if: steps.changed.outputs.tags != ''
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "${{ steps.changed.outputs.tags }}" | while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            NAME="${tag%-v*}"
+            VERSION="v${tag##*-v}"
+            echo "::group::fan-out $NAME $VERSION"
+            NAME="$NAME" VERSION="$VERSION" APP_TOKEN="$APP_TOKEN" \
+              bash scripts/fanout_module.sh
+            echo "::endgroup::"
+          done
+
+      # Step 5: regenerate catalog.json from templates/*/ + published split tags,
+      # then commit + push (skip when unchanged). The just fan-out above must run
+      # first so the freshly-mirrored tags are visible to the generator.
+      - name: Regenerate catalog.json
+        run: |
+          uv run scripts/generate_catalog.py
+          if git diff --quiet -- catalog.json; then
+            echo "catalog.json unchanged — nothing to commit"
+          else
+            git config user.name "clerk-fanout[bot]"
+            git config user.email "clerk-fanout[bot]@users.noreply.github.com"
+            git add catalog.json
+            git commit -m "chore(catalog): regenerate catalog.json [skip ci]"
+            git push
+          fi
+
+      # Step 6: one GitHub Release per changed module, notes from the cog changelog.
+      - name: Create GitHub releases
+        if: steps.changed.outputs.tags != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "${{ steps.changed.outputs.tags }}" | while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            NAME="${tag%-v*}"
+            VERSION="v${tag##*-v}"
+            notes="$(cog changelog "$NAME" --at "$tag" 2>/dev/null || echo "Release $tag")"
+            gh release view "$tag" >/dev/null 2>&1 && { echo "release $tag exists"; continue; }
+            gh release create "$tag" --title "$NAME $VERSION" --notes "$notes"
+          done
+
+      # ── GitHub Pages: publish catalog.json at the stable consumer URL (T014) ──
+      # Serves https://copier-clerk.github.io/clerk-templates/catalog.json.
+      # Requires Pages "Source: GitHub Actions" enabled on the repo (manual, once).
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p _site
+          cp catalog.json _site/catalog.json 2>/dev/null || echo '{"version":1,"modules":[]}' > _site/catalog.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: pages
+        uses: actions/deploy-pages@v4
