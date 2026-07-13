@@ -8,16 +8,24 @@
 
 ---
 
-> ### IMPLEMENTATION BLOCKED ON SPEC 009
+> ### 009 DELIVERED — CODE AUTHORED; REMAINING GATE IS MAINTAINER ORG SETUP + LIVE CANARY
 >
-> This spec is **specced now** because its design is fully settled in ADR-0006.
-> It **cannot be implemented** until spec 009 creates the first real `clerk-mod-*`
-> modules. The only template that currently exists is `examples/clerk-template-example/`
-> — a demo, not a shippable module. The fan-out pipeline built here would have
-> nothing to fan out until 009 populates `templates/` with real modules.
+> The original block ("cannot be implemented until spec 009 creates the first real
+> `clerk-mod-*` modules") is **lifted**: spec 009 landed
+> `templates/clerk-mod-base/` + `templates/clerk-mod-python/`. All of 008b is now
+> authored — the cocogitto config, scaffolder, contract linter, catalog generator
+> (Phases 1–4), and the release/fan-out pipeline (`.github/workflows/release.yml`,
+> `scripts/fanout_module.sh`, the GitHub App token step, the Pages deploy step, and
+> the offline smoke test, Phases 5–7).
 >
-> **Dependency order**: spec 009 MUST land before 008b can be implemented.
-> The design is committed; the CI wiring waits for 009's content.
+> **The pipeline is correct-by-construction but UNPROVEN end-to-end.** It cannot run
+> until a `copier-clerk` org-admin performs one-time manual setup a code agent
+> cannot do: create + install the `clerk-fanout` GitHub App, add the org secrets
+> `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY`, and enable GitHub Pages. A live
+> canary release (and a `discovery.discover()` check against a fanned-out repo) is
+> the final verification gate. See
+> [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
+> Until that canary passes, do **not** mark this spec `verified`.
 
 ---
 

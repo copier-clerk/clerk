@@ -11,12 +11,25 @@ description: "Task list for clerk template fan-out + authoring lifecycle CI (spe
 
 ---
 
-> ### IMPLEMENTATION BLOCKED ON SPEC 009
+> ### SPEC 009 DELIVERED — CODE AUTHORED; GATE IS MAINTAINER ORG SETUP + LIVE CANARY
 >
-> Tasks T001–T012 can be authored and locally tested before 009.
-> Tasks T013–T016 (fan-out workflow, GitHub App, Pages, end-to-end) require
-> at least one real `clerk-mod-*` module from spec 009 to integration-test.
-> The task split is deliberate — do not mark T013+ done without a real module.
+> Spec 009 landed real modules (`templates/clerk-mod-base/` + `clerk-mod-python/`),
+> so the 009 block is lifted. Phases 1–4 (T001–T010) are done; Phases 5–7 code is
+> now authored: `release.yml` (T011), `scripts/fanout_module.sh` (T012), the App
+> token step + runbook (T013), the Pages deploy step + docs (T014), and the offline
+> smoke test (T015 offline parts).
+>
+> The remaining gate is **one-time maintainer setup on the `copier-clerk` org** that
+> a code agent cannot perform, plus a live canary that depends on it:
+> - create + install the `clerk-fanout` GitHub App (contents:write + administration:write);
+> - store org secrets `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY`;
+> - enable GitHub Pages (Source: GitHub Actions);
+> - then run a live canary release (bump → push → fan-out → catalog → Pages) and
+>   assert `discovery.discover()` on a fanned-out `clerk-mod-*` repo.
+>
+> See [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
+> The pipeline is correct-by-construction but UNPROVEN end-to-end until that setup
+> exists. Do NOT flip the roadmap entry to `verified` until the live canary passes.
 
 ---
 
@@ -125,7 +138,7 @@ require a real module (blocked on 009).
 
 ## Phase 5: CI release workflow (BLOCKED ON 009 for integration test)
 
-- [ ] T011 Create `.github/workflows/release.yml` implementing the 6-step job from
+- [x] T011 Create `.github/workflows/release.yml` implementing the 6-step job from
   `contracts/fanout.md`:
   - Step 1: `cocogitto/cocogitto-action` to run `cog bump --auto`.
   - Step 2: `git push --follow-tags`.
@@ -136,38 +149,61 @@ require a real module (blocked on 009).
     (skip if no diff); `git push`.
   - Step 6: `gh release create` per changed module using cog changelog body.
   Trigger: push to `main` only.
+  AUTHORED: `.github/workflows/release.yml`; YAML valid; consistent with `pack.yml`
+  conventions. Verified `cocogitto-action@v4` bumps/tags locally only (no push) and
+  `create-github-app-token@v3` input names against upstream docs. UNPROVEN live —
+  requires the T013 org secrets before the job can run.
 
-- [ ] T012 [P] Implement the fan-out bash block (inline in workflow or
+- [x] T012 [P] Implement the fan-out bash block (inline in workflow or
   `scripts/fanout_module.sh`):
   - Inputs: `NAME`, `VERSION`, `APP_TOKEN`.
   - `gh repo create copier-clerk/clerk-mod-${NAME} || true` (idempotent).
   - Clone, replace contents, skip-commit-if-no-diff, annotated tag, push.
   - `git ls-remote --tags` pre-check for tag existence (idempotent re-run safety).
   - Commit message references `${GITHUB_SHA::8}`.
+  DONE: `scripts/fanout_module.sh`; shellcheck-clean; `bash -n` OK. All four bullets
+  implemented (auto-create, replace-contents, skip-if-no-diff, ls-remote pre-check,
+  short-SHA commit message). Not executed against a live remote (no org token).
 
-- [ ] T013 [P] GitHub App token wiring: add `actions/create-github-app-token` step
+- [~] T013 [P] GitHub App token wiring: add `actions/create-github-app-token` step
   to the workflow (before step 4); document the required org-level secrets
   (`CLERK_FANOUT_APP_ID`, `CLERK_FANOUT_PRIVATE_KEY`) in the workflow file comments
   and in a runbook note. The App must be installed on the `copier-clerk` org with
   `contents:write` + `administration:write`; note this is a one-time manual setup
   for maintainers.
+  AUTHORING DONE: `create-github-app-token@v3` step added before fan-out, scoped to
+  the org with `permission-contents: write` + `permission-administration: write`;
+  secrets documented in the workflow header comment and in
+  `docs/runbooks/fanout-release.md`.
+  MAINTAINER MANUAL SETUP REQUIRED: a `copier-clerk` org-admin must create + install
+  the `clerk-fanout` App and add the two org secrets. Not doable by a code agent.
 
 ---
 
 ## Phase 6: GitHub Pages (BLOCKED ON 009 end-to-end)
 
-- [ ] T014 Configure GitHub Pages for `copier-clerk/clerk-templates`: source =
+- [~] T014 Configure GitHub Pages for `copier-clerk/clerk-templates`: source =
   repository root (or a `docs/` folder if `catalog.json` must be nested); path
   delivers `catalog.json` at the stable URL. Add a Pages deployment workflow step
   (or use the built-in Pages deploy action) triggered by changes to `catalog.json`
   on main (path filter: `catalog.json`). Document the stable URL in `README.md`
   and in the spec 002 catalog consumer instructions.
+  AUTHORING DONE: `release.yml` assembles `_site/catalog.json` and deploys via
+  `upload-pages-artifact@v3` + `deploy-pages@v4` (`pages:write` + `id-token:write`
+  permissions, `github-pages` environment). Stable URL
+  `https://copier-clerk.github.io/clerk-templates/catalog.json` documented in
+  `README.md` + the runbook. NOTE: deploy runs as part of the release job (not a
+  separate path-filtered workflow) so the freshly-regenerated catalog publishes in
+  the same run; a dedicated path-filtered trigger was not added (YAGNI — no second
+  consumer of the deploy).
+  MAINTAINER MANUAL SETUP REQUIRED: enable Pages (Settings → Pages → Source: GitHub
+  Actions) on the org repo. Not doable by a code agent.
 
 ---
 
 ## Phase 7: end-to-end smoke (BLOCKED ON 009)
 
-- [ ] T015 **Integration smoke test** (marked `@pytest.mark.network` or a separate
+- [~] T015 **Integration smoke test** (marked `@pytest.mark.network` or a separate
   CI job): with at least one real `clerk-mod-*` module from spec 009 present in
   `templates/`:
   - Run `just check-modules` → exit 0.
@@ -178,20 +214,34 @@ require a real module (blocked on 009).
   - Call `discovery.discover(<split-repo-url>)` against the fanned-out repo;
     assert `reproducible=True` and a PEP 440 tag is present.
   This task CANNOT be marked done until spec 009 delivers a real module.
+  OFFLINE PARTS DONE: `tests/loop/test_release_smoke.py` — `check-modules` → exit 0
+  against the real templates (verified: "ok — 2 module(s) checked"), and the
+  generator emits valid JSON containing both real modules once split tags exist
+  (mocked). Both pass. VERIFIED + DOCUMENTED the catalog-empty-until-fanout rule: a
+  live `--dry-run` today returns `"modules": []` because the split repos have no
+  published tags yet (Q-008b-a).
+  NOT RUN (skip-marked `network`, cannot be faked): the dry-run `modules == []`
+  live assertion, the canary release, and `discovery.discover()` on a fanned-out
+  repo — all require the T013/T014 org setup + a real fan-out.
 
-- [ ] T016 Update `specs/008b-fanout-authoring/spec.md` to remove the
+- [~] T016 Update `specs/008b-fanout-authoring/spec.md` to remove the
   "IMPLEMENTATION BLOCKED ON SPEC 009" callout once the smoke test (T015) passes
   and the spec 009 dependency is confirmed satisfied. Update roadmap status to
   `verified`.
+  PARTIAL: the callout in `spec.md` (and this tasks.md) is UPDATED to reflect the
+  new reality (009 delivered; code authored; remaining gate = maintainer org setup +
+  live canary) rather than removed — T015's live canary has NOT passed, so the block
+  is not fully lifted. Roadmap status intentionally NOT flipped to `verified`.
 
 ---
 
 ## Dependency summary
 
-| Task(s) | Blocked on |
+| Task(s) | Status |
 |---|---|
-| T001–T010 | Nothing — can be authored now |
-| T011–T013 | T001, T003, T009; authoring unblocked; integration requires 009 |
-| T014 | T011 (Pages wiring); end-to-end requires 009 |
-| T015 | Spec 009 (first real `clerk-mod-*` module) |
-| T016 | T015 |
+| T001–T010 | Done (Phases 1–4) |
+| T011, T012 | Done — authored + statically verified; unproven live (no org token) |
+| T013 | Authoring done; MAINTAINER manual org setup remains (App + org secrets) |
+| T014 | Authoring done; MAINTAINER manual Pages enablement remains |
+| T015 | Offline parts done; live canary remains (needs T013/T014 org setup) |
+| T016 | Partial — callout updated (not removed); roadmap NOT set `verified` |
