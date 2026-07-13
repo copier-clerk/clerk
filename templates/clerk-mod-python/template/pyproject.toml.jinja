@@ -1,37 +1,40 @@
 {#-
   pyproject.toml — SEED-ONCE (_skip_if_exists in copier.yml).
 
-  Ports lang-python's Python manifest (uv + ruff + pytest). Seeded once, then
-  the project owns and evolves it (adds/bumps deps). `requires-python` is pinned
-  from the `python_version` answer.
+  Ports lang-python's Python manifest (uv + ruff). Seeded once, then the project
+  owns and evolves it (adds/bumps deps). `requires-python` is pinned from the
+  `python_version` answer; dependencies render from the agent-resolved
+  pinned_deps / dev_deps answers (empty by default → no deps, faithful to
+  lang-python: "empty → no deps written").
 
-  SOURCE CAVEAT: lang-python's manifest is not locally present (see copier.yml).
-  The specific tool config below is INFERRED from the SKILL.md characterization
-  ("uv, ruff, pytest"; pins the chosen Python). Every inferred block carries a
-  TODO(009) flag so it can be reconciled against the real manifest later.
+  Reconciled against lang-python-v1.3.0 (module.py). Two clerk-model adaptations:
+    - ruff `target-version` is threaded from python_version (upstream hardcodes
+      "py313"); the rest of the ruff block is byte-faithful.
+    - lang-python runs `uv init --name <project> --package`, producing an
+      installable src/<snake_name>/ layout with [build-system] + [project.scripts].
+      That is a uv-driven task (it picks the build backend + entrypoint), not a
+      static render; reproducing uv's exact choices in a seed would invent them.
+      FLAGGED, not ported: Phase 0 seeds a flat manifest. Add the src-package
+      layout via a uv-init task if/when installable packaging is required.
 -#}
 [project]
 name = "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
 version = "0.1.0"
+description = "{{ description }}"
 requires-python = ">={{ python_version }}"
-dependencies = []
-
-# TODO(009): confirm [project] fields (description/authors/readme/license) against
-# the lang-python manifest when available — kept minimal here to avoid inventing
-# fields beyond the SKILL.md characterization (FR-011).
+dependencies = [{% for dep in pinned_deps %}"{{ dep | replace('@', '==') }}"{{ ", " if not loop.last else "" }}{% endfor %}]
 
 [dependency-groups]
-dev = [
-  "ruff",
-  "pytest",
-]
+dev = [{% for dep in dev_deps %}"{{ dep | replace('@', '==') }}"{{ ", " if not loop.last else "" }}{% endfor %}]
 
+# ruff config — byte-faithful to lang-python-v1.3.0 (templates/ruff-config.toml),
+# except target-version, which is threaded from python_version (upstream: "py313").
 [tool.ruff]
-# TODO(009): confirm ruff target-version / line-length / lint selection against
-# the lang-python manifest. target-version tracks the pinned python_version.
 target-version = "py{{ python_version | replace('.', '') }}"
+line-length = 100
 
-[tool.pytest.ini_options]
-# TODO(009): confirm pytest config (testpaths/addopts) against the lang-python
-# manifest.
-testpaths = ["tests"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+
+[tool.ruff.format]
+quote-style = "double"
