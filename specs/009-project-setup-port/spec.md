@@ -4,8 +4,9 @@
 
 **Created**: 2026-07-13
 
-**Status**: Draft (first-draft framing — see Open Questions; scope is deliberately
-framed for review, not committed)
+**Status**: Clarified (2026-07-13 session — 7 questions resolved OQ-009-a…g; v1 scope =
+collapsed `clerk-mod-base` + `clerk-mod-python`, agentic category excluded). Ready for
+`/speckit.plan`.
 
 **Input**: Roadmap spec 009 (project-setup module port → templates), governed by the
 constitution v2.1.0 (Principles I, III, V, VI in particular) and ADR-0002/0003/0006.
@@ -38,6 +39,76 @@ the orchestrator + user to resolve before a plan is scoped. This is a **large** 
 1:1 onto copier), so the sections below are a first-draft framing of a plausible
 phased delivery, not final commitments. The Open Questions section is the substantive
 product of this draft.
+
+---
+
+## Clarifications
+
+### Session 2026-07-13
+
+- Q: Base split — one `clerk-mod-base` vs several separate repos (OQ-009-a) → A:
+  **One collapsed `clerk-mod-base`.** The 6 base modules (core-identity,
+  dirs-scaffold, gitignore-generate, license-write, agents-md, git-init) ship as ONE
+  copier template. Inter-base ordering becomes template-internal (identity → files →
+  license → agents-md → git commit last); one repo / tag line / catalog entry /
+  answers file. Faithful to project-setup's always-on, non-deselectable base; drops
+  5 fan-out targets for zero lost capability. Resolves roadmap Q2.
+- Q: Phasing / scope of v1 (OQ-009-b) → A: **Phase 0 = `clerk-mod-base` +
+  `clerk-mod-python`** is v1 (the first merged slice) — the minimal real module set
+  that unblocks 008b's fan-out/release/e2e, and de-risks the translation by proving
+  the full loop (base identity, `run_after` edges, answer threading, a trust-gated
+  task, contract lint) on the smallest surface. Phases 1–3 follow as fast-follow
+  slices, NOT part of v1.
+- Q: Reproduce determinism for `agent`-tier modules + file lifecycle (OQ-009-c) → A:
+  Two decisions. **(1)** `agent`-tier decisions freeze **structured facts** (stack,
+  env-keys, stack pins, resolved-architecture choice) as `--data` answers, and the
+  template renders deterministically from them — NOT whole prose blobs (matches
+  project-setup's "draft from frozen scaffold facts"; honours Constitution VIII).
+  **(2) Every module classifies its outputs into two lifecycles:** **managed** files
+  (clerk owns; re-rendered byte-identically at reproduce) vs **seed-once / living**
+  files (scaffolded at init, then OWNED and evolved by the project — clerk must not
+  clobber them). Seed-once files include **`AGENTS.md`** (updated during
+  development/deployment) and **language manifests** (`pyproject.toml`, `go.mod`,
+  `Cargo.toml`, `package.json` — the project adds/bumps deps). Seed-once is
+  implemented with copier's native **`_skip_if_exists`** (no new tool code — C-11).
+  This is compatible with Constitution III: on a fresh-checkout reproduce the file
+  does not yet exist so it still renders identically; `_skip_if_exists` only protects
+  an already-populated tree. The per-file behaviour under `clerk update` (never-merge
+  vs copier 3-way merge) is deferred to the plan (per-module classification).
+- Q: Which project-setup `agentic` modules does 009 port? (OQ-009-d, 007 boundary) →
+  A: **None.** 009 excludes the entire `agentic` category (`apm-install`, `mcp-config`,
+  `speckit-bridge`, `codex-config`). 007's family owns all agentic wiring: `apm-install`
+  = 007's `clerk-mod-apm` (v1); `mcp-config`/`speckit-bridge` = future 007-family
+  modules (per 007 Q1). `codex-config` (a Codex-only `.codex/config.toml` client
+  config, the one non-overlapping module) is deferred to a future module if demand
+  appears — not worth porting one orphan agentic module into 009 and muddying the
+  "007 owns agentic" boundary. This tightens the spec's original lean (which was
+  port-`codex-config`).
+- Q: How do project-setup gates map onto clerk? (OQ-009-e) → A: **Consequential
+  choices become safe-defaulting copier boolean questions** (e.g.
+  `create_public_repo: false`, `write_architecture: false`) whose persisted answers
+  gate the corresponding render/task; **all code execution stays behind the single
+  source-trust gate**. project-setup's per-action `allow_flag`/`hardness` granularity
+  is NOT re-implemented — that would be new tool code (C-11 violation). The gate
+  *intent* (never do consequential things silently) is preserved; the mechanism moves
+  from CLI flags to copier answers + source trust.
+- Q: `[tools]` prerequisites with no copier equivalent (OQ-009-f) → A: **A preflight
+  `_task`** that checks a module's required tools (`uv`/`gh`/`go`/…) and fails with
+  explicit install guidance, so the user/agent is steered toward installing the tool
+  rather than hitting a cryptic mid-action failure. Nuance (baked in for the plan):
+  copier runs ALL `_tasks` post-render (no true pre-render hook), so the preflight is
+  not literally before render — but ordered FIRST among the tasks it fails before any
+  consequential action task runs. Pair with a documented README prerequisite. This
+  tightens the spec's original lean (task's-own-failure-only).
+- Q: Multichoice options — fixed `choices:` vs runtime injection (OQ-009-g) → A:
+  **Fixed `choices:` for all finite well-known sets** (SPDX licenses, language
+  versions, etc.), **EXCEPT `.gitignore`**, which is NOT a choice list at all: it is
+  **generated by the `gitnr` tool from the project baseline** (the stack/language
+  answers). `gitnr` is a code-executing tool → a **trust-gated `_task` with its version
+  pinned** (Constitution V); the emitted `.gitignore` is task-generated output
+  (process-deterministic, like the LICENSE fetch), not a byte-rendered file. No runtime
+  `--data` injection is needed for 009 (the only genuinely dynamic lists were the
+  agentic category, excluded by Q4).
 
 At the highest level, 009 must:
 
@@ -108,9 +179,11 @@ Several project-setup modules carry `agent` (Tier-2) steps — the agent reads a
 freezes stack pins). In clerk's two-phase model (Constitution II) these are **phase-1
 judgment**: the skill makes the decision and freezes it as a `--data` answer that the
 template renders deterministically. The agent is NEVER in the reproduce path — reproduce
-replays the frozen answer. This is the single largest translation risk in the port
-(these modules were designed around a runner callback the agent responds to at runtime),
-and it is flagged as OQ-009-c.
+replays the frozen answer. **Resolved (Q3/OQ-009-c):** what freezes is the
+**structured facts** the decision produces (stack, env-keys, stack pins,
+resolved-architecture choice), NOT a whole prose blob; the template renders the
+document deterministically from those facts (matches how project-setup drafts "from
+frozen scaffold facts" and keeps answers files sane — Constitution VIII).
 
 ### D-009-4 — Code-executing / network steps become trust-gated `_tasks`
 
@@ -122,6 +195,12 @@ installs speckit; `license-write` may fetch from the GitHub Licenses API) map to
 reproduce replays the task under the same gate (`_tasks` run at both init and reproduce
 — Constitution III). Network-touching tasks are process-deterministic, not
 byte-identical (Constitution III) — pin versions in the task command where possible.
+**Consent granularity (Q5/OQ-009-e):** project-setup's per-action gates
+(`allow-public-repo`, `allow-arch-write`, `allow-install`, `hardness`) do NOT become a
+new per-action consent layer. Instead, a consequential *choice* becomes a
+safe-defaulting copier boolean question (`create_public_repo: false`,
+`write_architecture: false`, …) whose persisted answer gates the render/task, and code
+*execution* stays behind the single source-trust gate. No new tool code (C-11).
 
 ### D-009-5 — This family is many layers in a multi-template project
 
@@ -145,11 +224,35 @@ Per 007's clarify, `clerk-mod-apm` (spec 007) is shipped **independently**; it i
 prerequisite of 009 and 009 MUST NOT depend on it. However, project-setup's `apm-install`,
 `mcp-config`, `speckit-bridge`, and `codex-config` modules (its `agentic` category)
 **overlap in intent** with 007's agentic-ecosystem module. 009 MUST NOT duplicate or
-re-implement 007's `clerk-mod-apm`. The boundary — whether 009 ports the project-setup
-agentic modules at all, defers them to 007, or ports only the non-overlapping ones
-(`codex-config`) — is an explicit open question (OQ-009-d). Lean: 009 excludes the
-agentic category from its port (007 owns that space); 009 ports base + languages +
-quality + tooling + docs + integration + monorepo.
+re-implement 007's `clerk-mod-apm`. **Resolved (Q4/OQ-009-d): 009 excludes the ENTIRE
+`agentic` category** (`apm-install`, `mcp-config`, `speckit-bridge`, `codex-config`).
+007's family owns all agentic wiring — `apm-install` is 007's `clerk-mod-apm` (v1);
+`mcp-config`/`speckit-bridge` are future 007-family modules; `codex-config` (Codex-only
+`.codex/config.toml`) is deferred to a future module if wanted, not ported here. 009
+ports base + languages + quality + tooling + docs + integration + monorepo.
+
+### D-009-7 — Two file lifecycles: managed (re-rendered) vs seed-once (living) (Q3/OQ-009-c)
+
+Not every file a module writes should be owned by clerk forever. Each module MUST
+classify its outputs into two lifecycles:
+
+- **Managed** — clerk owns the file; reproduce re-renders it byte-identically from the
+  committed answers (Constitution III). The default for pure scaffold/config.
+- **Seed-once / living** — clerk scaffolds the file at init, then the **project owns and
+  evolves it**; clerk MUST NOT clobber it on a re-run. These are files that legitimately
+  drift from the template after creation:
+  - **`AGENTS.md`** — seeded once, then updated during development/deployment.
+  - **Language manifests** — `pyproject.toml`, `go.mod`, `Cargo.toml`, `package.json` —
+    seeded with initial deps, then the project adds/bumps dependencies. Re-rendering
+    would revert real work.
+
+Seed-once is implemented with copier's native **`_skip_if_exists`** (a `copier.yml` list
+of destination paths never overwritten once present) — no new clerk tool code (C-11).
+This does NOT weaken Constitution III: on a true reproduce onto a fresh checkout the file
+does not exist yet, so it still renders identically; `_skip_if_exists` only protects an
+already-populated working tree (the re-run / `update` case). The exact per-file behaviour
+under `clerk update` (never re-touch vs copier's 3-way merge) is a plan-level, per-module
+classification.
 
 ---
 
@@ -162,8 +265,9 @@ quality + tooling + docs + integration + monorepo.
   does not build the pipeline.
 - **The catalog subsystem, ordering engine, upgrade/migrations engine, delivery shape**
   (specs 002/003/006/010) — consumed, not rebuilt.
-- **spec 007's `clerk-mod-apm`** — independent; 009 does not port the overlapping
-  agentic modules if OQ-009-d resolves that way.
+- **spec 007's `clerk-mod-apm` and the whole `agentic` category** — independent; 009
+  ports NONE of `apm-install`/`mcp-config`/`speckit-bridge`/`codex-config` (Q4/OQ-009-d);
+  007's family owns that space.
 - **Porting project-setup's runner, SDK, or manifest format** — those are the mechanisms
   clerk replaces with copier + the spec-003 DAG. The runner does not ship; only the
   modules' behaviour is re-expressed as templates.
@@ -177,7 +281,7 @@ quality + tooling + docs + integration + monorepo.
 
 ### US1 — Scaffold a project from the base module(s) (Priority: P1)
 
-A developer selects the clerk base (`clerk-mod-base`, or the base set if split) with a
+A developer selects the collapsed clerk base (`clerk-mod-base`, Q1) with a
 `project_name`, `org`, and `license`; clerk applies it; the generated project contains
 the directory scaffold, `.gitignore`, `LICENSE`, `AGENTS.md`, and a committed
 `.copier-answers.yml`. `git init` runs as a trust-gated task.
@@ -222,12 +326,16 @@ is byte-identical (same recorded answers + pinned commit), and trust-gated tasks
 
 A developer scaffolds a project whose README/STACK/env are agent-drafted (the
 `readme-draft`/`stack-adr`/`env-example` equivalents). The agent's decision is frozen as
-a `--data` answer at init; reproduce replays the frozen answer and re-renders the same
-file with no agent involvement.
+**structured facts** in `--data` answers at init; reproduce replays the frozen facts and
+re-renders the file deterministically with no agent involvement (Q3).
 
 **Acceptance Scenarios**:
-1. **Given** an agent-drafted README frozen as an answer, **When** `reproduce`, **Then**
-   the README re-renders from the frozen answer, byte-identically, with no agent call.
+1. **Given** agent-resolved structured facts (stack, env-keys, pins) frozen as answers,
+   **When** `reproduce`, **Then** the derived file (README/STACK/env) re-renders from
+   those frozen facts byte-identically, with no agent call.
+2. **Given** a project whose `AGENTS.md` and language manifest were edited after init
+   (seed-once/living files), **When** `reproduce` (or a re-run), **Then** those files
+   are NOT clobbered — `_skip_if_exists` preserves the project-owned edits (Q3/D-009-7).
 
 ### US5 — Every ported module passes the contract lint (Priority: P1)
 
@@ -250,12 +358,19 @@ Each module authored under `templates/clerk-mod-*/` passes `just check-modules`
   free-form prose (e.g. a full README body) must be freezable as a single `--data`
   answer. If a decision cannot be reduced to a plain-text answer, it violates
   Constitution VIII's documented-handoff rule — flag such modules (OQ-009-c).
-- **`[tools]` requirement with no copier equivalent**: copier has no `[tools]` block;
-  a module that required `uv`/`gh`/`go` must surface the prerequisite via the task's own
-  failure (copier surfaces the exit code) or a documented preflight (OQ-009-f).
-- **A `multichoice` whose options are large/dynamic** (e.g. gitignore templates, MCP
-  servers): copier `multiselect` with fixed `choices:` versus runtime `--data`
-  injection (ADR-0003) — the same tradeoff 007's OQ-007-a raises.
+- **`[tools]` requirement with no copier equivalent**: copier has no `[tools]` block. A
+  module requiring `uv`/`gh`/`go` ships a **preflight `_task`** (ordered first among its
+  tasks) that checks for the tool and fails with explicit install guidance before any
+  consequential action task runs, plus a documented README prerequisite (Q6/OQ-009-f).
+  Note: copier runs all `_tasks` post-render, so the preflight is task-ordered-first,
+  not literally pre-render.
+- **Multichoice / list options** (Q7/OQ-009-g): finite well-known sets (SPDX licenses,
+  language versions) use fixed copier `choices:`. **`.gitignore` is the exception** — it
+  is NOT a choice list; it is generated by the **`gitnr`** tool from the project baseline
+  (stack/language answers) via a **version-pinned trust-gated `_task`**, and the emitted
+  file is task-generated output (process-deterministic, like the LICENSE fetch), not a
+  byte-rendered file. No runtime `--data` injection is needed in 009 (the dynamic lists
+  were the agentic category, excluded by Q4).
 - **Secret-shaped answers**: project-setup enforces a G8 secret-shape guard at its
   interview boundary. clerk's equivalent is Constitution VI (no `secret:` questions) +
   spec-005's `runner.init` secret-key rejection. Ported modules MUST declare no
@@ -266,6 +381,9 @@ Each module authored under `templates/clerk-mod-*/` passes `just check-modules`
 - **Overwrite / drift on re-run**: project-setup hard-gates destructive overwrites;
   clerk's `reproduce` uses `--overwrite` (faithful replay) and `update` is the explicit
   merge path (spec 006). The port must not smuggle project-setup's diff/confirm loop in.
+  **Seed-once / living files** (`AGENTS.md`, language manifests) are protected from the
+  `--overwrite` replay via copier's `_skip_if_exists` (D-009-7 / Q3), so a re-run does
+  not revert project-owned edits; on a fresh-checkout reproduce they render normally.
 
 ---
 
@@ -288,15 +406,43 @@ First draft — subject to revision once open questions resolve.
 - **FR-004**: Each module's project-setup `[order]` edges MUST be re-expressed as
   `when:false` `depends_on`/`run_after`/`run_before` answers so the spec-003 engine
   sequences the layers; edge identity MUST be collision-free by basename (spec 003).
-- **FR-005**: Each module's deterministic (`python`-tier) outputs MUST be produced by
-  rendered template files, byte-identical across reproduce runs (Constitution III /
-  VII a).
+- **FR-005**: Each module's deterministic (`python`-tier) **managed** outputs MUST be
+  produced by rendered template files, byte-identical across reproduce runs
+  (Constitution III / VII a). See FR-005a for the seed-once exception.
+- **FR-005a** *(file lifecycle — Q3/OQ-009-c/D-009-7)*: Each module MUST classify its
+  outputs as **managed** (re-rendered) or **seed-once/living** (scaffolded at init,
+  thereafter project-owned). Seed-once files — at minimum `AGENTS.md` and language
+  manifests (`pyproject.toml`, `go.mod`, `Cargo.toml`, `package.json`) — MUST be listed
+  in the module's copier `_skip_if_exists` so a re-run/`update` does not clobber
+  project-owned edits. On a fresh-checkout reproduce they render normally (Constitution
+  III holds). The plan records each module's per-file classification.
 - **FR-006**: Each module's agent-steered (`agent`-tier) decisions MUST be produced in
   phase 1 and frozen as `--data` answers persisted to the answers file, so reproduce
-  replays them with no agent (Constitution II).
+  replays them with no agent (Constitution II). What is frozen is the **structured
+  facts** the decision yields (stack, env-keys, pins, resolved-architecture choice),
+  from which the template renders deterministically — NOT a whole free-form prose blob
+  (Q3/OQ-009-c; Constitution VIII).
 - **FR-007**: Each code-executing or network-touching action MUST be a trust-gated
   `_task`, not a render-time side effect (Constitution V); version pins in the task
   command where determinism allows.
+- **FR-007a** *(gate mapping — Q5/OQ-009-e)*: A project-setup per-action consent gate
+  MUST be re-expressed EITHER as a safe-defaulting copier boolean question (for a
+  consequential *choice*, e.g. `create_public_repo: false`, `write_architecture: false`)
+  whose persisted answer gates the render/task, OR as reliance on the single
+  source-trust gate (for code *execution*). No new per-action consent layer or
+  `allow_flag`-style mechanism may be introduced (C-11).
+- **FR-007b** *(tool preflight — Q6/OQ-009-f)*: A module whose task requires an external
+  tool (`uv`/`gh`/`go`/etc.) MUST ship a preflight `_task`, ordered FIRST among its
+  tasks, that verifies the tool's presence and fails with explicit install guidance
+  before any consequential action task runs; the module README MUST also document the
+  prerequisite. (copier runs all tasks post-render, so this is task-ordered-first, not
+  literally pre-render.) No `[tools]`-equivalent clerk glue is added (C-11).
+- **FR-007c** *(option lists — Q7/OQ-009-g)*: Finite well-known option lists (SPDX
+  licenses, language versions, etc.) MUST use fixed copier `choices:` (no runtime
+  injection). `.gitignore` MUST NOT be a choice list: it MUST be generated by the
+  version-pinned `gitnr` tool from the project baseline (stack/language answers) via a
+  trust-gated `_task` (per FR-007/FR-007b), and its output is task-generated
+  (process-deterministic), not a byte-rendered managed file.
 - **FR-008**: Each module MUST be testable in isolation (with stub threaded answers) and
   as a layer in a multi-template project (init + reproduce integration test —
   Constitution VII c).
@@ -311,17 +457,20 @@ First draft — subject to revision once open questions resolve.
 - **FR-012**: The SKILL.md procedure MUST document the ported family: which modules exist,
   the base-selection step, per-module trust consent for tasks, and the multi-layer handoff
   shape.
-- **FR-013** *(base split — pending OQ-009-a)*: The 6 base modules MUST ship EITHER as one
-  collapsed `clerk-mod-base` template OR as separate `clerk-mod-*` repos; the plan MUST
-  record which, with the edge-identity and reproduce consequences.
+- **FR-013** *(base split — RESOLVED, Q1/OQ-009-a)*: The 6 base modules MUST ship as ONE
+  collapsed `clerk-mod-base` copier template. Their inter-base ordering (identity →
+  dirs/gitignore → license → agents-md → git-init commits last) is expressed
+  template-internally, NOT as cross-module `when:false` edges. `clerk-mod-base` is a
+  single fan-out target with one answers file. Later layers (languages, quality, etc.)
+  `run_after` `clerk-mod-base` as a whole.
 
 ### Key Entities
 
 - **`clerk-mod-*` template**: one ported module — a copier template in the monorepo under
   `templates/clerk-mod-<name>/`, fanned out to `copier-clerk/clerk-mod-<name>` by 008b.
-- **`clerk-mod-base`** *(or the base set)*: the collapsed base scaffold (core identity +
-  dirs + gitignore + license + AGENTS.md + git-init), OR the 6 separate base modules —
-  OQ-009-a.
+- **`clerk-mod-base`**: the single collapsed base scaffold template (core identity +
+  dirs + gitignore + license + AGENTS.md + git-init in one module; Q1/OQ-009-a). One
+  fan-out target, one answers file; inter-base ordering is template-internal.
 - **Language overlays** (`clerk-mod-python`/`-ts`/`-go`/`-rust`): stack tooling layers
   that `run_after` base.
 - **Frozen agent answer**: a phase-1 decision (README draft, stack pins, env keys)
@@ -336,12 +485,12 @@ The authoritative source is `~/.claude/skills/project-setup/` (SKILL.md + the ad
 
 | Category | Modules | Port note |
 |---|---|---|
-| **base** (always-on) | core-identity, dirs-scaffold, gitignore-generate, license-write, agents-md, git-init | Collapse into `clerk-mod-base` OR keep separate — OQ-009-a. `agents-md` has an `agent` step + a hard gate; `git-init`/`license-write` are tasks. |
+| **base** (always-on) | core-identity, dirs-scaffold, gitignore-generate, license-write, agents-md, git-init | Collapsed into ONE `clerk-mod-base` (Q1/OQ-009-a). `agents-md` has an `agent` step + a hard gate and its `AGENTS.md` is seed-once (`_skip_if_exists`, D-009-7); `gitignore-generate` shells out to `gitnr` (pinned trust-gated task, Q7); `git-init`/`license-write` are tasks. |
 | **language** | lang-python, lang-ts, lang-go, lang-rust | Overlays; `run_after` base; thread `project_name`. Straight `python`-tier renders. |
 | **quality** | precommit-setup, quality-hooks | `run_after` base + language; renders `.pre-commit-config.yaml`, hook files. |
 | **tooling** | justfile-write, ci-github-actions, env-example, worktreeinclude-write | `ci-github-actions` sizes YAML to the active stack (reads sibling answers); `env-example` is `agent`-tier (stack→env-keys). |
 | **docs** | stack-adr, readme-draft | Both `agent`-tier (frozen prose/pins) — the reproduce-determinism risk (OQ-009-c). |
-| **agentic** | apm-install, mcp-config, speckit-bridge, codex-config | Overlaps spec 007 — likely EXCLUDED from 009 (OQ-009-d); `codex-config` is the only clearly non-overlapping one. Installs are trust-gated tasks. |
+| **agentic** | apm-install, mcp-config, speckit-bridge, codex-config | **EXCLUDED from 009 entirely** (Q4/OQ-009-d) — 007's family owns all agentic wiring. `codex-config` deferred to a future module. |
 | **integration** | github-repo, org-policy | `github-repo` = `gh repo create` task + public-repo hard gate; `org-policy` reads a pinned org source. |
 | **monorepo** | package-add | Adds a package dir to a monorepo layout (`layout=monorepo` from base). |
 
@@ -352,14 +501,19 @@ The authoritative source is `~/.claude/skills/project-setup/` (SKILL.md + the ad
 Provisional — subject to Open Questions.
 
 - **SC-001**: A generated base project contains the correct scaffold (dirs, `.gitignore`,
-  `LICENSE`, `AGENTS.md`) and a `.copier-answers.yml`, and reproduces byte-identically
-  with copier alone.
+  `LICENSE`, `AGENTS.md`) and a `.copier-answers.yml`. Its **managed** rendered files
+  reproduce byte-identically with copier alone; `.gitignore` (gitnr) and `LICENSE`
+  (fetch) are task-generated (process-deterministic), and `AGENTS.md` is seed-once —
+  consistent with SC-003/SC-003a.
 - **SC-002**: A `[base, lang-python]` project applies base first (spec-003 ordering),
   threads `project_name`, and produces the same observable output project-setup's
   `lang-python` produced.
-- **SC-003**: Reproduce of any ported project re-renders all files byte-identically and
-  re-runs trust-gated tasks; the order is recomputed from committed answers + pinned
-  fetches (no frozen recipe).
+- **SC-003**: Reproduce of any ported project onto a fresh checkout re-renders all
+  **managed** files byte-identically and re-runs trust-gated tasks; the order is
+  recomputed from committed answers + pinned fetches (no frozen recipe).
+- **SC-003a**: On a re-run/`update` over an already-populated tree, **seed-once** files
+  (`AGENTS.md`, language manifests) that the project has edited are NOT overwritten
+  (`_skip_if_exists`, Q3/D-009-7).
 - **SC-004**: An untrusted source is refused at init (exit 3) before any task runs.
 - **SC-005**: An agent-drafted output (README/STACK/env) replays from its frozen answer at
   reproduce with no agent call.
@@ -377,8 +531,9 @@ Provisional — subject to Open Questions.
 - New capabilities beyond project-setup (roadmap Scope-out).
 - The 008b fan-out/release pipeline (built by 008b; 009 supplies content).
 - Catalog / ordering / upgrade / delivery machinery (specs 002/003/006/010 — consumed).
-- spec 007's `clerk-mod-apm` (independent) and, per OQ-009-d's lean, the overlapping
-  agentic modules.
+- spec 007's `clerk-mod-apm` (independent) and the entire project-setup `agentic`
+  category (apm-install/mcp-config/speckit-bridge/codex-config) — excluded per
+  Q4/OQ-009-d; 007's family owns agentic wiring.
 - porting project-setup's runner/SDK/manifest format or its home-config catalog.
 - Brownfield adoption (deferred spec).
 
@@ -395,24 +550,23 @@ real module (base + one language) as its FIRST slice, precisely to unblock 008b 
 possible. The `cog.toml` `pre_bump_hooks = ["just check-modules || true"]` and
 `check_modules.py`'s empty-`templates/` no-op already anticipate this hand-off.
 
-**009 ↔ 007 (independent; possible apm overlap):** 007 ships `clerk-mod-apm`
-independently (007's clarify). 009 does NOT depend on 007 and MUST NOT duplicate it. The
-overlap is in project-setup's `agentic` category (`apm-install`, `mcp-config`,
-`speckit-bridge`, `codex-config`), which covers similar ground to 007's module. 007's own
-OQ-007-g already flags this boundary from the other side. 009 resolves it in OQ-009-d;
-the lean is that 007 owns the agentic space and 009 excludes that category (porting at
-most the non-overlapping `codex-config`).
+**009 ↔ 007 (independent; agentic category is 007's):** 007 ships `clerk-mod-apm`
+independently (007's clarify). 009 does NOT depend on 007 and MUST NOT duplicate it.
+**Resolved (Q4/OQ-009-d): 009 excludes the entire project-setup `agentic` category**
+(`apm-install`, `mcp-config`, `speckit-bridge`, `codex-config`) — 007's family owns that
+space (`apm-install`=007 v1; MCP/SpecKit=future 007-family modules; `codex-config`
+deferred to a future module). 007's own OQ-007-g flags this boundary from the other side.
 
 ---
 
 ## Proposed phasing (this is a large port — deliver in slices)
 
 ~25 modules with several agent-steered and task-bearing members is too large for one
-slice, and the primary near-term value is **unblocking 008b**. Proposed phases (a lean,
-not a commitment — OQ-009-b):
+slice, and the primary near-term value is **unblocking 008b**. Phasing (v1 = Phase 0,
+RESOLVED Q2/OQ-009-b; later phases are a lean, not a commitment):
 
-- **Phase 0 — Contract slice (unblocks 008b):** port `clerk-mod-base` (or its first base
-  member) + one language overlay (`clerk-mod-python`). This is the minimal real module set
+- **Phase 0 — Contract slice = v1 (unblocks 008b):** port the collapsed `clerk-mod-base`
+  (Q1) + one language overlay (`clerk-mod-python`). This is the minimal real module set
   that lets 008b run fan-out/release/e2e end to end. Exercises base identity, `run_after`
   edges, answer threading, a trust-gated task, and the contract lint. **Highest priority.**
 - **Phase 1 — Remaining languages + quality/tooling (pure `python`-tier):** `lang-ts`,
@@ -422,8 +576,8 @@ not a commitment — OQ-009-b):
 - **Phase 2 — Agent-steered + integration (the hard translations):** `env-example`,
   `readme-draft`, `stack-adr` (frozen-answer determinism — OQ-009-c), `github-repo`,
   `org-policy`, `package-add`.
-- **Phase 3 (conditional on OQ-009-d) — agentic residue:** only the project-setup agentic
-  modules that 007 does NOT cover (at most `codex-config`).
+- **~~Phase 3 — agentic residue~~ (REMOVED, Q4/OQ-009-d):** 009 ports NO agentic
+  modules; the entire category is 007's family. There is no Phase 3.
 
 Each phase is independently valuable and independently testable; Phase 0 alone delivers
 the 008b-unblocking outcome the roadmap prioritises.
@@ -432,11 +586,16 @@ the 008b-unblocking outcome the roadmap prioritises.
 
 ## Open Questions
 
-**This section is the substantive product of this first-draft framing spec. The
-orchestrator and user MUST resolve these before implementation is scoped.** Leans are
-flagged for review, not decided.
+**All seven questions below were RESOLVED in the 2026-07-13 clarify session** (see the
+Clarifications section for the decisions). Each question is retained with its original
+tradeoffs/leans for historical context and marked `[RESOLVED — Qn]` in its heading.
 
-### OQ-009-a — Base split: one `clerk-mod-base` vs several separate repos (HIGH PRIORITY)
+### OQ-009-a — Base split: one `clerk-mod-base` vs several separate repos (HIGH PRIORITY)  [RESOLVED — Q1, 2026-07-13]
+
+**Resolution**: (A) one collapsed `clerk-mod-base`. The 6 base modules ship as one
+copier template; inter-base ordering is template-internal; one fan-out target / tag
+line / answers file. Faithful to project-setup's always-on indivisible base.
+Resolves roadmap Q2. Options retained below for context.
 
 **The question**: The 6 project-setup base modules (core-identity, dirs-scaffold,
 gitignore-generate, license-write, agents-md, git-init) — do they collapse into ONE
@@ -467,7 +626,11 @@ already treats the 6 as an always-on indivisible base (`default_enabled = true`,
 files for zero lost capability. The separate-repo model buys granularity project-setup
 itself does not offer at the base layer. Resolve before planning.
 
-### OQ-009-b — Phasing / scope of v1 (which modules ship first, how many at once)
+### OQ-009-b — Phasing / scope of v1 (which modules ship first, how many at once)  [RESOLVED — Q2, 2026-07-13]
+
+**Resolution**: v1 = Phase 0 (`clerk-mod-base` + `clerk-mod-python`). Unblocks 008b
+fastest and de-risks the translation on the smallest real module set; Phases 1–3 are
+fast-follow, not v1. Retained below for context.
 
 **The question**: Is Phase 0 (base + one language) the right v1, or should v1 be larger
 (e.g. all base + all four languages + precommit + ci)? How many of the ~25 modules are in
@@ -482,7 +645,17 @@ set in its SKILL.md).
 **Lean**: Phase 0 (base + `clerk-mod-python`) as the first merged slice (unblocks 008b),
 then Phase 1 as a fast follow. Resolve before planning.
 
-### OQ-009-c — Reproduce determinism for `agent`-tier modules (HIGH PRIORITY)
+### OQ-009-c — Reproduce determinism for `agent`-tier modules (HIGH PRIORITY)  [RESOLVED — Q3, 2026-07-13]
+
+**Resolution**: Two decisions. **(1)** Freeze **structured facts** and render
+deterministically (option (ii) below) — not whole prose blobs. **(2)** Beyond the
+agent-tier question, every module classifies its outputs into **managed** (re-rendered
+byte-identically) vs **seed-once/living** (scaffolded once, then project-owned):
+`AGENTS.md` and language manifests (`pyproject.toml`/`go.mod`/`Cargo.toml`/
+`package.json`) are seed-once, protected via copier's `_skip_if_exists` (no new tool
+code; Constitution III still holds on fresh-checkout reproduce). See D-009-3, D-009-7,
+FR-005a, FR-006. The per-file `clerk update` merge policy is a plan-level detail.
+Options retained below for context.
 
 **The question**: project-setup's `agent`-tier steps (`agents-md` resolve-arch,
 `env-example`, `readme-draft`, `stack-adr`) make a runtime judgment via a `steering/` doc.
@@ -509,7 +682,12 @@ Defer the genuinely-prose modules (`readme-draft`) to a later phase.
 project-setup already does ("draft from frozen scaffold facts"), keeps answers files sane,
 and honours Constitution VIII (documented plain-text handoff). Resolve before planning.
 
-### OQ-009-d — Which project-setup `agentic` modules (if any) does 009 port? (boundary with 007)
+### OQ-009-d — Which project-setup `agentic` modules (if any) does 009 port? (boundary with 007)  [RESOLVED — Q4, 2026-07-13]
+
+**Resolution**: (a) — 009 ports NONE of the agentic category. 007's family owns all
+agentic wiring (`apm-install`=007 v1; `mcp-config`/`speckit-bridge`=future 007-family
+modules; `codex-config`=deferred to a future module). This tightens the original lean
+(b), which was port-only-`codex-config`. Options retained below for context.
 
 **The question**: project-setup's `agentic` category (`apm-install`, `mcp-config`,
 `speckit-bridge`, `codex-config`) overlaps spec 007's `clerk-mod-apm`. Does 009 (a) port
@@ -526,7 +704,12 @@ but means a 009-only consumer has no agentic wiring until 007 lands.
 territory) and ports at most `codex-config` (no 007 equivalent). Coordinate the final call
 with 007's OQ-007-g. Resolve before planning.
 
-### OQ-009-e — How do project-setup gates map onto clerk?
+### OQ-009-e — How do project-setup gates map onto clerk?  [RESOLVED — Q5, 2026-07-13]
+
+**Resolution**: (ii)+(i) — consequential *choices* become safe-defaulting copier
+boolean questions (persisted answers gate the render/task); code *execution* stays
+behind the single source-trust gate; no new per-action consent layer (C-11). Options
+retained below for context.
 
 **The question**: project-setup has a rich gate system (`hardness` hard/soft/informational,
 per-action `allow_flag`/`skip_flag`, e.g. `allow-public-repo`, `allow-arch-write`,
@@ -548,7 +731,13 @@ safe), and code execution stays behind the single source-trust gate. This is fai
 clerk's model without inventing a per-action consent layer (which would be new tool code —
 C-11 violation). Resolve before planning.
 
-### OQ-009-f — `[tools]` prerequisites with no copier equivalent
+### OQ-009-f — `[tools]` prerequisites with no copier equivalent  [RESOLVED — Q6, 2026-07-13]
+
+**Resolution**: (iii)+(ii) — a preflight `_task` (ordered first among a module's tasks)
+checks the required tool and fails with explicit install guidance before consequential
+tasks run, plus a documented README prerequisite. Steers the user/agent to install the
+tool rather than hitting a cryptic mid-action failure. No new preflight machinery in
+clerk glue (C-11). Options retained below for context.
 
 **The question**: project-setup modules declare required `[tools]` (`uv`, `gh`, `go`,
 etc.) and the runner preflights them. copier has no `[tools]` block and no preflight. How
@@ -565,7 +754,13 @@ generated project's, so it does not cover this.
 consistent with how `clerk-template-example` requires `gh` (its task fails if `gh` is
 absent/unauthenticated). No new preflight machinery (C-11). Resolve at planning.
 
-### OQ-009-g — Multichoice options: fixed `choices:` vs runtime `--data` injection
+### OQ-009-g — Multichoice options: fixed `choices:` vs runtime `--data` injection  [RESOLVED — Q7, 2026-07-13]
+
+**Resolution**: Fixed `choices:` for all finite well-known sets (SPDX licenses, language
+versions). **`.gitignore` is the exception** — generated by the version-pinned `gitnr`
+tool from the project baseline via a trust-gated task (task output, not a choice list or
+a byte-rendered file). No runtime `--data` injection in 009 (dynamic lists were the
+agentic category, excluded by Q4). Original text retained below for context.
 
 **The question**: Modules with large or extensible option lists (gitignore templates in
 `gitignore-generate`; MCP servers if any agentic module is ported; APM packages) — bake
@@ -590,8 +785,8 @@ genuinely dynamic (defer to 007's resolution for the agentic overlap). Resolve a
 - The 008b authoring tooling (`just new-module`, `scripts/check_modules.py`,
   `_meta/module-template/`, `cog.toml`) is the sanctioned way to create and lint every
   009 module; 009 modules land under `templates/clerk-mod-*/`.
-- 007 is independent; 009 neither depends on nor blocks 007, and defers the agentic
-  overlap to 007 (OQ-009-d lean).
+- 007 is independent; 009 neither depends on nor blocks 007, and excludes the entire
+  agentic category — 007's family owns it (Q4/OQ-009-d).
 - The base set is faithfully always-on (project-setup treats it as non-deselectable), so
   collapsing vs splitting it (OQ-009-a) is a packaging decision, not a capability one.
 
