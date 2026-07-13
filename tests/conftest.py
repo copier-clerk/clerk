@@ -785,6 +785,24 @@ _PYTHON_STUB_TASKS = dedent(
     """
 )
 
+# Offline stub tasks for clerk-mod-apm (spec 007 / T010): swap the real network
+# `uvx --from apm-cli==<ver> apm install` for a deterministic OFFLINE no-op. The
+# preflight writes a marker; the guarded "install" writes a stub apm.lock.yaml
+# from the frozen apm_packages so the suite exercises the real lifecycle
+# (task-output lock as external state, guarded on the non-empty set) without a
+# network call or the apm CLI. The rendered apm.yml is copied verbatim — only the
+# task side-effects are stubbed, keeping the render surface faithful.
+_APM_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'apm-preflight-ok\\n' > .clerk-apm-preflight"
+      - command: >-
+          printf 'lockfile_version: stub\\napm_version: {{ apm_cli_version }}\\n'
+          > apm.lock.yaml
+        when: "{{ apm_packages | length > 0 }}"
+    """
+)
+
 
 def _copy_module_with_stub_tasks(
     module_name: str,
@@ -835,4 +853,63 @@ def clerk_mod_python(tmp_path: Path) -> TemplateRepo:
     """The real clerk-mod-python template as a hermetic repo (uv preflight stubbed)."""
     return _copy_module_with_stub_tasks(
         "clerk-mod-python", tmp_path / "clerk-mod-python", _PYTHON_STUB_TASKS
+    )
+
+
+@pytest.fixture
+def clerk_mod_apm(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-apm template as a hermetic repo (apm install stubbed offline).
+
+    spec 007 / T010: renders the real apm.yml surface; the network `apm install`
+    task is replaced with a deterministic offline stub that writes a marker and a
+    stub apm.lock.yaml (external state) from the frozen apm_packages.
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-apm", tmp_path / "clerk-mod-apm", _APM_STUB_TASKS
+    )
+
+
+# Minimal STUB base layer (spec 007 Q5 / FR-007): provides the threaded
+# project_name for [stub_base, clerk-mod-apm] multi-layer tests WITHOUT a hard
+# dependency on clerk-mod-base. It is a plain identity template with a hermetic
+# git-init task and the answers-file marker, mirroring the exemplar shape.
+#
+# It declares run_before: [clerk-mod-apm] so the spec-003 engine sequences it
+# BEFORE the apm layer (threading project_name forward). Per Q5, the adjacency is
+# declared by the BASE (the module that needs it), never baked into 007's edges.
+_APM_STUB_BASE_YML = dedent(
+    """\
+    project_name:
+      type: str
+    today:
+      type: str
+      default: ""
+    depends_on:
+      type: yaml
+      default: []
+      when: false
+    run_after:
+      type: yaml
+      default: []
+      when: false
+    run_before:
+      type: yaml
+      default: ["clerk-mod-apm"]
+      when: false
+    _subdirectory: template
+    _tasks:
+      - "git init --quiet"
+    """
+)
+
+
+@pytest.fixture
+def apm_stub_base(tmp_path: Path) -> TemplateRepo:
+    """A minimal stub base layer that threads project_name into clerk-mod-apm (Q5)."""
+    return build_template_repo(
+        tmp_path / "clerk-mod-stub-base",
+        files={
+            "copier.yml": _APM_STUB_BASE_YML,
+            "template/base_out.txt.jinja": "base={{ project_name }}\n",
+        },
     )
