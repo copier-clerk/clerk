@@ -1,0 +1,17 @@
+# cog.toml — cocogitto monorepo release config (spec 008b / ADR-0006)
+#
+# MANDATORY (contracts/fanout.md):
+#   generate_mono_repository_global_tag = false  — no umbrella PEP 440 tag in the
+#     monorepo; only per-module <name>-vX.Y.Z tags are created.
+#   tag_prefix = "v"  — combined with the module name separator yields <name>-vX.Y.Z.
+
+generate_mono_repository_global_tag = false
+tag_prefix = "v"
+
+# pre_bump rolls back on failure (ADR-0006) — safe for preflight checks.
+# Remove `|| true` once templates/ contains at least one module (spec 009).
+pre_bump_hooks = ["just check-modules || true"]
+
+# Package entries added here by `just new-module <name>`.
+# Format: [monorepo.packages.<name>]  path = "templates/<name>"
+[monorepo.packages]

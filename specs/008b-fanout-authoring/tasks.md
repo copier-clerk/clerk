@@ -35,14 +35,14 @@ require a real module (blocked on 009).
 
 ## Phase 1: cocogitto config (unblocked)
 
-- [ ] T001 Configure `cog.toml` at monorepo root with mandatory keys:
+- [x] T001 Configure `cog.toml` at monorepo root with mandatory keys:
   `[monorepo] generate_mono_repository_global_tag = false` and `tag_prefix = "v"`;
   add an empty `[monorepo.packages]` section with a comment that `just new-module`
   populates it. Add a placeholder `[pre_bump_hooks]` entry that calls
   `just check-modules` (disabled until T009 lands). Verify `cog` parses the config
   without error (`cog --version` + `cog check` on any existing commit).
 
-- [ ] T002 [P] Wire `cocogitto-verify` pre-commit hook (already in project) to also
+- [x] T002 [P] Wire `cocogitto-verify` pre-commit hook (already in project) to also
   run `just check-modules` before commit. Update `.pre-commit-config.yaml` with a
   local hook entry calling `scripts/check_modules.py` (or `just check-modules`).
   The hook must exit 0 if `templates/` is empty (no modules yet — 009 blocked).
@@ -51,7 +51,7 @@ require a real module (blocked on 009).
 
 ## Phase 2: module contract linter (unblocked)
 
-- [ ] T003 Create `scripts/check_modules.py` — iterates `templates/*/`; for each:
+- [x] T003 Create `scripts/check_modules.py` — iterates `templates/*/`; for each:
   - Calls `discovery.discover(str(module_path))` with a local path (no network;
     discovery already handles local git repos).
   - Asserts `discovery.reproducible == True` (answers-file `.jinja` present); fails
@@ -66,20 +66,20 @@ require a real module (blocked on 009).
   - Exits 0 if `templates/` is empty (graceful no-op; 009 blocked).
   - Exits 1 with a named violation message on any failure.
 
-- [ ] T004 [P] `tests/unit/test_check_modules.py` (NEW): fixture temp dirs
+- [x] T004 [P] `tests/unit/test_check_modules.py` (NEW): fixture temp dirs
   simulating: (a) a valid module (reproducible, README, CHANGELOG) → exit 0;
   (b) missing answers-file `.jinja` → exit 1, names the module; (c) missing README
   → exit 1; (d) module in `templates/` but absent from cog.toml → exit 1 (parity);
   (e) module in cog.toml but not in `templates/` → exit 1 (ghost). All offline
   (no git clone; use local temp dirs that look like cloned repos for discover()).
 
-- [ ] T005 [P] Add `check-modules` justfile target: `@uv run scripts/check_modules.py`.
+- [x] T005 [P] Add `check-modules` justfile target: `@uv run scripts/check_modules.py`.
 
 ---
 
 ## Phase 3: meta-template scaffolder (unblocked)
 
-- [ ] T006 Create `_meta/module-template/` — a copier meta-template rendered by
+- [x] T006 Create `_meta/module-template/` — a copier meta-template rendered by
   `just new-module`. It MUST produce under `templates/{{ module_name }}/`:
   - `copier.yml` skeleton with `_answers_file: "{{ _copier_conf.answers_file }}.jinja"`
     and a minimal placeholder question.
@@ -93,11 +93,11 @@ require a real module (blocked on 009).
   - `catalog-sources.toml` (or equivalent catalog source file): appends the module's
     split-repo URL `https://github.com/copier-clerk/{{ module_name }}.git`.
 
-- [ ] T007 Add `new-module` justfile target: `@copier copy _meta/module-template/ .
+- [x] T007 Add `new-module` justfile target: `@copier copy _meta/module-template/ .
   -d module_name={{ name }}` (or equivalent copier invocation rendering into the
   monorepo root; adjust path if `_meta` layout needs `--overwrite`).
 
-- [ ] T008 [P] Round-trip test (`tests/unit/test_scaffolder.py` or shell test):
+- [x] T008 [P] Round-trip test (`tests/unit/test_scaffolder.py` or shell test):
   render `_meta/module-template/` with `module_name=clerk-mod-test-fixture` into a
   temp directory; run `scripts/check_modules.py` against it; assert exit 0. Assert
   `cog.toml` and catalog source list contain the new entry. Tears down the temp dir.
@@ -107,7 +107,7 @@ require a real module (blocked on 009).
 
 ## Phase 4: catalog generator (unblocked for unit; blocked for end-to-end)
 
-- [ ] T009 Create `scripts/generate_catalog.py` — enumerates `templates/*/`:
+- [x] T009 Create `scripts/generate_catalog.py` — enumerates `templates/*/`:
   - Reads each module's `copier.yml` for `description` (and `name` if present,
     else uses the directory name).
   - Calls `discovery.list_versions(split_repo_url)` to get PEP 440 tags published
@@ -116,7 +116,7 @@ require a real module (blocked on 009).
   - Emits `catalog.json` (shape from `contracts/fanout.md`) to monorepo root.
   - Accepts `--dry-run` to print JSON without writing.
 
-- [ ] T010 [P] `tests/unit/test_generate_catalog.py` (NEW): mock `git ls-remote`
+- [x] T010 [P] `tests/unit/test_generate_catalog.py` (NEW): mock `git ls-remote`
   responses (monkeypatch `discovery.list_versions`); assert JSON shape matches the
   contract; assert modules with no tags are omitted; assert `generated_at` is
   present; assert `source` URLs are fully-expanded `https://`.

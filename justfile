@@ -26,6 +26,32 @@ clean:
     rm -rf dist build .pytest_cache .ruff_cache .mypy_cache
 
 # ---------------------------------------------------------------------------
+# Module authoring lifecycle (spec 008b)
+# ---------------------------------------------------------------------------
+
+# Lint every module in templates/*/ against the contract (spec 008b / FR-006).
+# Exits 0 when templates/ is empty (graceful no-op until spec 009 lands).
+check-modules:
+    @uv run scripts/check_modules.py
+
+# Scaffold a new module stub under templates/<name>/ using the meta-template.
+# Usage: just new-module name=clerk-mod-<name>
+# Runs copier dogfooding: renders _meta/module-template/ into the monorepo root.
+new-module name="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -z "{{name}}" ]]; then
+        echo "Usage: just new-module name=clerk-mod-<name>" >&2
+        exit 2
+    fi
+    uv run copier copy _meta/module-template/ . --data module_name="{{name}}" --overwrite --defaults
+
+# Generate catalog.json from templates/*/ and split-repo tags.
+# Use --dry-run to print without writing.
+generate-catalog *args:
+    @uv run scripts/generate_catalog.py {{args}}
+
+# ---------------------------------------------------------------------------
 # APM packaging (spec 008)
 # ---------------------------------------------------------------------------
 

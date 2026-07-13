@@ -48,3 +48,14 @@ repos:
     hooks:
       - id: cocogitto-verify
         stages: [commit-msg]
+
+  # Module contract lint — runs on every pre-commit to catch violations before commit.
+  # Exits 0 when templates/ is empty (no modules yet — spec 009 blocked).
+  - repo: local
+    hooks:
+      - id: check-modules
+        name: check-modules (module contract lint)
+        language: system
+        entry: uv run scripts/check_modules.py
+        pass_filenames: false
+        stages: [pre-commit]
