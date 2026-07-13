@@ -356,6 +356,53 @@ Your job ends here. Do not re-run generation as a substitute for reproduce, and
 do not edit `.copier-answers.yml` by hand (copier forbids it; reproduce/upgrade
 rely on it being copier-authored).
 
+## The `clerk-mod-*` module family (spec 009)
+
+`clerk-mod-*` are the first-party template modules, fanned out to
+`copier-clerk/clerk-mod-<name>`. They are ordinary clerk layers — discover →
+trust → init → reproduce works exactly as above. **Phase 0 ships two:**
+
+- **`clerk-mod-base`** — the collapsed base scaffold and the **identity root** of
+  every project. It asks the identity questions (`project_name`, `org`,
+  `description`, `layout`, and the 13-SPDX `license`), renders the directory
+  scaffold + a seed-once `AGENTS.md`, and runs trust-gated tasks that generate
+  `.gitignore` (via `gitnr`), fetch `LICENSE` (via `gh`), `git init`, and — if
+  `initial_commit=true` — commit. **Always select `clerk-mod-base` first**; other
+  layers `run_after` it.
+- **`clerk-mod-python`** — a language overlay that `run_after: [clerk-mod-base]`.
+  It threads `project_name` from base and seeds a seed-once `pyproject.toml`
+  pinned to `python_version`. It writes no `.gitignore` of its own — its Python
+  entries are contributed into base's shared `gitignore_stack` answer (one
+  writer). Renders standalone with defaults if selected without base.
+
+**Base-selection step.** When the user wants a new project, select
+`clerk-mod-base` as the first layer, then add any language/tooling overlays. The
+multi-layer run-spec is the one from *5a*; clerk orders base before the overlays
+from their `run_after` edges.
+
+**Per-module trust consent.** Both modules run code (`_tasks`), so each needs
+trust before init (step 3). Their preflight tasks (ordered first) fail loudly
+with install guidance if a required tool is missing:
+
+- `clerk-mod-base`: **git**, **gh** (authenticated — `gh auth status`),
+  **gitnr** (pinned 0.3.0). No token is a copier answer; `gh` reads ambient
+  credentials.
+- `clerk-mod-python`: **uv**.
+
+**File lifecycles (what reproduce does).** Managed files (dir scaffold,
+`.copier-answers*.yml`) re-render byte-identically. Seed-once files (`AGENTS.md`,
+`pyproject.toml`) are scaffolded once, then project-owned — `_skip_if_exists`
+protects them from being clobbered on a re-run/update; on a fresh-checkout
+reproduce they render normally. Task outputs (`.gitignore`, `LICENSE`) are
+process-deterministic and re-run under trust (their guards make them idempotent).
+
+**Agent-steered facts are frozen, never re-decided.** `clerk-mod-base`'s
+architecture section is an *agent* decision made in **phase 1**: you (the agent)
+author the section body and editable globs, then freeze them as the
+`architecture_md` + `agent_editable_globs` answers (with `write_architecture=true`
+to splice them). Reproduce replays those frozen answers deterministically — no
+agent is ever in the reproduce path (Constitution II/III).
+
 ## Reproduce / Update as portable skills
 
 `reproduce` and `update` are **portable skills** (semantic auto-trigger) — not

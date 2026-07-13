@@ -44,7 +44,10 @@ new-module name="":
         echo "Usage: just new-module name=clerk-mod-<name>" >&2
         exit 2
     fi
-    uv run copier copy _meta/module-template/ . --data module_name="{{name}}" --overwrite --defaults
+    # --trust: the meta-template ships _tasks (module registration); copier refuses
+    # to run tasks on an untrusted source (exit 4). This is a first-party in-repo
+    # template we author, so trusting it is correct.
+    uv run copier copy _meta/module-template/ . --data module_name="{{name}}" --overwrite --defaults --trust
 
 # Generate catalog.json from templates/*/ and split-repo tags.
 # Use --dry-run to print without writing.

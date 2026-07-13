@@ -1,0 +1,94 @@
+{#-
+  AGENTS.md — SEED-ONCE (_skip_if_exists in copier.yml).
+
+  Ports agents-md/templates/single.md + monorepo.md (chosen by `layout`), with
+  PROJECT_NAME/ORG substituted from answers and the description placeholder
+  filled from `description` (faithful to agents-md/module.py `_render`).
+
+  The `## Architecture` sentinel span is filled from the FROZEN `architecture_md`
+  answer ONLY when `write_architecture=true` (Q3+Q5); otherwise the empty
+  sentinel pair is left for a later agent fill. The sentinel markers are kept
+  VERBATIM from agents-md (BEGIN_SENTINEL/END_SENTINEL) so future tooling can
+  find the span.
+-#}
+# {{ project_name }}
+
+{% if description %}{{ description }}{% else %}<!-- PROJECT DESCRIPTION: to be filled by agent -->{% endif %}
+
+## Agent Guidance
+
+<!-- CODEX/AGENTS GUIDANCE: to be filled by agent -->
+
+## AGENTS Layering
+
+- This root `AGENTS.md` applies to the whole repository unless a deeper file overrides it.
+- Put repo-wide workflow, architecture, tool, and source-of-truth guidance here.
+- Add nested `AGENTS.md` files only for subtrees that need materially different rules.
+- Prefer subtree placement over invented path metadata.
+
+## Codex Project Settings
+
+- Project and subfolder Codex overrides live in `.codex/config.toml`.
+- MCP servers for this repo or subtree should be declared under `mcp_servers.<name>` in `.codex/config.toml`.
+- Keep repo-specific Codex settings here and leave user-global defaults in `~/.codex/config.toml`.
+
+## Architecture
+
+<!-- BEGIN ps:architecture -->
+{% if write_architecture and architecture_md %}{{ architecture_md }}
+{% endif %}<!-- END ps:architecture -->
+{% if layout == 'monorepo' %}
+## Monorepo Structure
+
+| Path | Contents |
+|------|----------|
+| `apps/` | User-facing app surfaces |
+| `services/` | Long-lived backend deployables |
+| `functions/` | Serverless handlers, nested by platform |
+| `workers/` | Background jobs and consumers, nested by platform |
+| `libs/` | Internal shared code by architectural role |
+| `packages/` | Published or independently versioned packages |
+| `schemas/` | Shared/public contracts |
+| `data/` | Shared data assets where no single owner exists |
+| `docs/` | Project-wide documentation |
+| `specs/` | Feature specifications |
+| `infrastructure/` | Shared platform and IaC |
+| `tests/` | Cross-package integration and E2E tests |
+| `tools/` | Maintained CLIs, generators, and repo tooling |
+| `scripts/` | Thin repo automation |
+| `assets/` | Static files |
+| `archive/` | Archived/superseded material |
+
+## Packages
+
+<!-- PACKAGES: to be filled as packages are added -->
+
+## Build & Run
+
+<!-- BUILD COMMANDS: to be filled by agent after language setup -->
+
+## Repo
+
+- **Branch strategy**: feature branches off main, squash merge
+{% else %}
+## Path Mapping
+
+| Path | Contents |
+|------|----------|
+| `docs/` | Documentation — `architecture/`, `decisions/` (ADRs), `api/`, `research/`, `runbooks/`, `product/`, `engineering/`, `operations/` |
+| `specs/` | Feature specifications (speckit) |
+| `infrastructure/` | Infrastructure config — `environments/` and `terraform/{modules,stacks,environments}/` |
+| `tests/` | Integration and E2E tests |
+| `scripts/` | Build tooling, automation |
+| `assets/` | Static files |
+| `archive/` | Retired / archived material |
+
+## Build & Run
+
+<!-- BUILD COMMANDS: to be filled by agent after language setup -->
+
+## Repo
+
+- **GitHub**: {{ org }}/{{ project_name }}
+- **Branch strategy**: feature branches off main, squash merge
+{% endif %}

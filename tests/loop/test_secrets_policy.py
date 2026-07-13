@@ -26,8 +26,12 @@ from tests.conftest import build_template_repo
 # contains a copier.yml/.yaml at its root (excluding specs/ and .specify/) is a
 # candidate; we further restrict to known first-party paths.
 _REPO_ROOT = Path(__file__).parent.parent.parent
+# Cover both the disposable example AND the shipped clerk-mod-* modules under
+# templates/ (spec 009 SC-007 / T031): no clerk-authored template may declare a
+# secret question.
 _CLERK_TEMPLATE_DIRS: list[Path] = sorted(
-    p.parent for p in _REPO_ROOT.glob("examples/*/copier.yml")
+    p.parent
+    for p in [*_REPO_ROOT.glob("examples/*/copier.yml"), *_REPO_ROOT.glob("templates/*/copier.yml")]
 )
 
 

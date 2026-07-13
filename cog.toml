@@ -9,9 +9,16 @@ generate_mono_repository_global_tag = false
 tag_prefix = "v"
 
 # pre_bump rolls back on failure (ADR-0006) — safe for preflight checks.
-# Remove `|| true` once templates/ contains at least one module (spec 009).
-pre_bump_hooks = ["just check-modules || true"]
+# spec 009 Phase 0 landed real modules under templates/, so check-modules is now
+# a real gate (not the empty no-op) and the `|| true` guard is dropped (SC-008).
+pre_bump_hooks = ["just check-modules"]
 
 # Package entries added here by `just new-module <name>`.
 # Format: [monorepo.packages.<name>]  path = "templates/<name>"
 [monorepo.packages]
+
+[monorepo.packages.clerk-mod-base]
+path = "templates/clerk-mod-base"
+
+[monorepo.packages.clerk-mod-python]
+path = "templates/clerk-mod-python"

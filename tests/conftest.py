@@ -735,3 +735,104 @@ def make_multi_run_spec(
             for full_id, repo, answers in layers
         ],
     }
+
+
+# --------------------------------------------------------------------------- #
+# spec 009 Phase 0: clerk-mod-base + clerk-mod-python module fixtures          #
+#                                                                             #
+# These build hermetic local git repos from the REAL authored templates under #
+# templates/clerk-mod-{base,python}/, but swap the network/tool `_tasks`       #
+# (gitnr/gh/uv preflight) for deterministic OFFLINE stubs so the suite stays   #
+# hermetic (Constitution VII / T016 / T023). All RENDERED content (dir         #
+# scaffold, AGENTS.md, pyproject.toml, answers file) is copied verbatim — only #
+# the task side-effects are stubbed, keeping the render surface faithful.      #
+# --------------------------------------------------------------------------- #
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_MODULES_DIR = _REPO_ROOT / "templates"
+
+# Offline stub tasks for clerk-mod-base: reproduce the task OUTPUTS deterministically
+# without touching the network or requiring gitnr/gh. Mirrors the real tasks'
+# lifecycle: .gitignore + LICENSE are task-output (guarded/idempotent), git init +
+# optional commit run last. The `test -f` / `git init` idempotency guards match the
+# real template so reproduce is a no-op re-run (US3 / T027).
+_BASE_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      # Stub gitnr: write a deterministic .gitignore marker recording the stack.
+      - >-
+        test -f .gitignore ||
+        printf '# stub gitignore\\nstack={{ gitignore_stack | join(",") }}\\n' > .gitignore
+      # Stub gh LICENSE fetch: guarded, idempotent, offline.
+      - >-
+        test -f LICENSE ||
+        printf '{{ license }} License\\nCopyright (c) {{ (today or "2026")[:4] }} {{ org }}\\n'
+        > LICENSE
+      - "git init --quiet"
+      - command: >-
+          git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false add -A &&
+          git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false commit
+          -qm "Initial project scaffold (clerk-mod-base)"
+        when: "{{ initial_commit }}"
+    """
+)
+
+# Offline stub tasks for clerk-mod-python: the uv preflight is a no-op marker.
+_PYTHON_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'uv-preflight-ok\\n' > .clerk-python-preflight"
+    """
+)
+
+
+def _copy_module_with_stub_tasks(
+    module_name: str,
+    dest_root: Path,
+    stub_tasks_yaml: str,
+    *,
+    tag: str = "v1.0.0",
+) -> TemplateRepo:
+    """Clone the authored module tree into a tagged git repo, replacing its `_tasks`.
+
+    The rendered subtree (``template/``) is copied verbatim; only the ``_tasks:``
+    block in ``copier.yml`` is swapped for the hermetic ``stub_tasks_yaml`` so no
+    network/tool is needed. Everything else (questions, edges, _skip_if_exists,
+    _subdirectory) is preserved so the fixture exercises the real render surface.
+    """
+    import re
+    import shutil
+
+    src = _MODULES_DIR / module_name
+    dest_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dest_root, dirs_exist_ok=True)
+
+    copier_yml = dest_root / "copier.yml"
+    text = copier_yml.read_text()
+    # Strip the authored `_tasks:` block (from `_tasks:` to EOF — it is the last
+    # block in both authored modules) and append the stub tasks.
+    text = re.sub(r"\n_tasks:.*\Z", "\n", text, flags=re.DOTALL)
+    text = text.rstrip() + "\n\n" + stub_tasks_yaml
+    copier_yml.write_text(text)
+
+    _git(dest_root, "init", "-q")
+    _git(dest_root, "add", "-A")
+    _git(dest_root, "commit", "-qm", "module")
+    _git(dest_root, "tag", tag)
+    return TemplateRepo(path=dest_root, tag=tag)
+
+
+@pytest.fixture
+def clerk_mod_base(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-base template as a hermetic repo (tasks stubbed offline)."""
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-base", tmp_path / "clerk-mod-base", _BASE_STUB_TASKS
+    )
+
+
+@pytest.fixture
+def clerk_mod_python(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-python template as a hermetic repo (uv preflight stubbed)."""
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-python", tmp_path / "clerk-mod-python", _PYTHON_STUB_TASKS
+    )

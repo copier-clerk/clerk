@@ -1,0 +1,6 @@
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-base.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-python.git"
