@@ -11,26 +11,26 @@ description: "Task list for clerk template fan-out + authoring lifecycle CI (spe
 
 ---
 
-> ### SPEC 009 DELIVERED — CODE AUTHORED; GATE IS MAINTAINER ORG SETUP + LIVE CANARY
+> ### ✅ VERIFIED END TO END (2026-07-13) — live canary passed
 >
-> Spec 009 landed real modules (`templates/clerk-mod-base/` + `clerk-mod-python/`),
-> so the 009 block is lifted. Phases 1–4 (T001–T010) are done; Phases 5–7 code is
-> now authored: `release.yml` (T011), `scripts/fanout_module.sh` (T012), the App
-> token step + runbook (T013), the Pages deploy step + docs (T014), and the offline
-> smoke test (T015 offline parts).
+> All phases (T001–T016) are complete and the fan-out pipeline is proven live.
+> On 2026-07-13 a real release published **`clerk-mod-base`, `clerk-mod-python`,
+> and `clerk-mod-apm` at v0.1.0**: monorepo tags pushed, split-repo mirrors fanned
+> out, GitHub Releases created, and `catalog.json` served via raw git at
+> `https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json` (all
+> three modules). `discovery.discover()` on each fanned-out mirror returns
+> `reproducible=True` at a PEP 440 tag — the consumer contract holds.
 >
-> The remaining gate is a small amount of maintainer setup on the `copier-clerk`
-> org, plus a live canary. As of 2026-07-13 the App is created + installed, the org
-> secrets `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY` are set, the monorepo
-> is public, and `catalog.json` is served via raw git (GitHub Pages dropped). The
-> ONLY steps left:
-> - arm the workflow: `gh variable set CLERK_FANOUT_ARMED --org copier-clerk --body true`;
-> - then run a live canary release (bump → push → fan-out → catalog) and assert
->   `discovery.discover()` on a fanned-out `clerk-mod-*` repo.
+> The one-time maintainer setup is done (App `clerk-fanout` installed with
+> Contents:write, org secrets set, monorepo public, workflow armed). NOTE: adding
+> a NEW module requires pre-creating its `copier-clerk/clerk-mod-<name>` mirror once
+> (`gh repo create`) — an App token cannot create org repos; see
+> [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
 >
-> See [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
-> The pipeline is correct-by-construction but UNPROVEN end-to-end until that setup
-> exists. Do NOT flip the roadmap entry to `verified` until the live canary passes.
+> Fixes applied during bring-up: org-level App token permission; cog 7.x installed
+> directly (the pinned-6.4.0 action failed the monorepo bump); the `- - -` changelog
+> separator (now gated by `check-modules`); REST-based mirror handling; explicit tag
+> push; and the catalog commit-guard (`git add` + staged-diff).
 
 ---
 
@@ -197,37 +197,23 @@ require a real module (blocked on 009).
 
 ---
 
-## Phase 7: end-to-end smoke (BLOCKED ON 009)
+## Phase 7: end-to-end smoke ✅ DONE — live canary passed 2026-07-13
 
-- [~] T015 **Integration smoke test** (marked `@pytest.mark.network` or a separate
-  CI job): with at least one real `clerk-mod-*` module from spec 009 present in
-  `templates/`:
-  - Run `just check-modules` → exit 0.
-  - Dry-run `scripts/generate_catalog.py --dry-run` → valid JSON with at least one
-    module entry.
-  - Run a canary release (on a staging branch or staging org) to verify the full
-    job: bump → push → detect → fan-out → catalog → Pages.
-  - Call `discovery.discover(<split-repo-url>)` against the fanned-out repo;
-    assert `reproducible=True` and a PEP 440 tag is present.
-  This task CANNOT be marked done until spec 009 delivers a real module.
-  OFFLINE PARTS DONE: `tests/loop/test_release_smoke.py` — `check-modules` → exit 0
-  against the real templates (verified: "ok — 2 module(s) checked"), and the
-  generator emits valid JSON containing both real modules once split tags exist
-  (mocked). Both pass. VERIFIED + DOCUMENTED the catalog-empty-until-fanout rule: a
-  live `--dry-run` today returns `"modules": []` because the split repos have no
-  published tags yet (Q-008b-a).
-  NOT RUN (skip-marked `network`, cannot be faked): the dry-run `modules == []`
-  live assertion, the canary release, and `discovery.discover()` on a fanned-out
-  repo — all require the T013/T014 org setup + a real fan-out.
+- [x] T015 **Integration smoke test** — PASSED live on 2026-07-13. With the real
+  modules present in `templates/`:
+  - `just check-modules` → exit 0 ("ok — 3 module(s) checked").
+  - `scripts/generate_catalog.py` → valid JSON; live catalog now lists all three
+    modules (`clerk-mod-base`, `clerk-mod-python`, `clerk-mod-apm` @ v0.1.0).
+  - Canary release ran the FULL job (bump → push tags → detect → fan-out → catalog)
+    and published all three modules: monorepo tags, split-repo mirrors, GitHub
+    Releases.
+  - `discovery.discover(<split-repo-url>)` on each fanned-out mirror →
+    `reproducible=True` with a PEP 440 tag present. Consumer contract verified.
+  Offline parts remain in `tests/loop/test_release_smoke.py`; the live-only
+  assertions (canary + `discovery.discover`) are now confirmed by the real run.
 
-- [~] T016 Update `specs/008b-fanout-authoring/spec.md` to remove the
-  "IMPLEMENTATION BLOCKED ON SPEC 009" callout once the smoke test (T015) passes
-  and the spec 009 dependency is confirmed satisfied. Update roadmap status to
-  `verified`.
-  PARTIAL: the callout in `spec.md` (and this tasks.md) is UPDATED to reflect the
-  new reality (009 delivered; code authored; remaining gate = maintainer org setup +
-  live canary) rather than removed — T015's live canary has NOT passed, so the block
-  is not fully lifted. Roadmap status intentionally NOT flipped to `verified`.
+- [x] T016 Callout updated (above) to the ✅ VERIFIED state; roadmap 008b status
+  flipped to `verified`. The block is fully lifted — the pipeline is proven live.
 
 ---
 
@@ -235,9 +221,9 @@ require a real module (blocked on 009).
 
 | Task(s) | Status |
 |---|---|
-| T001–T010 | Done (Phases 1–4) |
-| T011, T012 | Done — authored + statically verified; unproven live (no org token) |
-| T013 | Authoring done; MAINTAINER manual org setup remains (App + org secrets) |
-| T014 | Authoring done; MAINTAINER manual Pages enablement remains |
-| T015 | Offline parts done; live canary remains (needs T013/T014 org setup) |
-| T016 | Partial — callout updated (not removed); roadmap NOT set `verified` |
+| T001–T010 | ✅ Done (Phases 1–4) |
+| T011, T012 | ✅ Done — proven live (release workflow + fan-out ran end to end) |
+| T013 | ✅ Done — App `clerk-fanout` installed (Contents:write); org secrets set. NOTE: App tokens cannot create org repos, so mirrors are pre-created by a maintainer (runbook) |
+| T014 | ✅ Done — catalog served via raw git off the public monorepo (GitHub Pages dropped — needs a paid plan for private repos) |
+| T015 | ✅ Done — live canary passed 2026-07-13; `discovery.discover()` → `reproducible=True` on each mirror |
+| T016 | ✅ Done — callout set to VERIFIED; roadmap 008b → `verified` |

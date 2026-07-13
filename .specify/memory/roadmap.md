@@ -353,7 +353,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 001, 002, 003, 010.
 - **Governed by:** Constitution I, II; ADR-0006; spec 010; C-01, C-11.
 
-### 008b — Fan-out + authoring lifecycle (CI)  [status: in-progress]
+### 008b — Fan-out + authoring lifecycle (CI)  [status: verified]
 
 - **Description:** Author templates in one monorepo, distribute as per-template
   read-only repos, and manage the full module lifecycle (scaffold, structure
@@ -383,16 +383,21 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   (rejected — index lives in the monorepo).
 - **Depends on:** 008 (skill packaging), 009 (real clerk-mod-* templates exist).
 - **Governed by:** ADR-0006/0002; C-09.
-- **Status detail:** **Phases 1–4 (T001–T010) implemented + merged (PR #22)** — the
-  authoring plane: `cog.toml`, `just new-module` scaffolder (`_meta/module-template/`),
-  `just check-modules` contract lint (`scripts/check_modules.py`), catalog generator
-  (`scripts/generate_catalog.py`), pre-commit wiring; 22 unit tests green (incl.
-  git-identity-isolated). **Phases 5–7 (T011–T016) remain HARD-BLOCKED on 009** —
-  the release workflow, cross-repo fan-out, GitHub App token wiring, Pages, and e2e
-  smoke need ≥1 real `clerk-mod-*` module to integration-test. The `IMPLEMENTATION
-  BLOCKED ON SPEC 009` callout in `tasks.md` stays until 009 Phase 0 lands.
+- **Status detail:** **VERIFIED end to end (2026-07-13).** All phases T001–T016 done.
+  Authoring plane (Phases 1–4): `cog.toml`, `just new-module`, `just check-modules`
+  (now also gates the cog `- - -` changelog separator), catalog generator, pre-commit.
+  Release plane (Phases 5–7): `release.yml` + `scripts/fanout_module.sh` ran a real
+  release publishing `clerk-mod-base`/`-python`/`-apm` @ v0.1.0 — monorepo tags,
+  split-repo mirrors, GitHub Releases, and `catalog.json` served via raw git
+  (`raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`). `discovery.discover()`
+  on each mirror → `reproducible=True`. **CI identity:** App `clerk-fanout` installed
+  with **Contents:write only** — an App token CANNOT create org repos (403), so each
+  new module's mirror is **pre-created once by a maintainer** (`gh repo create`, see
+  runbook); the App only pushes. **Catalog hosting:** raw git off the public monorepo
+  (GitHub Pages dropped — Pages needs a paid plan for private repos). Cog 7.x is
+  installed directly in CI (the pinned-6.4.0 action failed the monorepo bump).
 
-### 009 — project-setup module port (templates)  [status: specced]
+### 009 — project-setup module port (templates)  [status: in-progress]
 
 - **Description:** Re-home the mature ~25-module project-setup capability as copier
   templates. **Clarified 2026-07-13** (spec 009 Clarifications Q1–Q7).
@@ -416,11 +421,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   first-ordered preflight `_task`.
 - **Depends on:** 002, 003, 006, 008. Independent of 007 (Q4). **Unblocks:** 008b.
 - **Governed by:** ADR-0002/0003/0006; C-11.
-- **Status detail:** spec clarified + Phase-0 `plan.md`/`tasks.md` (35 tasks,
-  Constitution-checked) merged (PRs #23/#24). Implementation not started. Known
-  Phase-0 gaps to resolve at build: `lang-python`'s full manifest not locally present
-  (planned from catalog description); `dirs-scaffold` dir count 20 vs docstring's 21;
-  ruff pre-commit hooks depend on the Phase-1 `precommit-setup` module.
+- **Status detail:** **Phase 0 IMPLEMENTED + RELEASED (2026-07-13).**
+  `clerk-mod-base` (collapsed 6-module base) + `clerk-mod-python` are built, tested
+  (init/reproduce/seed-once integration tests), and **published at v0.1.0** via the
+  008b pipeline (mirrors + tags + releases + catalog). `clerk-mod-python` was
+  reconciled against the real `lang-python-v1.3.0` manifest (fetched from public
+  `srobroek/project-setup`), resolving the earlier inference gaps (`python_version`
+  is free-text not a choice list; exact ruff config; no invented pytest config).
+  Resolved gaps: `dirs-scaffold` = 20 dirs (source comment's "21" was stale).
+  **Phases 1–3 NOT started** (remaining ~19 modules): P1 = languages ts/go/rust +
+  quality/tooling; P2 = agent-steered (env/readme/stack-adr) + integration
+  (github-repo/org-policy/package-add). Each ports from its `srobroek/project-setup`
+  manifest via the now-proven pattern. Status is `in-progress` until those land.
 
 ### 010 — Delivery reshape: skill-bundled copier wrapper  [status: implemented]
 
