@@ -1,16 +1,218 @@
 # copier.yml — clerk-mod-base
 #
-# Answers-file key — MUST match the shipped .jinja file (FR-016).
-_answers_file: "{{ _copier_conf.answers_file }}.jinja"
+# The collapsed clerk base scaffold: ONE copier template that ports the six
+# always-on project-setup base modules (core-identity, dirs-scaffold,
+# gitignore-generate, license-write, agents-md, git-init) into a single
+# reproducible layer (spec 009 Q1 / FR-013). Later layers (languages, quality,
+# tooling) `run_after` this module as a whole.
+#
+# Lifecycles (Q3 / D-009-7):
+#   MANAGED (re-rendered byte-identically): the dir-scaffold .gitkeep files and
+#     the .copier-answers file.
+#   SEED-ONCE (_skip_if_exists; scaffolded once then project-owned): AGENTS.md.
+#   TASK-OUTPUT (process-deterministic, outside the byte-identical set):
+#     .gitignore (gitnr), LICENSE (gh api), .git/ + optional initial commit.
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja
+# so every generated project records its own source + commit; declares NO
+# secret: questions; edges are when:false hidden answers.
 
-# --- Questions ---------------------------------------------------------------
-# Replace these placeholders with real questions for this module.
+# Note: no _answers_file override — copier's default (.copier-answers.yml) is
+# used, matching examples/clerk-template-example. clerk passes a per-layer
+# answers_file name at multi-template init (.copier-answers.<basename>.yml). The
+# shipped template/{{ _copier_conf.answers_file }}.jinja renders whichever name
+# is in effect (Constitution VI / FR-016).
+
+# --- Identity questions (ported from core-identity [[inputs]]) ---------------
+# core-identity writes no file: it is the upstream answer provider. In the
+# collapsed base these become plain copier questions available to every Jinja
+# file and task below.
 
 project_name:
   type: str
-  help: "Name of the generated project."
+  help: "The project's name (used in AGENTS.md, the LICENSE, the repo line)."
+
+org:
+  type: str
+  default: acme
+  help: "The owning person or organisation (LICENSE copyright + repo line)."
 
 description:
   type: str
   default: ""
-  help: "One-line description of the project."
+  help: "A one-line description of the project (fills the AGENTS.md header)."
+
+layout:
+  type: str
+  choices:
+    - single
+    - monorepo
+  default: single
+  help: "Project layout. monorepo adds the 15 monorepo target directories."
+
+# License — the 13 SPDX keys VERBATIM from license-write/module.toml (FR-003 /
+# Q7). A fixed choices list; ages via a minor bump (Constitution VI / C-06).
+license:
+  type: str
+  choices:
+    - agpl-3.0
+    - apache-2.0
+    - bsd-2-clause
+    - bsd-3-clause
+    - bsl-1.0
+    - cc0-1.0
+    - epl-2.0
+    - gpl-2.0
+    - gpl-3.0
+    - lgpl-2.1
+    - mit
+    - mpl-2.0
+    - unlicense
+  default: apache-2.0
+  help: "SPDX license id; the LICENSE body is fetched from the GitHub Licenses API."
+
+# --- Gate booleans (Q5 / FR-007a) --------------------------------------------
+# Consequential *choices* are safe-defaulting copier booleans whose persisted
+# answers gate a render/task. Code *execution* stays behind the single
+# source-trust gate — there is NO per-action consent layer (C-11).
+
+# agents-md's `allow-arch-write` hard gate → this boolean. When false the
+# AGENTS.md architecture sentinel span is left empty; when true it is filled
+# from the frozen `architecture_md` answer (agent judgment frozen in phase 1).
+write_architecture:
+  type: bool
+  default: false
+  help: "Splice the frozen architecture section into AGENTS.md? (agent-authored)."
+
+# git-init's opt-in commit → this boolean. When true the last _task runs
+# `git add -A && git commit`; when false the scaffold is left uncommitted.
+initial_commit:
+  type: bool
+  default: false
+  help: "Create an initial commit once the scaffold is complete?"
+
+# `today` is injected by clerk at init (`--data today=…`) and frozen into the
+# recorded answers, so reproduce replays the original generation date rather
+# than the wall clock (FR-007). Never sourced from jinja2_time (Constitution V).
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# --- Frozen agent facts (FR-006 / Q3) ----------------------------------------
+# The agents-md `resolve-arch` decision is phase-1 judgment: the skill freezes
+# the STRUCTURED FACTS it produced (the section body + the editable globs) as
+# --data answers, and the template renders them deterministically. The agent is
+# NEVER in the reproduce path — reproduce replays these answers (Constitution II).
+
+architecture_md:
+  type: str
+  default: ""
+  help: "Frozen ## Architecture section body (agent-authored in phase 1). No heading, no sentinels."
+
+agent_editable_globs:
+  type: yaml
+  default: []
+  help: "Frozen list of glob patterns agents may freely edit (agent-authored in phase 1)."
+
+# --- gitignore stack (Q7) ----------------------------------------------------
+# .gitignore is NOT a choice list: it is generated by the version-pinned gitnr
+# task from this stack answer. clerk injects the selected editors/OS/languages
+# via --data at init; the answer is frozen so reproduce replays gitnr
+# identically. Language overlays (clerk-mod-python) contribute their language
+# token into this same stack — one .gitignore writer, no double-append.
+gitignore_stack:
+  type: yaml
+  default: []
+  help: "Frozen list of gitnr template tokens (e.g. ghg:macOS, Python); clerk injects this."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+# clerk-mod-base is the upstream root: no cross-module edges. Its internal
+# 6-module ordering is template-internal (Q1/FR-013) via the _tasks order
+# below, NOT cross-module edges. These are declared (empty) so the shape is
+# uniform across the family and discovery parses them as edges, never questions.
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_after:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree
+# (copier.yml never lands in the generated project).
+_subdirectory: template
+
+# --- Seed-once files (FR-005a / Q3 / D-009-7) --------------------------------
+# AGENTS.md is scaffolded once, then owned + evolved by the project; a re-run /
+# update must not clobber project edits. On a fresh-checkout reproduce it does
+# not yet exist so it still renders (Constitution III holds). .gitignore and
+# LICENSE are TASK-OUTPUT (their idempotency is the task guard), so they are NOT
+# in this render-skip list.
+_skip_if_exists:
+  - AGENTS.md
+
+# --- Trust-gated tasks (FR-007 / Q6 / Q7) ------------------------------------
+# Because this template runs commands (code execution), clerk requires the
+# source to be trusted before they run (Constitution V). Tasks run post-render
+# in listed order, at BOTH init and reproduce.
+_tasks:
+  # (1) PREFLIGHT — ordered FIRST (Q6 / FR-007b). Verify the tools the tasks
+  #     below need are on PATH; fail with explicit install guidance before any
+  #     consequential task runs.
+  - >-
+    for tool in git gh gitnr; do
+    command -v "$tool" >/dev/null 2>&1 ||
+    { echo "clerk-mod-base: required tool '$tool' not found on PATH." >&2;
+    echo "  git   — https://git-scm.com/downloads" >&2;
+    echo "  gh    — https://cli.github.com  (authenticate with: gh auth status)" >&2;
+    echo "  gitnr — https://github.com/reemus-dev/gitnr" >&2;
+    exit 1; }; done
+
+  # (2) gitnr → .gitignore (TASK-OUTPUT, Q7). gitnr is version-pinned (warned on
+  #     drift) so the tool is deterministic (Constitution V). Stack tokens come
+  #     from the frozen gitignore_stack answer; the fallback mirrors
+  #     gitignore-generate's default template set. Regenerates the whole file →
+  #     idempotent on reproduce. Pinned: gitnr 0.3.0.
+  - >-
+    gitnr --version | grep -q '0.3.0' ||
+    echo "clerk-mod-base: WARNING gitnr is not the pinned 0.3.0 — .gitignore may drift." >&2;
+    gitnr create --save
+    {% if gitignore_stack %}{{ gitignore_stack | map('string') | join(' ') }}{% else %}ghg:macOS ghg:Linux ghg:Windows ghg:JetBrains ghg:VisualStudioCode ghg:Vim{% endif %}
+
+  # (3) gh → LICENSE (TASK-OUTPUT). Ported exactly like clerk-template-example:
+  #     fetch the canonical body from the GitHub Licenses API, fill the
+  #     bracket placeholders from the FROZEN answers ({{ today }} / {{ org }}),
+  #     not a wall clock. Network-sourced → outside the byte-identical set; the
+  #     `test -f LICENSE ||` guard makes reproduce idempotent. Requires `gh`
+  #     authenticated (gh auth status). A gh failure aborts via the command
+  #     substitution short-circuit rather than writing a partial file.
+  - >-
+    test -f LICENSE ||
+    { body="$(gh api '/licenses/{{ license|lower }}' --jq '.body')" &&
+    printf '%s\n' "$body"
+    | sed -e 's/\[year\]/{{ (today or "2026")[:4] }}/g'
+    -e 's/\[yyyy\]/{{ (today or "2026")[:4] }}/g'
+    -e 's|\[fullname\]|{{ org }}|g'
+    -e 's|\[name of copyright owner\]|{{ org }}|g' > LICENSE; }
+
+  # (4) git init — idempotent no-op on an already-initialised repo; seeds no
+  #     time-varying bytes, safe to re-run at reproduce.
+  - "git init --quiet"
+
+  # (5) git commit — the LAST base task (git-init commits last, Q1/FR-013),
+  #     gated on the initial_commit answer (Q5). A fallback identity keeps the
+  #     commit from failing in fresh/CI environments where user.name/email are
+  #     unset (faithful to git-init/module.py's _GIT_ID_FLAGS).
+  - command: >-
+      git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false add -A &&
+      git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false commit
+      -qm "Initial project scaffold (clerk-mod-base)"
+    when: "{{ initial_commit }}"
