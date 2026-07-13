@@ -114,8 +114,15 @@ jobs:
           cog bump --auto
 
       # Step 2: finalize the monorepo release BEFORE any fan-out.
+      # Push the bump commit AND the module tags explicitly. `--follow-tags` alone
+      # proved unreliable here (the <name>-vX.Y.Z tags cog created did not reach
+      # origin, so the later `gh release create` failed with "tag exists locally
+      # but has not been pushed"). Push the branch, then all tags outright.
       - name: Push bump commit + tags
-        run: git push --follow-tags
+        run: |
+          set -euo pipefail
+          git push origin HEAD:main
+          git push origin --tags
 
       # Step 3: derive the changed module set from the tags on the bump commit.
       # Emits one <name>-vX.Y.Z per line; empty when nothing bumped.
