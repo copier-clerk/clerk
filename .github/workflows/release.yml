@@ -15,7 +15,8 @@
 # ── MAINTAINER MANUAL SETUP REQUIRED (one-time) ──────────────────────────────
 # This workflow CANNOT run until a maintainer with copier-clerk org-admin does:
 #   1. Create the org-owned GitHub App "clerk-fanout" (see docs/runbooks/fanout-release.md)
-#      with permissions: contents:write + administration:write; install it on the
+#      with repository Contents:write + ORGANIZATION Administration:write (the
+#      create-new-repo grant is org-level, not repo-level); install it on the
 #      copier-clerk org (all repositories).
 #   2. Store the App credentials as org-level Actions secrets/vars:
 #        - secret CLERK_FANOUT_APP_ID       (the App ID)
@@ -72,8 +73,8 @@ jobs:
         run: uv sync --dev
 
       # Mint a short-lived org App token for cross-repo writes + repo auto-create
-      # (T013). Scoped to the copier-clerk org: contents:write pushes to the
-      # clerk-mod-* mirrors, administration:write auto-creates a missing mirror.
+      # (T013). Scoped to the copier-clerk org: repo Contents:write pushes to the
+      # clerk-mod-* mirrors, org Administration:write auto-creates a missing mirror.
       # Requires the org-level secrets documented in the header + runbook.
       - name: Mint clerk-fanout App token
         id: app-token

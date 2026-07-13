@@ -45,8 +45,13 @@ Org Settings → Developer settings → GitHub Apps → **New GitHub App**:
 - **Webhook**: disable (uncheck Active).
 - **Repository permissions**:
   - **Contents: Read and write** — push commits + tags to `clerk-mod-*` mirrors.
-  - **Administration: Read and write** — auto-create a missing `clerk-mod-<name>`
-    mirror on first release of a new module.
+- **Organization permissions**:
+  - **Administration: Read and write** — auto-**create** a missing
+    `clerk-mod-<name>` repo on a new module's first release. Creating a repo
+    (`POST /orgs/{org}/repos`) is an org-level action: a *repository*-scoped
+    permission only covers repos the App is already installed on, so the
+    create-new grant MUST be the **Organization**-level Administration permission,
+    not the repository-level one.
 - **Where can this App be installed?**: Only on this account (`copier-clerk`).
 
 Create it, then **Install** it on the `copier-clerk` org and grant **All
@@ -54,8 +59,8 @@ repositories** (new `clerk-mod-*` repos are created on demand, so scoping to a
 fixed list would break auto-create).
 
 > If you drop auto-create and instead `gh repo create` each new module by hand,
-> the App no longer needs **Administration: write** — Contents: write alone
-> suffices (ADR-0006).
+> the App needs NO Administration permission at all — repository **Contents:
+> write** alone suffices (ADR-0006). This avoids granting any org-level admin.
 
 ### 2. Store the App credentials as org secrets
 

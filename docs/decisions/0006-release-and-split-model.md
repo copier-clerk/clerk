@@ -54,7 +54,8 @@ Key verified constraints:
      rather than pin an external action.)
    - Two edge cases: skip-commit-when-no-diff, and token scoping (the GitHub App
      installation token must reach the `copier-clerk/clerk-mod-*` repos, and hold
-     `administration:write` for auto-create — see *CI identity* below).
+     **organization** `administration:write` for auto-create — creating a repo is
+     an org-level action, not repo-level — see *CI identity* below).
    - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
      mirror for a paper trail; rejected. The split repos are generated read-only
      mirrors (nothing to review — the content derives from an already-reviewed,
