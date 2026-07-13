@@ -35,3 +35,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   manifest.
 
 - - -
+## clerk-mod-python-v0.1.0 - 2026-07-13
+#### Features
+- add base and Python project templates (#26) - (dd704d2) - Sjors Robroek
+#### Bug Fixes
+- (**008b**) add cog changelog separator; gate on it in check-modules (#31) - (26a8db7) - Sjors Robroek
+- (**009**) reconcile clerk-mod-python against lang-python-v1.3.0 (#30) - (4ab308d) - Sjors Robroek, *Sjors Robroek*
+
+- - -
+
