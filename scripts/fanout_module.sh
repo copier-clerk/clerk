@@ -37,10 +37,26 @@ if [[ ! -d "${MODULE_SRC}" ]]; then
   exit 1
 fi
 
-# 1. Auto-create the split repo if missing (idempotent; needs administration:write).
-GH_TOKEN="${APP_TOKEN}" gh repo create "${TARGET}" --public \
-  --description "Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
-  >/dev/null 2>&1 || true
+# 1. Auto-create the split repo if missing. Uses the REST endpoint
+#    POST /orgs/{org}/repos, which maps directly to the App's ORG-level
+#    administration:write grant (gh repo create goes via GraphQL and does not
+#    reliably honour an App installation token). Idempotent: a 422 "name already
+#    exists" is fine; ANY OTHER failure is surfaced (no blanket `|| true`, which
+#    previously hid a failed create and led to a confusing "Repository not found"
+#    at the clone step).
+create_err="$(GH_TOKEN="${APP_TOKEN}" gh api -X POST "/orgs/${TARGET_OWNER}/repos" \
+  -f name="${NAME}" \
+  -F private=false \
+  -f description="Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
+  2>&1 >/dev/null)" && create_status=0 || create_status=$?
+if [[ "${create_status}" -ne 0 ]]; then
+  if printf '%s' "${create_err}" | grep -qiE "name already exists|already exists on this account"; then
+    echo "fanout: ${TARGET} already exists; reusing"
+  else
+    echo "fanout: failed to create ${TARGET}: ${create_err}" >&2
+    exit 1
+  fi
+fi
 
 # 2. Idempotency pre-check: if the version tag already exists remotely, we are
 #    re-running an already-completed fan-out for this version. Nothing to do.
@@ -54,8 +70,22 @@ trap 'rm -rf "${WORKDIR}"' EXIT
 SPLIT="${WORKDIR}/split"
 
 # 3. Clone the target. A freshly-created repo is empty; git clone still succeeds
-#    but leaves no HEAD, so seed a `main` branch in that case.
-git clone --quiet "${REMOTE}" "${SPLIT}"
+#    but leaves no HEAD, so seed a `main` branch in that case. A just-created repo
+#    can briefly 404 before it propagates, so retry the clone a few times.
+clone_ok=0
+for attempt in 1 2 3 4 5; do
+  if git clone --quiet "${REMOTE}" "${SPLIT}" 2>/dev/null; then
+    clone_ok=1
+    break
+  fi
+  echo "fanout: clone of ${TARGET} not ready (attempt ${attempt}); retrying…" >&2
+  rm -rf "${SPLIT}"
+  sleep 3
+done
+if [[ "${clone_ok}" -ne 1 ]]; then
+  echo "fanout: could not clone ${TARGET} after creating it" >&2
+  exit 1
+fi
 git -C "${SPLIT}" config user.name "clerk-fanout[bot]"
 git -C "${SPLIT}" config user.email "clerk-fanout[bot]@users.noreply.github.com"
 
