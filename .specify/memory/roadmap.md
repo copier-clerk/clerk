@@ -366,9 +366,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   (`just new-module`), a `just check-modules` contract lint (answers-file `.jinja`,
   README/CHANGELOG, directory==cog==catalog parity, label immutability) run in
   pre-commit + `pre_bump_hooks`, and a generated catalog index (`catalog.json` in
-  monorepo, served via GitHub Pages). **CI identity:** an org-owned GitHub App
-  ("clerk-fanout") minting short-lived tokens with `contents:write` +
-  `administration:write`; the fan-out auto-creates missing `clerk-mod-*` repos
+  monorepo, served via raw git off the public monorepo — GitHub Pages dropped
+  2026-07-13, needs a paid plan for private repos). **CI identity:** an org-owned
+  GitHub App ("clerk-fanout") minting short-lived tokens with repo `contents:write`
+  + org `administration:write`; the fan-out auto-creates missing `clerk-mod-*` repos
   (PAT is the documented fallback). The lint/scaffolder REUSE slice-001 discovery
   (authoring plane = consumer plane aimed inward) — all CI bash + template content,
   no new application code.

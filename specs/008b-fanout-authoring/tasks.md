@@ -19,13 +19,14 @@ description: "Task list for clerk template fan-out + authoring lifecycle CI (spe
 > token step + runbook (T013), the Pages deploy step + docs (T014), and the offline
 > smoke test (T015 offline parts).
 >
-> The remaining gate is **one-time maintainer setup on the `copier-clerk` org** that
-> a code agent cannot perform, plus a live canary that depends on it:
-> - create + install the `clerk-fanout` GitHub App (contents:write + administration:write);
-> - store org secrets `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY`;
-> - enable GitHub Pages (Source: GitHub Actions);
-> - then run a live canary release (bump → push → fan-out → catalog → Pages) and
->   assert `discovery.discover()` on a fanned-out `clerk-mod-*` repo.
+> The remaining gate is a small amount of maintainer setup on the `copier-clerk`
+> org, plus a live canary. As of 2026-07-13 the App is created + installed, the org
+> secrets `CLERK_FANOUT_APP_ID` + `CLERK_FANOUT_PRIVATE_KEY` are set, the monorepo
+> is public, and `catalog.json` is served via raw git (GitHub Pages dropped). The
+> ONLY steps left:
+> - arm the workflow: `gh variable set CLERK_FANOUT_ARMED --org copier-clerk --body true`;
+> - then run a live canary release (bump → push → fan-out → catalog) and assert
+>   `discovery.discover()` on a fanned-out `clerk-mod-*` repo.
 >
 > See [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
 > The pipeline is correct-by-construction but UNPROVEN end-to-end until that setup
@@ -180,24 +181,19 @@ require a real module (blocked on 009).
 
 ---
 
-## Phase 6: GitHub Pages (BLOCKED ON 009 end-to-end)
+## Phase 6: Catalog hosting (raw git — GitHub Pages dropped 2026-07-13)
 
-- [~] T014 Configure GitHub Pages for `copier-clerk/clerk`: source =
-  repository root (or a `docs/` folder if `catalog.json` must be nested); path
-  delivers `catalog.json` at the stable URL. Add a Pages deployment workflow step
-  (or use the built-in Pages deploy action) triggered by changes to `catalog.json`
-  on main (path filter: `catalog.json`). Document the stable URL in `README.md`
-  and in the spec 002 catalog consumer instructions.
-  AUTHORING DONE: `release.yml` assembles `_site/catalog.json` and deploys via
-  `upload-pages-artifact@v3` + `deploy-pages@v4` (`pages:write` + `id-token:write`
-  permissions, `github-pages` environment). Stable URL
-  `https://copier-clerk.github.io/clerk/catalog.json` documented in
-  `README.md` + the runbook. NOTE: deploy runs as part of the release job (not a
-  separate path-filtered workflow) so the freshly-regenerated catalog publishes in
-  the same run; a dedicated path-filtered trigger was not added (YAGNI — no second
-  consumer of the deploy).
-  MAINTAINER MANUAL SETUP REQUIRED: enable Pages (Settings → Pages → Source: GitHub
-  Actions) on the org repo. Not doable by a code agent.
+- [x] T014 Host `catalog.json` at a stable URL for spec-002 consumers.
+  RESOLVED via raw git, NOT GitHub Pages: the monorepo `copier-clerk/clerk` was
+  made **public**, and the `catalog.json` committed by the release job's Step 5 is
+  served directly at
+  `https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`.
+  The Pages deploy step, `pages:write`/`id-token:write` permissions, and the
+  `github-pages` environment were REMOVED from `release.yml`. Rationale: GitHub
+  Pages on a private repo needs a paid plan; serving the already-committed file via
+  raw git is simpler and plan-independent. URL documented in `README.md`, the
+  runbook, `contracts/fanout.md` (Step 6), and ADR-0006. No maintainer Pages setup
+  is required anymore.
 
 ---
 

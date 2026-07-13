@@ -271,11 +271,14 @@ C-01/C-11 (glue only where copier cannot; prefer template content + CI bash).
      each `copier.yml` + latest `v*` tag, emit JSON. Per
      [[0002-catalog-and-answer-model]] it holds SOURCES, not mandatory pins — the
      latest tag is informational display only; the real reproduce pin lives in each
-     project's answers file. **Hosting:** committed as `catalog.json` in the
-     monorepo and served via GitHub Pages / a stable raw URL (one versioned source
-     of truth; clerk fetches a stable URL). (Alternatives: a dedicated
-     `copier-clerk/catalog` repo — extra repo + PAT + push target; or a Release
-     asset — no always-live URL, more fetch indirection.)
+     project's answers file. **Hosting (updated 2026-07-13):** committed as
+     `catalog.json` in the monorepo and served via **raw git off the public
+     monorepo** (`raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`) —
+     one versioned source of truth, plan-independent. GitHub Pages was the original
+     choice but was dropped (Pages on a private repo needs a paid plan; the monorepo
+     was made public and raw git serves the already-committed file with no extra
+     deploy step). (Alternatives: a dedicated `copier-clerk/catalog` repo — extra
+     repo + PAT + push target; or a Release asset — no always-live URL.)
 
 4. **Publishing — the release job, extended.** The decision-#3 job gains a catalog
    step: `cog bump --auto` → `git push --follow-tags` → `git tag --points-at HEAD`
