@@ -17,19 +17,20 @@ this module ships as template + task content, driven by the existing engine.
 
 ## Overview
 
-Spec 007 is clerk's **distinctive value**, as stated in the Vision: the
-agentic-ecosystem wiring (APM / MCP / SpecKit / ADR scaffolding) that turns a
-generated project into a ready-to-use agentic toolchain. Crucially, the roadmap
-frames this as **template content, not tool code**: the wiring is delivered inside a
-copier template (`clerk-mod-apm`) whose questions, `_tasks`, and rendered files do the
-work — driven by the existing discover/init/reproduce/ordering machinery specs
-001/002/003/010 already built.
+Spec 007 is clerk's **distinctive value**, as stated in the Vision: agentic-ecosystem
+wiring that turns a generated project into a ready-to-use agentic toolchain. The
+broader ecosystem spans APM / MCP / SpecKit / ADR scaffolding; **v1 (this spec)
+delivers the APM slice only** — `clerk-mod-apm` — with MCP, SpecKit, and steering/ADR
+deferred to their own later `clerk-mod-*` modules (see Clarifications, Q1). The
+roadmap frames this as **template content, not tool code**: the wiring is delivered
+inside a copier template (`clerk-mod-apm`) whose questions, `_tasks`, and rendered
+files do the work — driven by the existing discover/init/reproduce/ordering machinery
+specs 001/002/003/010 already built.
 
-This spec is intentionally product-shaped and open-ended. The intent of this
-document is to **frame the decisions clearly** and flag the significant open questions
-for the orchestrator + user to resolve before implementation is scoped. Do not
-read the "scope" sections as final commitments — they are a first-draft framing of
-a plausible v1.
+This spec has been through a `/speckit.clarify` pass (2026-07-13); its scope
+decisions are now committed (see the Clarifications section). The Open Questions
+section is retained for historical context, with each question marked RESOLVED or
+MOOT.
 
 The module's job, at the highest level:
 
@@ -126,13 +127,14 @@ Consequence: a project that includes the APM module MUST have the source trusted
 clerk refuses at init if trust is absent (exit 3). This is already the behaviour
 for any template with tasks (see `runner._require_trust_if_action_taking`).
 
-### D-007-4 — SpecKit bridge and steering/ADR as rendered content
+### D-007-4 — SpecKit bridge and steering/ADR: DEFERRED (Q1, out of v1 scope)
 
-SpecKit integration and steering/ADR scaffolding are rendered static files (config,
-`.specify/` directory skeleton, ADR template stubs) — not code that runs at
-reproduce. They are template content: rendered at init, committed to the project,
-and replayed byte-identically at reproduce. No new trust requirement beyond the
-general APM `_task` above.
+**Deferred per Q1.** SpecKit integration and steering/ADR scaffolding are NOT part
+of `clerk-mod-apm`; each becomes its own later `clerk-mod-*` module with its own
+spec. The original rendered-content design is retained here as guidance for those
+future modules: they are rendered static files (config, `.specify/` skeleton, ADR
+template stubs) — not code that runs at reproduce — replayed byte-identically at
+reproduce, with no new trust requirement beyond a module's own `_task` (if any).
 
 ### D-007-5 — This module is ONE layer in a multi-template project
 
@@ -169,9 +171,9 @@ the catalog selection; ordering is computed by the engine, not by this spec.
 ### US1 — Generate a project with APM wiring (Priority: P1)
 
 A developer selects `clerk-mod-apm` (alongside a base template); clerk applies the
-layers in order; the generated project contains a complete `apm.yml`, dependency
-entries, and MCP config skeleton. An APM install task runs (trust-gated), writing
-the resolved `apm.lock.yaml`.
+layers in order; the generated project contains a complete `apm.yml` with the
+selected package entries and ≥ 1 catalogue source. An APM install task runs
+(trust-gated), writing the resolved `apm.lock.yaml`.
 
 **Acceptance Scenarios**:
 1. **Given** a selection of [base, apm] with `project_name=myapp`, APM packages
@@ -193,21 +195,22 @@ byte-identically and the task re-runs (trust-gated).
    task re-runs under trust (reproduce is NOT agent-free for task side-effects, per
    Constitution III — `_tasks` run at both init and reproduce).
 
-### US3 — Select a subset of agentic components (Priority: P1)
+### US3 — Select a specific set of APM packages (Priority: P1)
 
-A developer opts in to APM + SpecKit but out of MCP servers; the generated project
-contains APM config and SpecKit scaffold but no MCP stubs.
+Two developers on different projects get different `apm.yml` outputs from the same
+`clerk-mod-apm` module, because the agent injects a different package list for each
+(from each project's requirements; the user may override).
 
 **Acceptance Scenarios**:
-1. **Given** APM + SpecKit selected, MCP deselected, **When** `init`, **Then** MCP
-   config files are absent; APM + SpecKit files are present.
-2. **Given** a different developer selects APM only, **When** `init`, **Then**
-   SpecKit scaffold is absent.
+1. **Given** an injected package list `[a, b]`, **When** `init`, **Then** `apm.yml`
+   contains exactly packages `a` and `b` (plus ≥ 1 catalogue source).
+2. **Given** a different injected list `[c]` on another project, **When** `init`,
+   **Then** `apm.yml` contains exactly package `c` — the module is not frozen to a
+   baked-in set (Q2 / runtime injection).
 
-### US4 — Steering / ADR scaffolding on opt-in (Priority: P2)
-
-A developer opts in to steering + ADR scaffolding; the generated project contains
-`.claude/` or equivalent steering stubs and an `docs/decisions/` ADR template.
+> **Note (Q1):** MCP, SpecKit-bridge, and steering/ADR component selection are out
+> of v1 scope — each is a future `clerk-mod-*` module. v1's only user-facing
+> variation is the injected APM package set (US3 above).
 
 ### Edge Cases
 
@@ -221,11 +224,9 @@ A developer opts in to steering + ADR scaffolding; the generated project contain
   `_translate`. The generated files are already written; the task failure is
   distinct from a render failure.
 - **Source pinning at reproduce**: the APM `_task` install command MAY fetch
-  packages from the network at reproduce time. Pin versions in the task command to
-  make reproduce deterministic (or accept network variance — OQ-007-e).
-- **SpecKit extensions catalog**: at template render time, the SpecKit catalog URL
-  may be baked in or configurable. Future catalog version changes could make
-  reproduce diverge — pin or document.
+  packages from the network at reproduce time. The task pins the APM tool version to
+  make reproduce as deterministic as upstream allows; `apm.lock.yaml` is
+  task-generated external state, not byte-guaranteed (Q3 / OQ-007-e).
 
 ---
 
@@ -297,8 +298,12 @@ These are a first draft — subject to revision once open questions are resolved
   version is pinned in the task command to make resolution as deterministic as
   upstream allows. This aligns with Constitution III's process-deterministic model
   and does NOT commit the lock as reproducible state.
-- **APM packages / MCP servers / SpecKit / steering-ADR**: the selectable component
-  categories (details in OQ-007-a, OQ-007-b, OQ-007-c).
+- **APM package set**: the runtime-injected list-typed answer the agent populates
+  (user may override), persisted to the answers file (Q2). This is v1's only
+  selectable dimension; MCP / SpecKit / steering-ADR are deferred to future modules
+  (Q1).
+- **APM catalogue source(s)**: ≥ 1 registry/catalogue configured in the rendered
+  `apm.yml` (Q2 / FR-002a); a default is supplied if selection would yield none.
 
 ---
 
