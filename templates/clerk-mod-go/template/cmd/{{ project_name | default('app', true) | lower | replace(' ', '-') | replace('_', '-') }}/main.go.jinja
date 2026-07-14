@@ -1,0 +1,14 @@
+{#-
+  cmd/<name>/main.go — SEED-ONCE (_skip_if_exists in copier.yml).
+
+  Stub entry point for cli/service app_kinds. When app_kind=library, copier
+  excludes the entire cmd/ directory (_exclude in copier.yml) so this file is
+  never rendered for libraries. Seeded once, then project-owned.
+-#}
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("{{ project_name | default('app', true) }}")
+}

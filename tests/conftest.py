@@ -970,6 +970,17 @@ def clerk_mod_python(tmp_path: Path) -> TemplateRepo:
 
 
 @pytest.fixture
+def clerk_mod_go(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-go template as a hermetic repo (go preflight stubbed).
+
+    spec 011 T008: renders the real Go overlay surface; the native `go mod init`
+    task is replaced with a deterministic offline stub that writes a marker, keeping
+    the suite hermetic (no go toolchain required).
+    """
+    return _copy_module_with_stub_tasks("clerk-mod-go", tmp_path / "clerk-mod-go", _GO_STUB_TASKS)
+
+
+@pytest.fixture
 def clerk_mod_apm(tmp_path: Path) -> TemplateRepo:
     """The real clerk-mod-apm template as a hermetic repo (apm install stubbed offline).
 
