@@ -31,3 +31,5 @@ path = "templates/clerk-mod-precommit"
 
 [monorepo.packages.clerk-mod-ts]
 path = "templates/clerk-mod-ts"
+[monorepo.packages.clerk-mod-go]
+path = "templates/clerk-mod-go"

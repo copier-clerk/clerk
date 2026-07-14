@@ -1,0 +1,25 @@
+{#-
+  .golangci.yml — SEED-ONCE (_skip_if_exists in copier.yml).
+
+  Seed a sensible golangci-lint config; users tune it after init. Re-rendering
+  would revert intentional project-specific changes — hence seed-once, not managed.
+
+  golangci-lint v2 uses `version: 2` at the top level.
+-#}
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5
