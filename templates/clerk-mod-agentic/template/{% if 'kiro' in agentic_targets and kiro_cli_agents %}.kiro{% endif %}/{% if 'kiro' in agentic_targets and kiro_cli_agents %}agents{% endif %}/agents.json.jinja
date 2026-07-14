@@ -1,0 +1,18 @@
+{#-
+  .kiro/agents/agents.json — MANAGED (when 'kiro' in agentic_targets AND kiro_cli_agents=true).
+
+  Kiro CLI agent definitions. Re-rendered byte-identically at reproduce.
+  Each entry in agentic_plugins becomes a Kiro CLI agent definition.
+  Kiro has no marketplace — packages are installed via APM (install_via_apm path).
+-#}
+{
+  "agents": [
+{% for plugin in agentic_plugins %}
+    {
+      "name": "{{ plugin.name }}",
+      "source": "{{ plugin.owner_repo }}"{% if plugin.category is defined %},
+      "category": "{{ plugin.category }}"{% endif %}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]
+}

@@ -4,7 +4,12 @@
 
 **Created**: 2026-07-10
 
-**Status**: Clarified (2026-07-13 session — 5 questions resolved OQ-007-a/b/d/e/f/g;
+**Status**: Superseded by spec 011 (agentic rollup, 2026-07-14). `clerk-mod-apm` is
+folded into `clerk-mod-agentic`; APM FRs migrate there; `clerk-mod-apm` is tombstoned
+(mirror tombstone is Phase 7 of spec 011 — not authoring work in this task). Hybrid
+resolution recorded below (§ Hybrid Resolution Amendment 2026-07-14).
+
+**Prior status**: Clarified (2026-07-13 session — 5 questions resolved OQ-007-a/b/d/e/f/g;
 OQ-007-c moot for v1; v1 scope = `clerk-mod-apm` only). Ready for `/speckit.plan`.
 
 **Input**: Roadmap spec 007 (Agentic-ecosystem module — template content), governed
@@ -581,3 +586,54 @@ secrets-scan)? That list is in-repo and known; baking it in is the simplest v1.
   (delivery contract — module is invoked via the existing bundled script surface).
 - Informs: spec 008 (fan-out — module gets a `clerk-mod-apm` read-only repo),
   spec 009 (project-setup — likely `run_before` or `depends_on` adjacency).
+
+---
+
+## Hybrid Resolution Amendment — 2026-07-14 (spec 011 / T014)
+
+### Resolution: agentic rollup + APM folded + SpecKit separate
+
+This amendment closes the remaining open questions from the 2026-07-13 clarification
+pass in light of spec 011's `clerk-mod-agentic` rollup decision.
+
+#### Q1 / OQ-007-b / OQ-007-f: Component scope and architecture
+
+**Final resolution**: Hybrid — agentic rollup + APM folded + SpecKit separate.
+
+- `clerk-mod-agentic` (spec 011) is the agentic rollup module that folds in all APM
+  FRs and adds multi-target support (claude, codex, opencode, kiro). It supersedes
+  `clerk-mod-apm` at the module level.
+- SpecKit integration remains a separate future `clerk-mod-speckit` module (not part
+  of the rollup). The split-vs-monolith question from OQ-007-b/f is resolved: the
+  family is split, but the APM slice is folded INTO the agentic module rather than
+  remaining standalone.
+- `clerk-mod-apm` is tombstoned (mirror repository published as read-only; tombstone
+  work is Phase 7 of spec 011 — a confirmed public action, not authoring in this task).
+
+#### D-007-4: SpecKit bridge and steering/ADR
+
+**Re-confirmed deferred**. SpecKit bridge is its own future `clerk-mod-speckit` module.
+Steering/ADR scaffolding is its own future module. Neither is part of `clerk-mod-agentic`
+v1. This decision is now also reflected in spec 011 FR-019 (governance separation).
+
+#### FR-002b: Blanket empty-set refusal — DROPPED at module level
+
+**Status: DROPPED** at the `clerk-mod-agentic` module level, superseded by R2 (targeted
+validator).
+
+The original `clerk-mod-apm` FR-002b required blanket refusal of any empty-package
+selection (module presupposes ≥ 1 package). `clerk-mod-agentic` introduces a legitimate
+module-level no-op: `agentic_targets=[]` produces a clean render (only
+`.copier-answers.yml`), which is the correct behaviour for a multi-target rollup module
+where the phase-1 agent may legitimately produce an empty selection.
+
+In its place, R2 (from the `clerk-mod-agentic` contract) provides a **targeted** validator:
+the specific combination `install_via_apm=true + apm_packages==[]` is refused loudly,
+because that combination is a phase-1 mistake (the APM install path was selected but
+produced no packages) — distinct from the legitimate module-level no-op. This preserves
+the spirit of FR-002b (catch misconfiguration) without preventing clean empty-selection
+renders.
+
+The APM FRs (FR-001 through FR-010) are considered migrated to `clerk-mod-agentic`'s
+contract (spec 011 / `templates/clerk-mod-agentic/`) and are no longer authoritative
+in this spec 007 document.

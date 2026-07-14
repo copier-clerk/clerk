@@ -1,0 +1,33 @@
+{#-
+  opencode.json — MANAGED (when 'opencode' in agentic_targets).
+
+  OpenCode project config. Plugins self-install at agent runtime; pinned as
+  name@version so resolution is deterministic. MCP section rendered when
+  mcp_config=true. Re-rendered byte-identically at reproduce.
+-#}
+{
+  "project": "{{ project_name | default('project', true) }}"{% if agentic_plugins | length > 0 or (mcp_config and mcp_servers | length > 0) %},{% endif %}
+
+{% if agentic_plugins | length > 0 %}
+  "plugins": [
+{% for plugin in agentic_plugins %}
+    "{{ plugin.name }}@{{ plugin.owner_repo }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]{% if mcp_config and mcp_servers | length > 0 %},{% endif %}
+{% endif %}
+{% if mcp_config and mcp_servers | length > 0 %}
+  "mcp": {
+{% for server in mcp_servers %}
+    "{{ server.name }}": {
+      "command": "{{ server.command }}"{% if server.args is defined and server.args %},
+      "args": {{ server.args | tojson }}{% endif %}{% if server.env is defined and server.env %},
+      "env": {
+{% for key, val in server.env.items() %}
+        "{{ key }}": "{{ val }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+      }{% endif %}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  }
+{% endif %}
+}

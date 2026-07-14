@@ -1,0 +1,21 @@
+{#-
+  .mcp.json — MANAGED (when mcp_config=true AND claude in agentic_targets).
+
+  The Claude project-level MCP config. Re-rendered byte-identically at reproduce.
+  Env values use ${VAR} refs — never literal secrets (Constitution VI / FR-005).
+-#}
+{
+  "mcpServers": {
+{% for server in mcp_servers %}
+    "{{ server.name }}": {
+      "command": "{{ server.command }}"{% if server.args is defined and server.args %},
+      "args": {{ server.args | tojson }}{% endif %}{% if server.env is defined and server.env %},
+      "env": {
+{% for key, val in server.env.items() %}
+        "{{ key }}": "{{ val }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+      }{% endif %}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  }
+}
