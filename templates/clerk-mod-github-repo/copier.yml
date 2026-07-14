@@ -96,6 +96,13 @@ _tasks:
     {% endif %}
     true
 
+  # Protocol: gh config controls remote URL scheme; --ssh/--https are not valid
+  # flags for gh repo create (confirmed absent in gh >=2.x). Set once, non-fatal.
+  - >-
+    gh config set git_protocol {{ remote_protocol }}
+    || { echo "clerk-mod-github-repo: gh config set git_protocol failed — skipping (non-fatal)." >&2;
+    exit 0; }
+
   # Repo creation: non-fatal on any failure (gh error → warn and continue).
   # --source . means the current directory is the local source; origin is the
   # remote name copier-clerk convention uses.
@@ -105,7 +112,6 @@ _tasks:
     --remote origin
     --{{ visibility }}
     {% if team %}--team {{ team }}{% endif %}
-    {% if remote_protocol == 'ssh' %}--ssh{% else %}--https{% endif %}
     || { echo "clerk-mod-github-repo: gh repo create failed — skipping (non-fatal)." >&2;
     exit 0; }
 
