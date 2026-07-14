@@ -1,0 +1,138 @@
+# copier.yml — clerk-mod-ci-gitlab
+#
+# Renders .gitlab-ci.yml as a MANAGED file (byte-identical at reproduce).
+# ZERO _tasks — pure render, no tool execution. Sized from agent-frozen --data.
+#
+# Contract: spec 011 T017 / contracts/ci-github-gitlab.md
+# Grill fixes applied: optional:true needs, interruptible+auto_cancel coupling,
+# compare_to on branch arm only, canonical workflow:rules guard, fallback_keys
+# on caches, pinned images, bun.lock cache key.
+#
+# NO secret: questions (Constitution VI). Edges are when:false hidden answers.
+
+# --- CI model & options (shared question shape) ------------------------------
+
+ci_model:
+  type: str
+  choices:
+    - minimal
+    - standard
+    - optimized
+    - monorepo-affected
+    - merge-queue
+  default: minimal
+  help: "Pipeline shape: minimal (1 job), standard (parallel jobs), optimized (+rules:changes+cache), monorepo-affected (parent-child), merge-queue (merge trains)."
+
+ci_cache:
+  type: bool
+  default: true
+  help: "Enable language dependency caches (fallback_keys included)."
+
+ci_concurrency_cancel:
+  type: bool
+  default: true
+  help: "Cancel redundant pipelines (workflow:auto_cancel + interruptible on optimized)."
+
+ci_os_matrix:
+  type: yaml
+  default: []
+  help: "OS list for matrix builds (empty = single runner, agent-populated)."
+
+ci_matrix_versions:
+  type: yaml
+  default: []
+  help: "Language-version list for matrix builds (empty = single version, agent-populated)."
+
+ci_oidc_provider:
+  type: str
+  choices:
+    - none
+    - gitlab
+  default: none
+  help: "OIDC provider: 'gitlab' renders id_tokens: block for keyless auth."
+
+ci_required_gate:
+  type: bool
+  default: true
+  help: "Require a gate to pass before deploy (suppressed automatically on minimal)."
+
+# Agent-frozen: the phase-1 agent injects the active language list via --data.
+# type:yaml accepts injected lists; no choices: because the set is open-ended.
+ci_languages:
+  type: yaml
+  default: []
+  help: "Active language identifiers (agent-frozen via --data; e.g. [python, typescript])."
+
+# Agent-frozen: per-language facts dict — manager/version/image/test_runner.
+# Example: {python: {manager: uv, version: "3.13", image: "python:3.13-slim", test_runner: pytest}}
+ci_lang_facts:
+  type: yaml
+  default: {}
+  help: "Per-language facts (agent-frozen via --data): manager, version, image, test_runner."
+
+monorepo_tool:
+  type: str
+  choices:
+    - none
+    - turborepo
+    - nx
+    - pnpm-workspace
+  default: none
+  help: "Monorepo tool (turborepo/nx/pnpm-workspace); required for monorepo-affected model."
+
+# monorepo_packages: frozen list of package paths for parent-child pipelines.
+# Empty → inline rules:changes per path detection.
+monorepo_packages:
+  type: yaml
+  default: []
+  help: "Monorepo package paths for parent-child trigger jobs (agent-frozen; empty = inline rules:changes)."
+
+default_branch:
+  type: str
+  default: "{{ default_branch }}"
+  help: "Default branch name (threaded from base; used in rules:changes compare_to)."
+
+# --- GitLab-specific question ------------------------------------------------
+
+gitlab_tier:
+  type: str
+  choices:
+    - free
+    - premium_ultimate
+  default: free
+  help: "GitLab tier: 'premium_ultimate' enables merge trains; 'free' renders fallback for merge-queue model."
+
+# --- Metadata / threading ---------------------------------------------------
+
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from clerk-mod-base)."
+
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# --- Dependency edges (when:false — FR-005) ----------------------------------
+
+run_after:
+  type: yaml
+  default:
+    - clerk-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# ZERO _tasks: pure managed render, no tool execution (contract R3).
