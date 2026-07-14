@@ -1,0 +1,47 @@
+{% if readme_style == 'agent-draft' %}
+{{ readme_body }}
+{% else %}
+# {{ project_name }}
+
+{% if description %}
+{{ description }}
+{% endif %}
+
+## Overview
+
+{% if stack %}
+**Stack:** {{ stack }}
+{% endif %}
+
+## Getting Started
+
+### Installation
+
+{% if 'python' in stack | lower or 'uv' in stack | lower %}
+```sh
+uv sync
+```
+{% elif 'bun' in stack | lower %}
+```sh
+bun install
+```
+{% elif 'pnpm' in stack | lower %}
+```sh
+pnpm install
+```
+{% else %}
+<!-- Add installation instructions here -->
+{% endif %}
+
+## Usage
+
+<!-- Add usage instructions here -->
+
+## Contributing
+
+<!-- Add contributing guidelines here -->
+
+## License
+
+See [LICENSE](LICENSE).
+{% endif %}
