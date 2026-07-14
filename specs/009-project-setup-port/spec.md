@@ -5,8 +5,12 @@
 **Created**: 2026-07-13
 
 **Status**: Clarified (2026-07-13 session — 7 questions resolved OQ-009-a…g; v1 scope =
-collapsed `clerk-mod-base` + `clerk-mod-python`, agentic category excluded). Ready for
-`/speckit.plan`.
+collapsed `clerk-mod-base` + `clerk-mod-python`, agentic category excluded). **Amended
+2026-07-14** (Session 2026-07-14, Q8–Q9): the port is re-scoped from a *faithful
+translation* to a *de-opinionated generalization* — every module offers sane, finite
+tooling/config choices instead of baking one opinion, and `clerk-mod-ci` gains multiple
+agent-selectable CI models. This deliberately relaxes FR-011 (see the amended FR-011 +
+new FR-014/FR-015). Ready for `/speckit.plan` (Phases 1–3 + built-module revision).
 
 **Input**: Roadmap spec 009 (project-setup module port → templates), governed by the
 constitution v2.1.0 (Principles I, III, V, VI in particular) and ADR-0002/0003/0006.
@@ -43,6 +47,35 @@ product of this draft.
 ---
 
 ## Clarifications
+
+### Session 2026-07-14 (amendment — de-opinionation + multi-model CI)
+
+- Q8: Faithful translation vs de-opinionated generalization? → A: **De-opinionate.**
+  The maintainer directs that ported modules be **generic and offer the user sane,
+  finite choices** rather than bake in a single opinion — e.g. a JS package-manager
+  choice (`bun`/`pnpm`/`yarn`), a Python package-manager choice (`uv`/`poetry`/`pdm`),
+  linter/formatter/test-runner/hook-manager choices, etc. Genuinely dead or legacy
+  options MAY be dropped rather than offered (dropping bare `pip` as a Python PM is
+  explicitly acceptable — "generic up to a point"). This **relaxes FR-011**: adding a
+  finite choice dimension a module's project-setup ancestor lacked is now sanctioned
+  (see amended FR-011 + new FR-014). Choices MUST stay static/finite (Q7), keep a sane
+  modern default, and honour every other clerk constraint (no `secret:` questions;
+  language manifests seed-once; code-executing steps trust-gated; deterministic
+  renders). Applies to the **already-built** modules too (`clerk-mod-base`,
+  `clerk-mod-python`, `clerk-mod-apm` are revised, not left as-is).
+- Q9: CI module scope — one sized workflow vs multiple optimization models? → A:
+  **Multiple agent-selectable CI models.** `clerk-mod-ci` MUST offer a finite,
+  named set of CI **models/topologies** (e.g. serial single-job; parallel jobs +
+  fan-in gate; version/OS matrix; change-based filtering + caching + concurrency;
+  monorepo-affected; merge-queue) plus standard presets. The **phase-1 agent selects
+  the model** from project complexity/needs (single vs monorepo, language count, PR
+  volume, deploy target) and freezes it as a `--data` answer; the template renders
+  the chosen model deterministically (agent never in the reproduce path). See new
+  FR-015. The proposed CI-models design is itself grilled before authoring.
+- Process note (both Q8 & Q9): **every module is adversarially grilled individually
+  before authoring** (built modules included) to strip unwanted opinionation; the CI
+  model design is grilled as its own artifact. This is a quality gate, not a spec
+  requirement, but is recorded here as the sanctioned working method for this amendment.
 
 ### Session 2026-07-13
 
@@ -258,8 +291,12 @@ classification.
 
 ## What is NOT in scope
 
-- **New capabilities not present in project-setup** (roadmap Scope-out, explicit). The
-  port is a translation; no module gains a feature its project-setup ancestor lacks.
+- **New behavioural capabilities not present in project-setup** (roadmap Scope-out). No
+  module gains a new file, side-effecting task, or integration its ancestor lacks.
+  **NOT excluded (amended Q8/FR-011/FR-014):** de-opinionating a hardcoded decision into a
+  finite tooling/config `choices:` question (e.g. package manager, linter, test runner),
+  and `clerk-mod-ci`'s multiple agent-selectable CI models (Q9/FR-015) — these are
+  sanctioned generalizations, not new capability.
 - **The fan-out / release pipeline** (spec 008b) — 009 authors module *content* into
   `templates/clerk-mod-*/`; 008b's CI fans them out. 009 unblocks 008b by existing; it
   does not build the pipeline.
@@ -452,11 +489,42 @@ First draft — subject to revision once open questions resolve.
 - **FR-010**: Modules threading answers from an upstream layer MUST use copier's
   `default: "{{ upstream_answer }}"` mechanism (threaded via `data=`, ADR-0003) and MUST
   NOT hardcode which upstream layer supplied it (cf. 007 FR-006).
-- **FR-011**: The port MUST NOT add any capability absent from the module's project-setup
-  ancestor (roadmap Scope-out).
+- **FR-011** *(RELAXED — Q8, 2026-07-14)*: The port MUST NOT add **behavioural
+  capability** (new files, new side-effecting tasks, new integrations) absent from the
+  module's project-setup ancestor. **EXCEPTION (Q8/FR-014):** adding a finite,
+  static-`choices:` **tooling/config choice dimension** that generalizes a decision the
+  ancestor hardcoded (e.g. package manager, linter, formatter, test runner, hook
+  manager, task runner) is explicitly permitted and encouraged — this is
+  de-opinionation, not new capability. Dropping a dead/legacy option (e.g. bare `pip`)
+  is likewise permitted. The line: offering *which tool does the same job* is allowed;
+  inventing a *new job the module never did* is not.
 - **FR-012**: The SKILL.md procedure MUST document the ported family: which modules exist,
   the base-selection step, per-module trust consent for tasks, and the multi-layer handoff
   shape.
+- **FR-014** *(de-opinionation — Q8, 2026-07-14)*: Each module MUST NOT force a
+  consequential tooling/config opinion where competent teams reasonably differ; such a
+  decision MUST be exposed as a copier question with a finite static `choices:` set and a
+  sane modern default, UNLESS there is a single clear best answer (then it MAY stay
+  hardcoded) or the alternatives are dead/legacy (then they are dropped, not offered).
+  Cross-cutting axes (e.g. `pkg_manager`, `linter`, `formatter`, `test_runner`,
+  `hook_manager`, `task_runner`) MUST be expressed consistently across modules (same
+  key/choices shape) so a multi-layer selection reads coherently. The choice MUST branch
+  only rendered files / task commands / edges — no new `src/clerk/` code (C-11). This
+  requirement applies to the already-built `clerk-mod-base`, `clerk-mod-python`, and
+  `clerk-mod-apm` (they are REVISED to satisfy it), not only to newly authored modules.
+- **FR-015** *(multi-model CI — Q9, 2026-07-14)*: `clerk-mod-ci` MUST offer a finite,
+  named `ci_model` choice set covering distinct CI execution topologies/optimizations
+  (at minimum: a minimal serial model; a parallel-jobs-plus-fan-in-gate model; a
+  version/OS matrix model; and a change-filtering/caching/concurrency-optimized model;
+  monorepo-affected and merge-queue models as the stack warrants). The selected model
+  MUST be a phase-1 **agent** decision frozen as a `--data` answer (per FR-006), chosen
+  from project signals (single vs monorepo layout, active language count, PR volume,
+  deploy target); the template renders the chosen model **deterministically** (managed
+  render, action versions pinned; no agent in the reproduce path — FR-005/FR-006). CI
+  MUST size itself to the active stack by reading sibling-layer answers threaded via the
+  engine's accumulated `data=` (FR-010), with the zero-languages / zero-commands guards
+  preserved. Orthogonal toggles (caching, concurrency-cancel, required-gate, OS matrix)
+  MAY be separate boolean/choice questions with safe defaults.
 - **FR-013** *(base split — RESOLVED, Q1/OQ-009-a)*: The 6 base modules MUST ship as ONE
   collapsed `clerk-mod-base` copier template. Their inter-base ordering (identity →
   dirs/gitignore → license → agents-md → git-init commits last) is expressed
@@ -528,7 +596,9 @@ Provisional — subject to Open Questions.
 
 ## Out of scope
 
-- New capabilities beyond project-setup (roadmap Scope-out).
+- New **behavioural** capabilities beyond project-setup (roadmap Scope-out) — but NOT
+  de-opinionation choices or the multi-model CI, which are in scope per Q8/Q9 (FR-011
+  relaxed; FR-014/FR-015 added).
 - The 008b fan-out/release pipeline (built by 008b; 009 supplies content).
 - Catalog / ordering / upgrade / delivery machinery (specs 002/003/006/010 — consumed).
 - spec 007's `clerk-mod-apm` (independent) and the entire project-setup `agentic`
@@ -569,15 +639,22 @@ RESOLVED Q2/OQ-009-b; later phases are a lean, not a commitment):
   (Q1) + one language overlay (`clerk-mod-python`). This is the minimal real module set
   that lets 008b run fan-out/release/e2e end to end. Exercises base identity, `run_after`
   edges, answer threading, a trust-gated task, and the contract lint. **Highest priority.**
-- **Phase 1 — Remaining languages + quality/tooling (pure `python`-tier):** `lang-ts`,
-  `lang-go`, `lang-rust`, `precommit-setup`, `quality-hooks`, `justfile-write`,
-  `ci-github-actions`, `worktreeinclude-write`. Mostly deterministic renders; lowest
-  translation risk after Phase 0.
-- **Phase 2 — Agent-steered + integration (the hard translations):** `env-example`,
-  `readme-draft`, `stack-adr` (frozen-answer determinism — OQ-009-c), `github-repo`,
-  `org-policy`, `package-add`.
-- **~~Phase 3 — agentic residue~~ (REMOVED, Q4/OQ-009-d):** 009 ports NO agentic
-  modules; the entire category is 007's family. There is no Phase 3.
+- **Phase 1 — Remaining languages + quality/tooling (pure `python`-tier):**
+  `clerk-mod-ts`, `clerk-mod-go`, `clerk-mod-rust`, `clerk-mod-precommit`,
+  `clerk-mod-quality`, `clerk-mod-justfile`. Mostly deterministic renders; lowest
+  translation risk after Phase 0. Each de-opinionated per Q8/FR-014.
+- **Phase 2 — Agent-steered + integration + monorepo + CI (the hard translations):**
+  `clerk-mod-env`, `clerk-mod-readme`, `clerk-mod-stack-adr` (frozen-answer determinism
+  — OQ-009-c), `clerk-mod-ci` (multi-model, Q9/FR-015), `clerk-mod-github-repo`,
+  `clerk-mod-package-add` (monorepo), and last `clerk-mod-org-policy` (a no-op until an
+  org-source-fetch module exists — flagged). `clerk-mod-codex` (codex-config) is ported
+  as a small deterministic seed-once module (2026-07-14 decision, overriding the earlier
+  Q4 defer for this one non-overlapping Codex-only file; the rest of the agentic category
+  — apm/mcp/speckit — remains 007's).
+- **Dropped:** `worktreeinclude-write` (`clerk-mod-worktree`) — niche, low-value, awkward
+  to port onto the gitnr-generated `.gitignore`; deferred indefinitely (2026-07-14).
+- **~~Phase 3 — agentic residue~~ (REMOVED, Q4/OQ-009-d):** 009 ports no
+  apm/mcp/speckit modules; those remain 007's family. There is no Phase 3.
 
 Each phase is independently valuable and independently testable; Phase 0 alone delivers
 the 008b-unblocking outcome the roadmap prioritises.

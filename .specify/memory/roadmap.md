@@ -406,9 +406,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Scope (in):** port base + languages + quality + tooling + docs + integration +
   monorepo as `clerk-mod-*` templates (template content, driven by 002/003). **Base
   is ONE collapsed `clerk-mod-base`** (Q1, resolving roadmap Q2 — not separate repos).
-- **Scope (out):** new capabilities not in project-setup. **The entire `agentic`
-  category (apm/mcp/speckit/codex) is EXCLUDED** (Q4) — 007's family owns agentic
-  wiring.
+- **Scope (out):** new *behavioural* capabilities not in project-setup. **NOTE (amended
+  2026-07-14, Q8/Q9):** de-opinionation is now IN scope — modules offer finite
+  tooling/config `choices:` (pkg-manager, linter, test-runner, …) instead of baking one
+  opinion, dropping dead options (e.g. bare pip); `clerk-mod-ci` offers multiple
+  agent-selectable CI models. This relaxes the original "faithful translation" lean
+  (spec 009 FR-011 relaxed; FR-014/FR-015 added). The built modules (base/python/apm)
+  are REVISED to match. **The `agentic` category is still mostly EXCLUDED** (apm=007;
+  mcp/speckit=future-007) — EXCEPT `codex-config`, now ported as one small deterministic
+  module (2026-07-14, overriding the Q4 defer for that single non-overlapping file).
 - **Phasing (Q2):** **v1 = Phase 0 = `clerk-mod-base` + `clerk-mod-python`** (the
   minimal real module slice that unblocks 008b). Phases 1–3 (remaining languages +
   quality/tooling; agent-steered + integration; there is no agentic phase) are
@@ -429,10 +435,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `srobroek/project-setup`), resolving the earlier inference gaps (`python_version`
   is free-text not a choice list; exact ruff config; no invented pytest config).
   Resolved gaps: `dirs-scaffold` = 20 dirs (source comment's "21" was stale).
-  **Phases 1–3 NOT started** (remaining ~19 modules): P1 = languages ts/go/rust +
-  quality/tooling; P2 = agent-steered (env/readme/stack-adr) + integration
-  (github-repo/org-policy/package-add). Each ports from its `srobroek/project-setup`
-  manifest via the now-proven pattern. Status is `in-progress` until those land.
+  **Phases 1–2 IN PROGRESS (started 2026-07-14)** under the amended de-opinionated scope
+  (Q8/Q9). Full inventory reconciled against the live upstream repo (25 modules; the
+  earlier phasing list was a subset): P1 = `clerk-mod-{ts,go,rust,precommit,quality,justfile}`;
+  P2 = `clerk-mod-{env,readme,stack-adr,ci,github-repo,package-add,codex}` + `org-policy`
+  last. `clerk-mod-ci` is redesigned around multiple agent-selectable CI models (FR-015).
+  `worktreeinclude-write` is DROPPED. Built modules (base/python/apm) are REVISED for
+  de-opinionation (FR-014). **Working method:** each module (built + new) is adversarially
+  grilled for opinionation before authoring; the CI-models design is grilled as its own
+  artifact. Status is `in-progress` until the slice lands + releases.
 
 ### 010 — Delivery reshape: skill-bundled copier wrapper  [status: implemented]
 
@@ -515,4 +526,11 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 2.1.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-10
+**Version**: 2.2.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-14
+
+<!-- 2.2.0 (2026-07-14): spec 009 re-scoped from faithful translation to de-opinionated
+generalization (Q8) + multi-model CI (Q9); full 25-module inventory reconciled against the
+live upstream repo; codex-config added, worktreeinclude-write dropped; built modules
+(base/python/apm) flagged for de-opinionation revision. See spec 009 Clarifications
+Session 2026-07-14 + FR-011 (relaxed)/FR-014/FR-015. -->
+
