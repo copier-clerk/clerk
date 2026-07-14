@@ -55,3 +55,4 @@ url = "https://github.com/copier-clerk/clerk-mod-cdk.git"
 
 [[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-cloudformation.git"
+url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
