@@ -331,9 +331,19 @@ def test_cdk_synth_task_is_init_only_guarded() -> None:
 
     for t in synth_tasks:
         cmd = t.get("command", "")
-        assert ".clerk-cdk-pinned" in cmd, (
-            f"cdk synth task must guard on .clerk-cdk-pinned sentinel (FR-012a), got: {cmd!r}"
+        assert ".clerk-cdk-synth-done" in cmd, (
+            f"cdk synth task must guard on its OWN sentinel (.clerk-cdk-synth-done), got: {cmd!r}"
         )
         assert "test -f" in cmd and "||" in cmd, (
-            f"cdk synth task must use 'test -f .clerk-cdk-pinned ||' to be init-only, got: {cmd!r}"
+            f"cdk synth task must use 'test -f .clerk-cdk-synth-done ||' to be init-only, got: {cmd!r}"
+        )
+        assert "touch .clerk-cdk-synth-done" in cmd, (
+            f"cdk synth task must write its sentinel after success, got: {cmd!r}"
+        )
+        # Regression guard: synth must NOT share the pin task's sentinel — step 3
+        # writes .clerk-cdk-pinned earlier in the SAME init run, so guarding synth
+        # on it makes synth dead code (never runs, not even on init).
+        assert ".clerk-cdk-pinned" not in cmd, (
+            f"cdk synth task must not reuse the pin sentinel (.clerk-cdk-pinned) — "
+            f"it is already written by the pin task in the same init run: {cmd!r}"
         )

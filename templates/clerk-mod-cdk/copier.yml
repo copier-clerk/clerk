@@ -188,11 +188,11 @@ _tasks:
     git add -f "{{ placement_dir }}/cdk.context.json" 2>/dev/null || true
 
   # 6. Optional cdk synth validation (credential-free, empty-stack sanity check).
-  #    Init-only-guarded via the same .clerk-cdk-pinned sentinel (§3 FR-012a):
-  #    absent only on a genuinely fresh tree; committed after pin so reproduce
-  #    short-circuits before touching the network or spawning cdk.
+  #    Init-only-guarded via its OWN committed sentinel (§3 FR-012a) — it must NOT
+  #    reuse .clerk-cdk-pinned, which step 3 writes earlier in the same init run
+  #    (that would short-circuit synth on init too, making the option dead code).
   - command: >-
-      test -f "{{ placement_dir }}/.clerk-cdk-pinned" ||
-      (cd "{{ placement_dir }}" && cdk synth --quiet 2>&1) ||
-      { echo "clerk-mod-cdk: cdk synth failed — check your stack definition." >&2; exit 1; }
+      test -f "{{ placement_dir }}/.clerk-cdk-synth-done" ||
+      { (cd "{{ placement_dir }}" && cdk synth --quiet 2>&1 && touch .clerk-cdk-synth-done) ||
+      { echo "clerk-mod-cdk: cdk synth failed — check your stack definition." >&2; exit 1; }; }
     when: "{{ include_synth_validate }}"
