@@ -53,3 +53,12 @@ path = "templates/clerk-mod-terraform"
 path = "templates/clerk-mod-cdk"
 [monorepo.packages.clerk-mod-cloudformation]
 path = "templates/clerk-mod-cloudformation"
+
+[monorepo.packages.clerk-mod-justfile]
+path = "templates/clerk-mod-justfile"
+
+[monorepo.packages.clerk-mod-stack-adr]
+path = "templates/clerk-mod-stack-adr"
+
+[monorepo.packages.clerk-mod-github-repo]
+path = "templates/clerk-mod-github-repo"

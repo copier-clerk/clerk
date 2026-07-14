@@ -13,14 +13,45 @@ url = "https://github.com/copier-clerk/clerk-mod-precommit.git"
 
 [[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-ts.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-go.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-rust.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-quality.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-readme.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-stack-adr.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-agentic.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-ci-github.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-ci-gitlab.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-github-repo.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-package-add.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-terraform.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-cdk.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-cloudformation.git"
