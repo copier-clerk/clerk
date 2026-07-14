@@ -1,0 +1,5 @@
+{#-
+  .terraform-version — MANAGED. Used by tfenv and compatible version managers.
+  Pins to the selected flavor's version string.
+-#}
+{{ terraform_version if tf_flavor == 'terraform' else opentofu_version }}
