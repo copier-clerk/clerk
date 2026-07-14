@@ -199,3 +199,76 @@ def test_cdk_subdirectory_is_template() -> None:
     module_dir = _MODULES_DIR / "clerk-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     assert data.get("_subdirectory") == "template", "_subdirectory must be 'template' (FR-016)"
+
+
+def test_cdk_version_consumed_in_tasks() -> None:
+    """cdk_version must appear in at least one _tasks entry (contract iac.md §clerk-mod-cdk).
+
+    The contract requires 'pin cdk_version' after cdk init; if the question is
+    collected but never used in tasks the pin step is missing.
+    """
+    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
+    tasks = data.get("_tasks", [])
+
+    cmds = []
+    for task in tasks:
+        if isinstance(task, str):
+            cmds.append(task)
+        elif isinstance(task, dict):
+            cmds.append(task.get("command", ""))
+
+    joined = "\n".join(cmds)
+    assert "cdk_version" in joined, (
+        "cdk_version must be consumed in a _tasks entry to pin the version after cdk init "
+        "(contract iac.md §clerk-mod-cdk)"
+    )
+
+
+def test_cdk_nag_task_uses_when_include_cdk_nag() -> None:
+    """include_cdk_nag must gate at least one task via when: (contract iac.md §clerk-mod-cdk).
+
+    The contract requires 'cdk-nag import spliced when include_cdk_nag'; the question
+    is useless if no task is conditioned on it.
+    """
+    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
+    tasks = data.get("_tasks", [])
+
+    nag_tasks = [t for t in tasks if isinstance(t, dict) and "include_cdk_nag" in t.get("when", "")]
+    assert nag_tasks, (
+        "At least one task must have when: ... include_cdk_nag ... to splice the cdk-nag import "
+        "(contract iac.md §clerk-mod-cdk)"
+    )
+
+
+def test_cdk_preflight_has_language_runtime_checks() -> None:
+    """Preflight must contain language-runtime-conditional tasks for non-TS languages.
+
+    Contract (iac.md §clerk-mod-cdk) specifies 'language runtime conditional on
+    cdk_language' in preflight. At minimum python/go/java/csharp each need a
+    when-gated command-v check.
+    """
+    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
+    tasks = data.get("_tasks", [])
+
+    conditional_tasks = [t for t in tasks if isinstance(t, dict) and "when" in t]
+    when_bodies = "\n".join(t.get("when", "") for t in conditional_tasks)
+
+    assert "cdk_language" in when_bodies, (
+        "Preflight must include tasks conditioned on cdk_language for runtime checks "
+        "(contract iac.md §clerk-mod-cdk)"
+    )
+    # Each non-TS language must have at least a command-v check.
+    lang_binaries = [("python", "python3"), ("go", "go"), ("java", "java"), ("csharp", "dotnet")]
+    for lang, binary in lang_binaries:
+        lang_tasks = [
+            t
+            for t in conditional_tasks
+            if lang in t.get("when", "") and binary in t.get("command", "")
+        ]
+        assert lang_tasks, (
+            f"Missing language runtime preflight for cdk_language={lang!r}: "
+            f"expected a when-gated 'command -v {binary}' task"
+        )

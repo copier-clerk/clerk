@@ -86,11 +86,11 @@ today:
 _subdirectory: template
 
 # Trust-gated tasks (FR-007b / ADR-0007 native-command scaffold pattern §3).
-# Order: preflight → cdk init (guarded) → optional pin → optional synth.
+# Order: preflight → cdk init (guarded) → pin cdk_version → optional cdk-nag splice → optional synth.
 # Init-only-guarded via cdk.json existence check so reproduce is a no-op over
 # a populated tree (cross-cutting §3 / critique R5). NEVER cdk bootstrap/deploy.
 _tasks:
-  # 1. Preflight: verify mise, node, language runtime, and cdk are on PATH.
+  # 1. Preflight: verify mise, node, cdk, and the language-specific runtime are on PATH.
   #    Fail fast with install URLs before any consequential step runs.
   - >-
     command -v mise >/dev/null 2>&1 ||
@@ -108,6 +108,33 @@ _tasks:
       echo "  cdk — npm install -g aws-cdk" >&2;
       exit 1; }
 
+  # Language-runtime preflight: check the runtime required by cdk_language.
+  # typescript is already covered by node above; each other language needs its own binary.
+  - command: >-
+      command -v python3 >/dev/null 2>&1 ||
+      { echo "clerk-mod-cdk: required tool 'python3' not found on PATH." >&2;
+        echo "  python3 — install via mise: mise use python@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'python' }}"
+  - command: >-
+      command -v go >/dev/null 2>&1 ||
+      { echo "clerk-mod-cdk: required tool 'go' not found on PATH." >&2;
+        echo "  go — install via mise: mise use go@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'go' }}"
+  - command: >-
+      command -v java >/dev/null 2>&1 ||
+      { echo "clerk-mod-cdk: required tool 'java' not found on PATH." >&2;
+        echo "  java — install via mise: mise use java@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'java' }}"
+  - command: >-
+      command -v dotnet >/dev/null 2>&1 ||
+      { echo "clerk-mod-cdk: required tool 'dotnet' not found on PATH." >&2;
+        echo "  dotnet — install via mise: mise use dotnet@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'csharp' }}"
+
   # 2. cdk init app — init-only-guarded: skip if cdk.json already exists so
   #    reproduce over a populated tree is a no-op (cross-cutting §3 / ADR-0007).
   #    Creates placement_dir if it does not yet exist.
@@ -116,13 +143,50 @@ _tasks:
     test -f "{{ placement_dir }}/cdk.json" ||
     (cd "{{ placement_dir }}" && cdk init app --language={{ cdk_language }})
 
-  # 3. Commit cdk.context.json when created — it is part of reproducible infra
+  # 3. Pin cdk_version in the language-appropriate manifest after init.
+  #    Aligns aws-cdk-lib to the configured version so the project starts
+  #    from a known-good pin (contract iac.md §clerk-mod-cdk). Init-only-guarded
+  #    via the same cdk.json sentinel: if init was skipped, the user already owns
+  #    the manifest and we must not overwrite their version.
+  - command: >-
+      test -f "{{ placement_dir }}/cdk.json" &&
+      cd "{{ placement_dir }}" &&
+      npm install aws-cdk-lib@{{ cdk_version }} --save-exact --quiet 2>&1 || true
+    when: "{{ cdk_language in ['typescript', 'go', 'java', 'csharp'] }}"
+  - command: >-
+      test -f "{{ placement_dir }}/cdk.json" &&
+      cd "{{ placement_dir }}" &&
+      pip install --quiet "aws-cdk-lib=={{ cdk_version }}" 2>&1 || true
+    when: "{{ cdk_language == 'python' }}"
+
+  # 4. Splice a cdk-nag import into the CDK app entrypoint after init.
+  #    For TypeScript the entrypoint is bin/<project_name>.ts; for Python app.py.
+  #    Uses a marker comment so the splice is idempotent on re-run.
+  - command: >-
+      ENTRYPOINT="{{ placement_dir }}/bin/{{ project_name | lower | replace('-', '_') }}.ts" &&
+      test -f "$ENTRYPOINT" &&
+      grep -qF 'cdk-nag' "$ENTRYPOINT" ||
+      sed -i.bak '1s|^|import { Aspects } from "aws-cdk-lib";\nimport { AwsSolutionsChecks } from "cdk-nag";\n|' "$ENTRYPOINT" &&
+      rm -f "${ENTRYPOINT}.bak"
+    when: "{{ include_cdk_nag and cdk_language == 'typescript' }}"
+  - command: >-
+      ENTRYPOINT="{{ placement_dir }}/app.py" &&
+      test -f "$ENTRYPOINT" &&
+      grep -qF 'cdk_nag' "$ENTRYPOINT" ||
+      sed -i.bak '1s|^|import cdk_nag\n|' "$ENTRYPOINT" &&
+      rm -f "${ENTRYPOINT}.bak"
+    when: "{{ include_cdk_nag and cdk_language == 'python' }}"
+  - command: >-
+      echo "clerk-mod-cdk: cdk-nag splice for {{ cdk_language }} — add the import manually to your app entrypoint." >&2
+    when: "{{ include_cdk_nag and cdk_language not in ['typescript', 'python'] }}"
+
+  # 5. Commit cdk.context.json when created — it is part of reproducible infra
   #    state (contract: "cdk.context.json COMMITTED"). No-op if not created.
   - >-
     test ! -f "{{ placement_dir }}/cdk.context.json" ||
     git add -f "{{ placement_dir }}/cdk.context.json" 2>/dev/null || true
 
-  # 4. Optional cdk synth validation (credential-free, empty-stack sanity check).
+  # 6. Optional cdk synth validation (credential-free, empty-stack sanity check).
   #    Only runs when include_synth_validate=true (always opt-in, never on reproduce).
   - command: >-
       (cd "{{ placement_dir }}" && cdk synth --quiet 2>&1) ||
