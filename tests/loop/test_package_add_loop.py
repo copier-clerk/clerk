@@ -47,6 +47,7 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
         "../evil",  # dot-dot slash
         "..",  # bare dot-dot
         ".",  # single dot (current dir)
+        "a\\b",  # backslash — SEC-001 4th condition
     ],
 )
 def test_guard_rejects_bad_name(
@@ -202,3 +203,40 @@ def test_answers_file_recorded(clerk_mod_package_add: TemplateRepo, tmp_path: Pa
     # Hidden edges must NOT appear in answers (FR-004 / FR-013).
     assert "run_after" not in af, "run_after must not be persisted"
     assert "depends_on" not in af, "depends_on must not be persisted"
+
+
+# ---------------------------------------------------------------------------
+# Seed-once: manifest not overwritten on reproduce when it already exists
+# ---------------------------------------------------------------------------
+
+
+def test_seed_once_manifest_not_overwritten_on_reproduce(
+    clerk_mod_package_add: TemplateRepo, tmp_path: Path
+) -> None:
+    """_skip_if_exists manifest files are preserved on reproduce (cross-cutting §8).
+
+    After init, the seed manifest (pyproject.toml) is hand-edited. A reproduce
+    run must NOT clobber the edited file because _skip_if_exists is in effect.
+    """
+    dest = tmp_path / "proj"
+    dest.mkdir()
+
+    _init(
+        clerk_mod_package_add,
+        dest,
+        {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": "packages/"},
+    )
+
+    # Create a seed manifest with hand-edited content (simulating project ownership).
+    pkg_dir = dest / "packages" / "mypkg"
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+    hand_edited = '[project]\nname = "mypkg"\ndependencies = ["fastapi"]  # hand-edited\n'
+    manifest = pkg_dir / "pyproject.toml"
+    manifest.write_text(hand_edited)
+
+    # Reproduce must not overwrite the seed-once file.
+    runner.reproduce(str(dest))
+
+    assert manifest.read_text() == hand_edited, (
+        "seed-once pyproject.toml was clobbered on reproduce (_skip_if_exists violated)"
+    )

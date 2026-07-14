@@ -172,7 +172,7 @@ _tasks:
       err() { echo "clerk-mod-package-add: $1" >&2; exit 1; };
       [ -z "$name" ] && err "name must not be empty";
       [ -z "$dir" ] && err "dir must not be empty";
-      printf '%s' "$name" | grep -qE '(^$|/|\\\\|\.\.|^\.$)' && err "name '${name}' contains unsafe path component";
+      printf '%s' "$name" | grep -qE '(^$|/|\\|\.\.|^\.$)' && err "name '${name}' contains unsafe path component";
       printf '%s' "$dir" | grep -qE '(\.\./|/\.\.)' && err "dir '${dir}' contains path traversal (../)";
       true
 

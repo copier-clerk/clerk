@@ -1037,10 +1037,8 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           err() { echo "clerk-mod-package-add: $1" >&2; exit 1; };
           [ -z "$name" ] && err "name must not be empty";
           [ -z "$dir" ] && err "dir must not be empty";
-          [ "$name" = "." ] && err "name must not be a single dot";
-          printf '%s' "$name" | grep -qE '(/|[\\\\]|\\.\\.)' &&
-          err "name '$name' contains unsafe path component";
-          printf '%s' "$dir" | grep -qE '(\\.\\./)' && err "dir '$dir' contains path traversal";
+          printf '%s' "$name" | grep -qE '(^$|/|\\\\|\\.\\.|^\\.$)' && err "name '${name}' contains unsafe path component";
+          printf '%s' "$dir" | grep -qE '(\\.\\./|/\\.\\.)'  && err "dir '${dir}' contains path traversal (../)";
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
