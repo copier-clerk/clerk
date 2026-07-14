@@ -1,4 +1,8 @@
-# Contract — clerk-mod-readme / -stack-adr / -github-repo / -package-add / -org-policy (NEW)
+# Contract — clerk-mod-readme / -stack-adr / -github-repo / -package-add (NEW)
+
+> **clerk-mod-org-policy DROPPED from 011** (critique R1): it is inert until an org-source-fetch
+> module exists (not planned here), so it ships in a future org-governance spec with its only
+> consumer, not as a dead module now. Its former contract is removed below.
 
 References [_cross-cutting.md](./_cross-cutting.md). All `run_after: [clerk-mod-base]`.
 
@@ -18,9 +22,5 @@ References [_cross-cutting.md](./_cross-cutting.md). All `run_after: [clerk-mod-
 - **Questions**: `name` (new package), `lang [ts, python, go, rust]`, `dir` (default packages/); `js_package_manager [bun, pnpm]` / python via `python_pkg_manager`; `resolve_stack` (bool) for agent-injected sibling pin alignment; `rust_edition [2024,2021]=2024`.
 - **Behavior**: scaffold the new package DIR + seed manifest, then register it in the workspace via the NATIVE add command (`pnpm add`/`bun add`/`uv add`/`cargo add`/`go work use` as appropriate) — the tool writes `pnpm-workspace.yaml` vs `package.json workspaces[]` itself (FR-007). **Port the 4-condition path-traversal guard EXACTLY** (`/`, `\`, `..`, `.`, empty), BEFORE any mkdir (security-pinned, no relaxation). Gated on base `layout=monorepo`.
 
-## clerk-mod-org-policy (build LAST)
-- **Questions**: none (`[[inputs]]`-free by design).
-- **Behavior**: reads a pinned org-policy source + applies org-mandated answer overrides, behind a hard trust gate + `allow-org-policy` flag; default_enabled=false. **NO-OP until an org-source-fetch module exists** — flag this clearly; ships as a documented dead-until-dependency module. Post-hoc answer mutation (`.copier-answers.yml`) has no native copier equivalent — guard with an init-only sentinel; `--refresh` deletes the sentinel. uv/PEP-723.
-
 ## Tests
-readme: static vs agent-draft render + seed-once; stack-adr: simple/adr from frozen facts, seed-once, no agent in reproduce; github-repo: public without consent aborts (exit 1), tool-missing non-fatal, task stubbed; package-add: path-traversal guard rejects all 4 bad inputs, native add stubbed, workspace registration; org-policy: no-op documented, gate refuses untrusted. No secret questions.
+readme: static vs agent-draft render + seed-once; stack-adr: simple/adr from frozen facts, seed-once, no agent in reproduce; github-repo: public without consent aborts (exit 1), tool-missing non-fatal, task stubbed; package-add: path-traversal guard rejects all 4 bad inputs, native add stubbed, workspace registration. No secret questions.

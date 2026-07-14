@@ -53,11 +53,12 @@ manifests, `.gitignore`/gitnr, `LICENSE`/gh, `.terraform.lock.hcl`, apm lock) pr
 deterministic and version-pinned via `mise`; NO `jinja2_time` (Constitution V); NO `secret:`
 questions (Constitution VI). No new `src/clerk/` code (C-11).
 
-**Scale/Scope**: ~18 modules total — revise `clerk-mod-{base,python}`; NEW `clerk-mod-agentic`
-(apm folded in); build `clerk-mod-{ts,go,rust,precommit,quality,justfile,readme,stack-adr,
-github-repo,package-add,org-policy}`; NEW `clerk-mod-ci` (5 models × github/gitlab); NEW IaC trio
-`clerk-mod-{terraform,cdk,cloudformation}`. Drop `worktree`/`env`. `clerk-mod-speckit` separate
-(out of this build set).
+**Scale/Scope**: ~18 modules total (post-critique) — revise `clerk-mod-{base,python}` (bump to MAJOR
+v1.0.0, clean break, M2); NEW `clerk-mod-agentic` (apm folded in); build
+`clerk-mod-{ts,go,rust,precommit,quality,justfile,readme,stack-adr,github-repo,package-add}`; NEW CI
+as TWO modules `clerk-mod-ci-github` + `clerk-mod-ci-gitlab` (5 models each, R3 split); NEW IaC trio
+`clerk-mod-{terraform,cdk,cloudformation}`. Drop `worktree`/`env`; **`org-policy` dropped** (R1, inert
+until org-source-fetch). `clerk-mod-speckit` separate (out of this build set).
 
 ## Constitution Check
 
@@ -95,10 +96,10 @@ specs/011-deopinionated-module-family/
 │   ├── clerk-mod-base.md
 │   ├── clerk-mod-python.md
 │   ├── clerk-mod-agentic.md   # apm folded in
-│   ├── clerk-mod-ci.md        # 5 models × github/gitlab
+│   ├── ci-github-gitlab.md    # clerk-mod-ci-github + clerk-mod-ci-gitlab (2 modules, 5 models each)
 │   ├── languages.md           # ts / go / rust (shared shape)
 │   ├── quality-tooling.md     # precommit / quality / justfile
-│   ├── docs-integration.md    # readme / stack-adr / github-repo / package-add / org-policy
+│   ├── docs-integration.md    # readme / stack-adr / github-repo / package-add (org-policy dropped, R1)
 │   └── iac.md                 # terraform / cdk / cloudformation
 ├── quickstart.md        # Phase 1 — how to validate the family end to end
 └── tasks.md             # Phase 2 (/speckit.tasks — NOT created here)
@@ -121,8 +122,8 @@ templates/
 ├── clerk-mod-stack-adr/       # NEW
 ├── clerk-mod-github-repo/     # NEW
 ├── clerk-mod-package-add/     # NEW
-├── clerk-mod-org-policy/      # NEW
-├── clerk-mod-ci/              # NEW — multi-model, github + gitlab
+├── clerk-mod-ci-github/       # NEW — 5 models (org-policy DROPPED per R1)
+├── clerk-mod-ci-gitlab/       # NEW — 5 models (host split per R3)
 ├── clerk-mod-terraform/       # NEW
 ├── clerk-mod-cdk/             # NEW
 └── clerk-mod-cloudformation/  # NEW
@@ -199,8 +200,9 @@ and its cog/catalog registration migrates to `clerk-mod-agentic`.
 | stack-adr | NEW | format[simple,adr]=simple (opt-in), adr_dir=docs/decisions | — | SEED-ONCE, agent-frozen facts, initial-only |
 | github-repo | NEW | visibility[private,public,internal]=private, remote_protocol, push_after_create, team | gh repo create | public keeps hard abort-without-consent |
 | package-add | NEW | native add per PM | pnpm/bun/uv/cargo/go add | scaffolds pkg dir; tool writes workspace manifest |
-| org-policy | NEW | (none) | uv-run policy apply | LAST; no-op until org-source-fetch exists |
-| ci | NEW | ci_host[github,gitlab], ci_model[minimal,standard,optimized,monorepo-affected,merge-queue]=minimal, ci_cache(on), ci_concurrency_cancel(on), ci_os_matrix/ci_matrix_versions(single), ci_oidc_provider(none), gitlab_tier[free,premium_ultimate]=free | none (pure render) | agent-frozen ci_languages+facts; grill fixes applied |
+| ci-github | NEW | ci_model[minimal,standard,optimized,monorepo-affected,merge-queue]=minimal, ci_cache(on), ci_concurrency_cancel(on), ci_os_matrix/versions(single), ci_oidc_provider(none), merge_queue_org_confirmed | none (pure render) | agent-frozen ci_languages+facts; fail-loud on empty (R4); artifact majors match |
+| ci-gitlab | NEW | same + gitlab_tier[free,premium_ultimate]=free | none (pure render) | no gate/deploy job; optional:true needs; pinned images; merge-queue+free=fallback |
+| ~~org-policy~~ | DROPPED (R1) | — | — | inert until org-source-fetch; ships in future org-governance spec |
 | terraform | NEW | tf_flavor[terraform,opentofu]=terraform, placement_dir=infrastructure | `terraform/tofu init` | versions.tf managed, main/backend seed-once, lock task-output; tflint+trivy |
 | cdk | NEW | cdk_language[typescript,python,go,java,csharp]=typescript, placement_dir, cdk_version, include_cdk_nag, include_synth_validate | `cdk init` | never bootstrap/deploy; cdk.context.json committed |
 | cloudformation | NEW | mode[raw,sam]=raw, stack_description, environment_names([dev,prod]), cfnlint_version, cfnlint_ignore_rules, aws_validate(off) | opt-in aws validate | YAML render; seed-once template + params; cfnlintrc managed |
@@ -209,13 +211,15 @@ and its cog/catalog registration migrates to `clerk-mod-agentic`.
 
 1. **Governance first (FR-019 gate)**: amend Constitution III → v2.3.0, write ADR-0007, amend spec 007.
    No module releases until done (SC-008).
-2. **Slice A — deterministic core**: base(revise), python(revise), ts, go, rust, precommit (owns
-   threading — do early), quality, justfile. Each: `just new-module` (if new) → author → loop tests →
-   `just check-modules` green.
-3. **Slice B — agent-tier + agentic + CI**: readme, stack-adr, clerk-mod-agentic (apm fold-in), clerk-mod-ci
-   (both hosts).
-4. **Slice C — integration + IaC + monorepo**: github-repo, package-add, terraform, cdk, cloudformation,
-   org-policy (last).
+2. **Slice A — deterministic core**: base(revise→v1.0.0), python(revise→v1.0.0), ts, go, rust, precommit
+   (owns hook_manager/hook_blocks freeze — do early), quality, justfile. Each: `just new-module` (if new)
+   → author → loop tests → `just check-modules` green. base/python are a clean-break MAJOR (M2): no
+   `_migrations`, no update path, no break docs.
+3. **Slice B — agent-tier + agentic + CI**: readme, stack-adr, clerk-mod-agentic (apm fold-in),
+   clerk-mod-ci-github + clerk-mod-ci-gitlab (two modules, R3). MI-1 pin auto-updater lands with/before
+   the second CI host.
+4. **Slice C — integration + IaC + monorepo**: github-repo, package-add, terraform, cdk, cloudformation.
+   (org-policy dropped — R1.)
 5. **Verify all green locally** (`just check-modules`, `just test` targeted, `just lint`, `just vendor &&
    just check-vendor` if vendored sources touched — none expected under C-11).
 6. **Confirmed publish batch (FR-020/FR-023, SC-009)**: pre-create each mirror by hand; merge to main fires
@@ -225,6 +229,20 @@ and its cog/catalog registration migrates to `clerk-mod-agentic`.
 
 | Item | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| Constitution III amendment (v2.3.0) | Native-command scaffolding makes manifests process-deterministic, not byte-identical (FR-007/FR-019) | Rendering manifests byte-identically was the Phase-0 model; rejected per maintainer direction (native tool output is more authentic + mise-pinned). Amendment is in-scope per III's own governance rule. |
+| Constitution III amendment (v2.3.0) | Native-command scaffolding makes manifests process-deterministic, not byte-identical (FR-007/FR-019) | Rendering byte-identically was the Phase-0 model; maintainer chose native+mise (more authentic) and to keep it bundled (critique M4 — decouple option declined). In-scope per III's own governance rule. |
+| base/python MAJOR bump, no update path | 011 reshapes released v0.1.0 incompatibly (M2) | `_migrations` across managed→seed-once + moved dirs is fiddly + low-value at near-zero consumers; clean break is honest (greenfield). No user-facing break docs (maintainer). |
 
-No other violations → no further entries.
+## Critique resolutions (2026-07-14) — folded into spec/plan/contracts
+- **M1**: accreting files (`mise_tools`, `hook_manager`+`hook_blocks`, `quality_languages`) are
+  agent-frozen unions → single writer (the `gitignore_stack` pattern), NOT runtime accumulation.
+  Cross-cutting §2/§4/§5 rewritten; languages/quality/precommit contracts updated.
+- **M2**: base/python clean-break MAJOR (FR-012).
+- **M3**: preflight + native-init tasks init-only-guarded; reproduce over committed tree needs no
+  toolchain/network (FR-012a).
+- **M4**: keep native+mise+III bundled (maintainer decision).
+- **R1**: org-policy DROPPED. **R2**: agentic keeps refusal for `install_via_apm && apm_packages==[]`.
+  **R3**: CI split into `clerk-mod-ci-github` + `clerk-mod-ci-gitlab` (both built). **R4**: CI fails
+  loud on empty ci_languages + no monorepo_tool. **R5**: SC-002/quickstart assert presence not
+  regeneration. **R6**: catalog regen sequenced with apm tombstone.
+
+No unjustified violations remain.

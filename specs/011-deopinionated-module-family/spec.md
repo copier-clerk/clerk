@@ -276,13 +276,24 @@ pipeline can fan it out.
 ### Functional Requirements — module set
 
 - **FR-012** *(revise built modules)*: `clerk-mod-base`, `clerk-mod-python` MUST be revised to satisfy FR-001…FR-010.
-  `clerk-mod-apm` MUST be folded into `clerk-mod-agentic` (FR-016) rather than revised in place.
+  `clerk-mod-apm` MUST be folded into `clerk-mod-agentic` (FR-016) rather than revised in place. **Migration (critique M2):**
+  the 011 reshape of base/python is incompatible with their released v0.1.0 (moved-out dirs; `pyproject.toml`
+  managed-render → task-output/seed-once). They MUST bump to a new MAJOR (`v1.0.0`) as a **clean break with NO `copier
+  update` path and NO `_migrations`** — justified as greenfield (near-zero consumers). No user-facing break/migration docs
+  are written (maintainer decision); the major bump is the only signal.
+- **FR-012a** *(reproduce is not coupled to the toolchain — critique M3)*: Every preflight (`mise install`) and native-init
+  `_task` MUST be **init-only-guarded** (a committed sentinel or a `test -f <manifest>` guard, as `clerk-mod-base`'s LICENSE
+  task already does) so that reproduce over an already-populated tree does NOT re-run `mise install` or the native tool.
+  Reproduce fidelity is scoped to managed renders; a committed-tree reproduce MUST succeed without the native toolchain or
+  network present.
 - **FR-013** *(build ported modules)*: The following MUST be authored: `clerk-mod-ts`, `clerk-mod-go`, `clerk-mod-rust`,
   `clerk-mod-precommit`, `clerk-mod-quality`, `clerk-mod-justfile`, `clerk-mod-readme`, `clerk-mod-stack-adr`,
-  `clerk-mod-github-repo`, `clerk-mod-package-add`, `clerk-mod-org-policy`. Each de-opinionated per its grilling verdict.
-- **FR-014** *(drop / defer)*: `worktreeinclude-write` (`clerk-mod-worktree`) and `env-example` (`clerk-mod-env`) MUST NOT
-  be built (dropped: niche/too-opinionated respectively). `clerk-mod-speckit` remains a SEPARATE module (owns `specs/`),
-  not part of this spec's build set.
+  `clerk-mod-github-repo`, `clerk-mod-package-add`. Each de-opinionated per its grilling verdict.
+- **FR-014** *(drop / defer — amended per 2026-07-14 critique)*: `worktreeinclude-write` (`clerk-mod-worktree`) and
+  `env-example` (`clerk-mod-env`) MUST NOT be built (dropped: niche/too-opinionated). **`clerk-mod-org-policy` is DROPPED
+  from the 011 build set** (critique R1): it is inert until an org-source-fetch module exists (which is not planned here),
+  so it ships in a future org-governance spec alongside its only consumer, not as a dead module now. `clerk-mod-speckit`
+  remains a SEPARATE module (owns `specs/`), not part of this build set.
 - **FR-015** *(thin base)*: `clerk-mod-base` always-on outputs MUST be `docs/` (with a lean `docs_subdirs` toggle default
   on → `architecture`/`decisions`/`runbooks` only), `scripts/`, `tests/`, and a minimal `.github/` gated on a `github_host`
   boolean. It MUST NOT scaffold `.agents/`/`.codex/` (→ agentic), `infrastructure/` (→ IaC modules),
@@ -297,15 +308,20 @@ pipeline can fan it out.
   trust-gated plugin install from a frozen list), `install_via_apm` (default off; the install path for non-marketplace
   targets, trust-gated `uvx --from apm-cli install`). It MUST render cleanly with no targets/features (no refusal). It
   supersedes `clerk-mod-apm` (reopens spec 007; migrates apm's FRs; renames the released mirror — see FR-020).
-- **FR-017** *(clerk-mod-ci)*: A NEW multi-model `clerk-mod-ci` module MUST offer `ci_model` `[minimal, standard, optimized,
-  monorepo-affected, merge-queue]` default `minimal` (matrix is NOT a model — it is the `ci_os_matrix`/`ci_matrix_versions`
-  toggle). It MUST support `ci_host` `[github, gitlab]` with the SAME model menu and host-specific render. Orthogonal toggles:
-  `ci_cache` (default on), `ci_concurrency_cancel` (default on), `ci_os_matrix`/`ci_matrix_versions` (default single),
-  `ci_oidc_provider` (default none); `ci_harden_runner` is NOT offered. `gitlab_tier` `[free, premium_ultimate]` default free
-  governs merge-queue fallback. It is a pure managed render (zero `_tasks`), sized from agent-frozen `--data`
-  (`ci_languages` + per-language facts + `ci_model`), and MUST apply all grill-identified render fixes (gate suppressed on
-  minimal; `optional:true` needs on change-gated jobs; pinned images/actions; coupled interruptible+auto_cancel; literal
-  `compare_to`; canonical `workflow:rules` duplicate guard; `fallback_keys`; monorepo zero-language guard).
+- **FR-017** *(CI — TWO host modules, amended per critique R3)*: CI is split into TWO separate modules —
+  **`clerk-mod-ci-github`** and **`clerk-mod-ci-gitlab`** (they share almost no render; a single host-branched module was
+  the "conditional explosion" the IaC split already rejected). BOTH are built in 011. Each offers `ci_model`
+  `[minimal, standard, optimized, monorepo-affected, merge-queue]` default `minimal` (matrix is NOT a model — it is the
+  `ci_os_matrix`/`ci_matrix_versions` toggle). Orthogonal toggles: `ci_cache` (default on), `ci_concurrency_cancel`
+  (default on), `ci_os_matrix`/`ci_matrix_versions` (default single), `ci_oidc_provider` (default none); `ci_harden_runner`
+  is NOT offered. `clerk-mod-ci-gitlab` additionally has `gitlab_tier` `[free, premium_ultimate]` default free (merge-queue
+  fallback). Each is a pure managed render (zero `_tasks`), sized from agent-frozen `--data` (`ci_languages` + per-language
+  facts + `ci_model`), and MUST **fail loud** (rendered warning or preflight error) when selected with empty `ci_languages`
+  and `monorepo_tool==none` (critique R4 — no silent empty workflow). Each MUST apply its grill-identified render fixes:
+  github — gate suppressed on minimal, status-shim on change-filtered, pinned actions (upload/download-artifact SAME major);
+  gitlab — no gate/deploy job, `optional:true` needs on change-gated jobs, pinned images (no `:latest`), coupled
+  interruptible+auto_cancel, literal `compare_to`, canonical `workflow:rules` duplicate guard, `fallback_keys`. The pin
+  auto-updater (MI-1) SHOULD land before/with the second host to bound the rotating-pin maintenance surface.
 - **FR-018** *(IaC family — three modules)*: Three NEW separate modules MUST be authored (different paradigms, no shared
   template content): `clerk-mod-terraform` (`tf_flavor [terraform, opentofu]` default `terraform`; HCL skeleton; managed
   versions.tf/.tflint.hcl; seed-once main/backend; `.terraform.lock.hcl` task-output via trust-gated init; tflint+trivy,
@@ -325,7 +341,9 @@ pipeline can fan it out.
 - **FR-020** *(apm rename / tombstone)*: Folding `clerk-mod-apm` into `clerk-mod-agentic` MUST create the new module + mirror
   and tombstone the released `copier-clerk/clerk-mod-apm` mirror with a deprecation pointer. This is an irreversible public
   action requiring explicit maintainer confirmation; it MUST NOT be performed unattended. Spec 007 MUST be amended to record
-  the hybrid resolution (agentic rollup + apm folded + speckit separate).
+  the hybrid resolution (agentic rollup + apm folded + speckit separate). **Sequencing (critique R6):** the `catalog.json`
+  regeneration that drops apm MUST be sequenced WITH the tombstone so there is no window where apm is un-discoverable in the
+  catalog but not yet redirected by the tombstone pointer.
 - **FR-021** *(contract lint)*: Every authored/revised module MUST pass `scripts/check_modules.py` (`just check-modules`):
   answers-file `.jinja`, README, CHANGELOG with the `- - -` separator, three-way registration parity
   (`templates/` == `cog.toml [monorepo.packages]` == `catalog-sources.toml`), published-label immutability.
@@ -359,8 +377,12 @@ pipeline can fan it out.
 - **SC-001**: Every consequential tooling decision a competent team differs on is a choice with a sane default; a spot-check
   of any module surfaces no forced opinion outside the ratified "keep hardcoded" set, and no dead option (pip/yarn/jest/husky)
   is offered.
-- **SC-002**: A generated project reproduces on a fresh checkout with clerk-managed files byte-identical and tool-generated
-  manifests regenerated by the pinned tool; no reproduce path invokes an agent.
+- **SC-002** *(reworded per critique R5)*: A generated project reproduces with clerk-managed files byte-identical and
+  tool-generated manifests **present and structurally intact** (the committed manifest is used verbatim — the native-init
+  task is init-only-guarded and `_skip_if_exists` protects the file, so reproduce over the committed tree does NOT
+  re-shell or regenerate); no reproduce path invokes an agent, and reproduce over a committed tree does not require the
+  native toolchain to re-run. What the native-command model changes is *init-time cross-machine byte consistency* of
+  manifests (never a strict clerk guarantee for task-output), not reproduce fidelity.
 - **SC-003**: `clerk-mod-agentic` produces working config for any subset of `[claude, codex, opencode, kiro]` and installs
   packages via native marketplace and/or APM; the empty selection renders with no error.
 - **SC-004**: `clerk-mod-ci` renders a valid, correctly-gated workflow for each of the 5 models on both GitHub and GitLab,

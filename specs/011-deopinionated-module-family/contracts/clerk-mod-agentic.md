@@ -14,7 +14,7 @@ in the confirmed publish batch — FR-020).
 | install_via_apm | bool | false | APM install (path for non-marketplace targets) |
 | mcp_servers | yaml | [] | canonical injected list, fanned per target; env as ${VAR} refs |
 | agentic_plugins | yaml | [] | {marketplace:{name,owner_repo}, plugins:[…], category?} |
-| apm_packages | yaml | [] | APM locators (when install_via_apm) — NO empty-set refusal |
+| apm_packages | yaml | [] | APM locators (when install_via_apm) — see empty-set rule below |
 | apm_cli_version | str | 0.25.0 | pinned uvx --from apm-cli==<ver> |
 | project_name / today | str | "{{ project_name }}" / "" | threaded / injected |
 | depends_on/run_after/run_before | yaml when:false | [] | ordering declared by consumers |
@@ -28,6 +28,10 @@ in the confirmed publish batch — FR-020).
 - `.agents/` + `.codex/` dirs (moved here from base) created when the relevant target selected.
 - **task-output**: apm lock (`apm install`, when install_via_apm + non-empty apm_packages); Claude plugin install side-effect.
 - **Empty selection renders clean** — no target, no feature → only `.copier-answers.yml`. No refusal.
+- **BUT (critique R2): the specific combination `install_via_apm=true` + `apm_packages==[]` MUST refuse
+  loudly** (a validator, as old clerk-mod-apm FR-002b did) — that combination is a phase-1 mistake (the
+  APM install path was selected but produced no packages), distinct from the legitimate module-level
+  no-op (no targets at all). Two different cases; only the module-level empty is a clean no-op.
 
 ## Tasks (order, all trust-gated)
 1. preflight: mise + (uvx present when install_via_apm; the agent CLIs are the user's, not required at scaffold).

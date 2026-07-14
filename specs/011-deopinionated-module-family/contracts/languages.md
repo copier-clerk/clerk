@@ -1,9 +1,11 @@
 # Contract — language overlays: clerk-mod-ts / -go / -rust (NEW)
 
 Shared shape (mirror clerk-mod-python + [_cross-cutting.md](./_cross-cutting.md)). Each
-`run_after: [clerk-mod-base]`, threads `project_name`, contributes its `.gitignore` token to base's
-`gitignore_stack`, its `[tools]` token to `.mise.toml`, and its hook block to clerk-mod-precommit
-via the `hook_manager` threading contract. Initial manifest = native init (task-output, seed-once).
+`run_after: [clerk-mod-base]`, threads `project_name`. Each contributes its token to the
+AGENT-FROZEN UNION answers (NOT runtime accumulation — M1): its `.gitignore` token to
+`gitignore_stack`, its `[tools]` token to `mise_tools` (base writes `.mise.toml`), and its hook
+block to `hook_blocks` (precommit writes the hook file). Initial manifest = native init
+(task-output, seed-once), init-only-guarded (FR-012a).
 
 ## clerk-mod-ts
 - **Questions**: `js_pkg_manager [bun,pnpm,npm]=bun` (drop yarn); `ts_linter [biome,eslint-prettier]=biome`; `test_runner [none,vitest-node,vitest-browser,vitest+playwright,bun-test,playwright-only]=none` (drop jest); `node_version`; `framework [plain,nuxt,vite,sst]=plain` (+ `vite_template` when vite); `ui_kit [none,shadcn]=none`; threaded `project_name`, `hook_manager`.

@@ -36,10 +36,11 @@ Run the targeted loop tests (hermetic; native/network tasks stubbed offline):
 uv run pytest tests/loop/test_python_overlay.py tests/loop/test_ts_overlay.py -q
 ```
 Expected: base renders before the overlay (edge order), the native-init manifest marker is present
-(task-output), managed config (ruff/tsconfig) is byte-identical, the mise `[tools]` token + gitignore
-token are contributed, and reproduce onto a fresh checkout re-renders managed byte-identically while
-regenerating the manifest process-deterministically. An edited manifest on a re-run is preserved
-(`_skip_if_exists`).
+(task-output), managed config (ruff/tsconfig) is byte-identical, the frozen `mise_tools` + gitignore
+tokens are present. Reproduce over the committed tree: managed re-renders byte-identically and the
+committed manifest is used **verbatim** (init-only guard + `_skip_if_exists` → NOT regenerated, no
+toolchain/network needed — critique R5/M3). Assert manifest *presence/structure*, never regeneration.
+An edited manifest on a re-run is preserved.
 
 ## 5. Agentic rollup (US3, SC-003)
 ```
@@ -49,14 +50,16 @@ Expected: any subset of `[claude, codex, opencode, kiro]` renders disjoint per-t
 selection is a clean no-op (no refusal); `install_via_apm` + a non-marketplace target uses the APM
 path; MCP env values render as `${VAR}` refs (no secret question).
 
-## 6. Multi-model CI (US4, SC-004)
+## 6. Multi-model CI (US4, SC-004) — two modules
 ```
-uv run pytest tests/loop/test_ci_*.py -q
+uv run pytest tests/loop/test_ci_github_*.py tests/loop/test_ci_gitlab_*.py -q
 ```
-Expected: each of the 5 models × {github, gitlab} renders valid, correctly-gated CI sized to a
-2-language `ci_languages` fact — minimal has no gate, standard has the gate, optimized change-filters;
-no `:latest`/unpinned refs; GitLab change-gated `needs:` use `optional: true`; `merge-queue` +
-`gitlab_tier=free` renders the fallback + warning (no hard error). Pure render → reproduce byte-identical.
+Expected: for EACH of `clerk-mod-ci-github` and `clerk-mod-ci-gitlab`, all 5 models render valid,
+host-lint-clean (actionlint / gitlab-ci lint — valid YAML ≠ valid workflow) CI sized to a 2-language
+`ci_languages` fact — minimal no gate, standard gate, optimized change-filters; no `:latest`/unpinned
+refs; GitHub artifact majors match; GitLab change-gated `needs:` use `optional: true`; `merge-queue` +
+`gitlab_tier=free` → fallback + warning; empty `ci_languages` + `monorepo_tool==none` → loud warning,
+not silent (R4). Pure render → reproduce byte-identical.
 
 ## 7. IaC trio (US5, SC-005)
 ```

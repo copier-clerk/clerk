@@ -14,26 +14,37 @@ Use these EXACT keys/types/choices/defaults wherever a module touches the axis (
 edition 2015, py<3.11) are NOT offered. Threaded axes use `default: "{{ <key> }}"` so a downstream
 layer inherits the upstream answer without hardcoding which layer supplied it (FR-010 pattern).
 
-## 2. mise integration pattern (FR-006)
+## 2. mise integration pattern (FR-006) — agent-frozen union → single writer (CRITIQUE M1)
 
-- Each language/tool module contributes a `[tools]` entry for its toolchain to `.mise.toml`
-  (**managed** render from the frozen version answer, e.g. `python = "{{ python_version }}"`).
+**CRITICAL**: shared accreting files are NOT built by runtime accumulation across layers. With the
+ordering tie-break = lexicographic basename (`ordering.py:11`) and every layer `run_after:
+[clerk-mod-base]`, a later-sorting layer CANNOT reliably read an earlier one's answer via the
+`init_many` accumulator, and two managed writers to one file overwrite (not append). The proven,
+buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, help: "clerk
+**injects** this"): the **phase-1 agent freezes a UNION answer** and injects it via `--data`, and a
+**single designated module writes the file**.
+
+- **`mise_tools`** is a frozen union answer (yaml, default `[]`): the phase-1 agent, knowing the whole
+  selection, injects the full `[tools]` set (e.g. `{python: "3.13", node: "22", ...}`) via `--data`.
+- **`clerk-mod-base` is the single writer** of `.mise.toml` (**managed** render from `mise_tools`).
+  Language/tool modules do NOT each write `.mise.toml`; they merely contribute their token to the
+  frozen `mise_tools` union the agent assembles (exactly as they contribute to `gitignore_stack`).
 - The module's FIRST `_task` is the preflight: `command -v mise >/dev/null || { echo "install mise:
-  https://mise.jdx.dev"; exit 1; }` then `mise install` (installs+pins the toolchain). This replaces
-  per-tool `command -v` checks — one preflight covers the module's whole toolchain.
-- Because `mise install` pins versions, the native-init output below is deterministic enough to be
-  task-output (ADR-0007).
-- `.mise.toml` is a single shared file: when multiple language modules are selected, each contributes
-  its own `[tools]` line — treat it like `gitignore_stack` (single managed writer keyed off the
-  union of frozen tool answers) to avoid multi-writer conflicts. base owns the `.mise.toml` skeleton;
-  language modules inject their tool token.
+  https://mise.jdx.dev"; exit 1; }` then `mise install`. **Init-only-guarded (FR-012a)** via a
+  committed sentinel so reproduce over a populated tree does not re-shell.
+- Because `mise install` pins versions, native-init output below is task-output (ADR-0007).
+- Ubiquitous tools not in the mise registry (`git`, `gh`, `gitnr`) stay a `command -v` check in base's
+  preflight — mise is the pin surface for language/build toolchains, not literally every binary.
 
 ## 3. Native-command scaffold pattern (FR-007 / ADR-0007)
 
-- Initial manifest = the tool's own init as a trust-gated `_task`, idempotency-guarded:
+- Initial manifest = the tool's own init as a trust-gated `_task`, **init-only-guarded** (FR-012a):
   `test -f <manifest> || <tool> init …`. The manifest is **task-output** (process-deterministic),
-  then **seed-once** (`_skip_if_exists`) so a populated-tree re-run never clobbers project edits;
-  a fresh-checkout reproduce regenerates it via the pinned tool.
+  then **seed-once** (`_skip_if_exists`) so a populated-tree re-run never clobbers project edits.
+  **Reproduce note (critique R5):** over the normal committed tree the guard + `_skip_if_exists` mean
+  the committed manifest is used verbatim (byte-identical, NOT regenerated, no toolchain needed); the
+  native tool only runs on a genuinely empty tree. Loop tests assert manifest *presence/structure* on
+  reproduce, never regeneration.
 - Per language: `uv init` (python), `bun init`/`pnpm init` (ts, per `js_pkg_manager`), `cargo new`
   (rust, `--lib` when lib), `go mod init` (go), `cdk init app --language=` (cdk). Adding deps later
   (package-add) = native `add` command, never manifest edits.
@@ -42,17 +53,22 @@ layer inherits the upstream answer without hardcoding which layer supplied it (F
 - NEVER an irreversible action at scaffold (no `cdk bootstrap`/`deploy`, `terraform apply`,
   `sam deploy`; `gh repo create` only behind the public-repo consent gate).
 
-## 4. hook_manager threading contract (owned by clerk-mod-precommit)
+## 4. hook_manager threading contract — agent-frozen union → single writer (CRITIQUE M1)
 
-- `clerk-mod-precommit` owns the hook config file: `.pre-commit-config.yaml` (pre-commit),
-  `lefthook.yml` (lefthook), or nothing (`none`). It is the single writer.
-- Each language module declares `hook_manager` (`default: "{{ hook_manager }}"`, standalone default
-  `pre-commit`) and contributes its language's hook block via the same shared-list mechanism as
-  `gitignore_stack`: a `hook_blocks` (or per-manager) answer the precommit module consumes — NOT by
-  each language writing the hook file itself (avoids double-append / non-idempotent reproduce).
-- `clerk-mod-justfile`'s `lint` recipe reads `hook_manager` to emit the right invocation
-  (`pre-commit run --all-files` vs `lefthook run pre-commit`).
-- When `hook_manager=none`, no hook file is written and language hook contributions are inert.
+Same fix as §2 — NOT runtime accumulation (the circular case: precommit needs languages'
+`hook_blocks`, languages need precommit's `hook_manager`; unresolvable at runtime with basename
+ordering). Resolved by freezing both up front:
+
+- **`hook_manager`** (str, `[pre-commit,lefthook,none]=pre-commit`) and **`hook_blocks`** (yaml union,
+  default `[]`) are BOTH frozen by the phase-1 agent and injected via `--data`. The agent knows the
+  whole selection, so it assembles the union of language hook blocks and the chosen manager up front.
+- **`clerk-mod-precommit` is the single writer** of the hook config file: `.pre-commit-config.yaml`
+  (pre-commit), `lefthook.yml` (lefthook), or nothing (`none`) — rendered from `hook_manager` +
+  `hook_blocks` + its own base hooks. Language modules do NOT write the hook file; they contribute
+  their block to the frozen `hook_blocks` union.
+- `clerk-mod-justfile`'s `lint` recipe reads the frozen `hook_manager` to emit the right invocation.
+- When `hook_manager=none`, no hook file is written and `hook_blocks` is inert.
+- `install_hooks` task is **init-only-guarded** (FR-012a).
 
 ## 5. Agent-frozen `--data` facts (FR-010)
 
@@ -63,6 +79,11 @@ layer inherits the upstream answer without hardcoding which layer supplied it (F
   for stack-adr. Reproduce replays the frozen answers; no agent in the reproduce path.
 - Everything a module CAN get from an upstream layer it already ran after uses copier
   `default: "{{ upstream_answer }}"` threading via the `init_many` accumulator (verified available).
+- **Accreting-file unions are frozen, not accumulated (M1):** `gitignore_stack`, `mise_tools`,
+  `hook_manager`+`hook_blocks`, and `quality_languages` are ALL agent-frozen union answers injected via
+  `--data` to a single designated writer — NEVER built by later layers reading earlier layers at
+  runtime (basename ordering + persisted-only accumulator make that unreliable/circular). This is the
+  established `gitignore_stack` contract, applied uniformly.
 
 ## 6. Determinism / trust / secrets (unchanged constitution rules)
 

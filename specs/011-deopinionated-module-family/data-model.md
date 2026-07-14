@@ -58,25 +58,36 @@ Version lists are subject to the meta-item CI auto-updater (out of module scope)
 `when:false` hidden answers read statically from `copier.yml` (ADR-0003). Cross-module ordering is
 recomputed at reproduce; tie-break alphabetical by basename. Key edges:
 - language/quality/tooling/docs/agentic/iac modules → `run_after: [clerk-mod-base]` (base is root).
-- `clerk-mod-precommit` owns the hook file; language modules thread `hook_manager` and contribute
-  hook blocks (single writer — the `gitignore_stack` pattern).
-- `clerk-mod-ci`, `clerk-mod-stack-adr` sort before language layers → they DON'T read run-order
-  answers; they consume agent-frozen `--data` facts instead.
+- `clerk-mod-precommit` owns the hook file; the phase-1 agent freezes `hook_manager` + the
+  `hook_blocks` union up front and injects via `--data` (single writer — the `gitignore_stack`
+  pattern; NOT runtime accumulation, which is circular/order-accidental — critique M1).
+- `clerk-mod-base` owns `.mise.toml`, written from the frozen `mise_tools` union (M1).
+- `clerk-mod-quality` owns `.agents/hooks/quality-languages` from the frozen `quality_languages`
+  union (M1).
+- `clerk-mod-ci-github`/`clerk-mod-ci-gitlab`, `clerk-mod-stack-adr` sort before language layers →
+  they DON'T read run-order answers; they consume agent-frozen `--data` facts instead.
 - IaC modules: layout-independent overlay, `run_after: [clerk-mod-base]` optional (also standalone).
 
-## Entity: Agent-frozen fact
+## Entity: Agent-frozen fact / union
 
 A phase-1 decision persisted as a `--data` answer (FR-010), the reproduce state for agent-tier
-behavior. Instances: `ci_model` + `ci_languages` + per-language CI facts (clerk-mod-ci);
-`architecture_md` + globs (base); stack facts/pins (stack-adr); `mcp_servers` + `agentic_plugins`
-+ `agentic_targets` (agentic); `readme_body` when `readme_style=agent-draft`.
+behavior. Two flavors:
+- **single facts**: `ci_model` + `ci_languages` + per-language CI facts (ci modules);
+  `architecture_md` + globs (base); stack facts/pins (stack-adr); `readme_body` when
+  `readme_style=agent-draft`; `agentic_targets` + `mcp_servers` + `agentic_plugins` (agentic).
+- **frozen unions (critique M1)** — accreting-file inputs the agent assembles across the whole
+  selection and injects to a single writer, NEVER runtime-accumulated: `gitignore_stack` (base
+  writes `.gitignore`/gitnr), `mise_tools` (base writes `.mise.toml`), `hook_manager`+`hook_blocks`
+  (precommit writes the hook file), `quality_languages` (quality writes the hooks list).
 
 ## Entity: Fan-out registration (008b)
 
 Per module, three-way parity: `templates/<name>/` dir == `cog.toml [monorepo.packages.<name>]` ==
 `catalog-sources.toml [[sources]]` url stem. `just new-module` creates all three; `check_modules.py`
 verifies. Mirror `copier-clerk/clerk-mod-<name>` pre-created by hand (confirmed public action).
-`clerk-mod-apm` registration is REMOVED and migrated to `clerk-mod-agentic`.
+`clerk-mod-apm` registration is REMOVED and migrated to `clerk-mod-agentic` (catalog regen sequenced
+WITH the apm tombstone — R6). `clerk-mod-org-policy` is NOT registered (dropped — R1). CI registers as
+two entries: `clerk-mod-ci-github` + `clerk-mod-ci-gitlab` (R3).
 
 ## Validation rules (from requirements)
 - No `secret:` question on any module (FR-005 / Constitution VI); secrets-policy lint stays green.
