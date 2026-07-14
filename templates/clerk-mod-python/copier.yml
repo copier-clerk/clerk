@@ -9,7 +9,7 @@
 #   TASK-OUTPUT (process-deterministic): pyproject.toml — written by native init,
 #     then seed-once (_skip_if_exists); reproduce uses the committed file verbatim.
 #   CONTRIBUTES tokens only (M1): python version + uv token → mise_tools (base
-#     writes .mise.toml); python → gitignore_stack (base writes .gitignore);
+#     writes .mise.toml); Python (gitnr short-code) → gitignore_stack (base writes .gitignore);
 #     ruff hook block → hook_blocks (precommit writes hook config).
 #
 # Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;

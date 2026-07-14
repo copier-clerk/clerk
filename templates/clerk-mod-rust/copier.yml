@@ -168,15 +168,17 @@ _tasks:
     { echo "clerk-mod-rust: required tool 'cargo' not found on PATH." >&2;
     echo "  cargo — https://rustup.rs/" >&2;
     exit 1; }
-  # cargo new: init-only-guarded; passes --lib when crate_kind=lib (FIX: upstream bug).
+  # cargo init: init-only-guarded; passes --lib when crate_kind=lib (FIX: upstream bug).
+  # `cargo init` (NOT `cargo new`) because the dest already contains the base
+  # layer's scaffold — `cargo new .` refuses a non-empty directory (E2E-verified).
   # Resolver=2 is patched in below via the managed Cargo.toml.jinja seed for the
-  # section the user is expected to keep; but cargo new itself writes a minimal
+  # section the user is expected to keep; but cargo init itself writes a minimal
   # Cargo.toml that we layer on top via the _skip_if_exists seed file approach.
-  # Note: cargo new always writes src/main.rs (bin) or src/lib.rs (lib). We use
+  # Note: cargo init always writes src/main.rs (bin) or src/lib.rs (lib). We use
   # _skip_if_exists so those are preserved on reproduce.
   - >-
     test -f Cargo.toml ||
-    cargo new
+    cargo init
     {% if crate_kind == 'lib' %}--lib{% endif %}
     --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
     --edition "{{ rust_edition }}"
