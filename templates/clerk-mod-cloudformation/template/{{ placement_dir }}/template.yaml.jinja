@@ -1,0 +1,41 @@
+{% if mode == 'sam' %}Transform: AWS::Serverless-2016-10-31
+
+{% endif %}AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+{% if stack_description %}  {{ stack_description }}
+{% else %}  Describe this stack.
+{% endif %}
+
+{% if mode == 'sam' %}# Globals:
+#   Function:
+#     Timeout: 30
+#     MemorySize: 128
+#     Runtime: python3.13
+
+{% endif %}Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+{% for env in environment_names %}      - {{ env }}
+{% endfor %}    Description: Deployment environment
+
+Resources:
+  # Add your resources here.
+  # Use AWS pseudo-parameters instead of hardcoded values:
+  #   !Sub "${AWS::Region}"       — current region
+  #   !Sub "${AWS::AccountId}"    — current account
+  #   !Sub "${AWS::StackName}"    — this stack's name
+  #   !Sub "${AWS::NoValue}"      — conditional omission
+  #
+  # Example (uncomment and adapt):
+  # MyBucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties:
+  #     BucketName: !Sub "${AWS::StackName}-${Environment}-data"
+
+Outputs: {}
+  # Example:
+  # BucketName:
+  #   Value: !Ref MyBucket
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-BucketName"

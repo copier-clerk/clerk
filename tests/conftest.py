@@ -876,6 +876,27 @@ _AWS_STUB_TASKS = dedent(
     """
 )
 
+# Offline stub tasks for clerk-mod-cloudformation: preserve the SEED-ONCE
+# parameter-seeding loop (offline, no AWS) and stub the opt-in validate task
+# with a conditional marker so aws_validate=true/false tests both work.
+_CFN_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      # Seed per-env parameter files with test -f guards (identical to the real task,
+      # but no network — the loop body is purely offline JSON writes).
+      - >-
+        mkdir -p "{{ placement_dir }}/parameters" &&
+        for env in {{ environment_names | join(" ") }}; do
+        test -f "{{ placement_dir }}/parameters/${env}.json" ||
+        printf '[{\\n  "ParameterKey": "Environment",\\n  "ParameterValue": "%s"\\n}]\\n' "${env}"
+        > "{{ placement_dir }}/parameters/${env}.json";
+        done
+      # Stub aws validate-template: write marker only when aws_validate=true.
+      - command: "printf 'aws-preflight-ok\\\\n' > .clerk-aws-preflight"
+        when: "{{ aws_validate }}"
+    """
+)
+
 # Offline stub tasks for modules that invoke gh (GitHub CLI).
 _GH_STUB_TASKS = dedent(
     """\
@@ -1014,6 +1035,21 @@ _APM_STUB_BASE_YML = dedent(
       - "git init --quiet"
     """
 )
+
+
+@pytest.fixture
+def clerk_mod_cloudformation(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-cloudformation template with AWS tasks stubbed offline.
+
+    The CFN-specific stub preserves the parameter-seeding loop (SEED-ONCE, test -f
+    guarded) and replaces only the aws validate-template call with a conditional
+    marker so aws_validate=true/false tests both work without AWS credentials.
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-cloudformation",
+        tmp_path / "clerk-mod-cloudformation",
+        _CFN_STUB_TASKS,
+    )
 
 
 @pytest.fixture
