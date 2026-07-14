@@ -43,12 +43,7 @@ stages:
   - ci
 {% elif ci_model in ['standard', 'optimized', 'merge-queue'] %}
 stages:
-{% for lang in _languages %}
-  - {{ lang }}
-{% endfor %}
-{% if not _languages %}
-  - ci
-{% endif %}
+  - test
 {% elif ci_model == 'monorepo-affected' %}
 stages:
   - trigger
@@ -145,7 +140,7 @@ ci:
 {%- set _img   = _facts['image'] if 'image' in _facts else '' %}
 
 {{ lang }}:
-  stage: {{ lang }}
+  stage: test
 {% if _img %}
   image: {{ _img }}
 {% endif %}
@@ -204,7 +199,7 @@ ci:
 {%- set _img   = _facts['image'] if 'image' in _facts else '' %}
 
 {{ lang }}:
-  stage: {{ lang }}
+  stage: test
 {% if _img %}
   image: {{ _img }}
 {% endif %}
@@ -404,7 +399,7 @@ trigger:all:
 {%- set _img   = _facts['image'] if 'image' in _facts else '' %}
 
 {{ lang }}:
-  stage: {{ lang }}
+  stage: test
 {% if _img %}
   image: {{ _img }}
 {% endif %}
