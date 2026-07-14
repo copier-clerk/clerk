@@ -64,3 +64,5 @@ path = "templates/clerk-mod-stack-adr"
 path = "templates/clerk-mod-github-repo"
 [monorepo.packages.clerk-mod-justfile]
 path = "templates/clerk-mod-justfile"
+[monorepo.packages.clerk-mod-stack-adr]
+path = "templates/clerk-mod-stack-adr"

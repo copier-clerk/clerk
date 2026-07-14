@@ -1,0 +1,19 @@
+# Stack — {{ project_name }}
+
+> Generated {{ today or "at init" }}. This file is project-owned — edit freely after generation.
+{% if framework %}
+**Framework / Runtime:** {{ framework }}
+{% endif %}
+## Technology Stack
+{% if stack_pins %}
+{% for pin in stack_pins %}
+- {{ pin }}
+{% endfor %}
+{% else %}
+_No stack pins recorded._
+{% endif %}
+{% if rationale %}
+## Rationale
+
+{{ rationale }}
+{% endif %}

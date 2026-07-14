@@ -1134,6 +1134,12 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
           mkdir -p "{{ dir.rstrip('/') }}/{{ name }}";
           printf 'package-add-ok lang={{ lang }} name={{ name }}\\n' > .clerk-package-add-preflight
+# clerk-mod-stack-adr has no native-tool tasks (pure template, no tool prerequisite).
+# The stub is a no-op marker so _copy_module_with_stub_tasks has a non-empty block
+# to append (the regex only strips if _tasks already exists in copier.yml).
+_STACK_ADR_STUB_TASKS = dedent(
+    """\
+    _tasks: []
     """
 )
 
@@ -1173,6 +1179,13 @@ def clerk_mod_cloudformation(tmp_path: Path) -> TemplateRepo:
         "clerk-mod-cloudformation",
         tmp_path / "clerk-mod-cloudformation",
         _CFN_STUB_TASKS,
+def clerk_mod_stack_adr(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-stack-adr template as a hermetic repo (no-op tasks stub).
+
+    spec 011 T013: pure template module; no network or tool tasks to stub.
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-stack-adr", tmp_path / "clerk-mod-stack-adr", _STACK_ADR_STUB_TASKS
     )
 
 

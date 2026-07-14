@@ -1,0 +1,30 @@
+# ADR-0001: Technology Stack
+
+Date: {{ today or "at init" }}
+
+## Status
+
+Accepted
+
+## Context
+
+Technology stack decision for **{{ project_name }}**.
+{% if framework %}
+Primary framework / runtime: {{ framework }}
+{% endif %}
+## Decision
+
+The following technology stack is adopted for this project:
+{% if stack_pins %}
+{% for pin in stack_pins %}
+- {{ pin }}
+{% endfor %}
+{% else %}
+_No specific stack pins recorded._
+{% endif %}
+## Consequences
+{% if rationale %}
+{{ rationale }}
+{% else %}
+_No rationale recorded._
+{% endif %}
