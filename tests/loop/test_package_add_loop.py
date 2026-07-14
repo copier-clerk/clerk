@@ -78,9 +78,14 @@ def test_guard_rejects_bad_name(
 @pytest.mark.parametrize(
     "bad_dir",
     [
-        "../escape",  # traversal in dir
-        "a/../b",  # embedded traversal
-        "../../etc",  # deep traversal
+        "../escape",     # traversal in dir
+        "a/../b",        # embedded traversal
+        "../../etc",     # deep traversal
+        "..",            # bare dot-dot (bypassed old regex)
+        ".",             # bare dot (bypassed old regex)
+        "a\\b",          # backslash — SEC-001 4th condition
+        "packages/..",   # trailing dot-dot after legitimate prefix
+        "../",           # trailing-slash traversal variant
     ],
 )
 def test_guard_rejects_bad_dir(
@@ -97,7 +102,12 @@ def test_guard_rejects_bad_dir(
             {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": bad_dir},
         )
 
-    # ZERO side effects: no marker written
+    # ZERO side effects: no dir created anywhere under dest, no marker written.
+    # Use rglob to catch any directory the guard might have let mkdir create.
+    created_dirs = [p for p in dest.rglob("*") if p.is_dir()]
+    assert created_dirs == [], (
+        f"guard failed: dirs created for bad dir {bad_dir!r}: {created_dirs}"
+    )
     assert not (dest / ".clerk-package-add-preflight").exists(), (
         f"guard failed: preflight marker written for bad dir {bad_dir!r}"
     )
