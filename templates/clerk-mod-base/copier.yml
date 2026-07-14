@@ -92,7 +92,7 @@ docs_subdirs:
 github_host:
   type: bool
   default: true
-  help: "Scaffold minimal .github/ (issue/PR templates, CODEOWNERS, dependabot)? No workflows — those are clerk-mod-ci."
+  help: "Scaffold minimal .github/ (issue/PR templates, CODEOWNERS)? No workflows (clerk-mod-ci-*) or dependabot (clerk-mod-dep-updates)."
 
 extra_dirs:
   type: yaml

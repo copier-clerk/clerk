@@ -163,7 +163,11 @@ def test_init_github_host_true_no_workflows(clerk_mod_base: TemplateRepo, tmp_pa
         {"project_name": "myproj", "org": "acme", "license": "mit", "github_host": True},
     )
     assert (dest / ".github" / "CODEOWNERS").is_file(), "CODEOWNERS missing"
-    assert (dest / ".github" / "dependabot.yml").is_file(), "dependabot.yml missing"
+    # dependabot.yml moved OUT of base to clerk-mod-dep-updates (spec 012 amendment,
+    # applied pre-v1.0.0 so base ships clean).
+    assert not (dest / ".github" / "dependabot.yml").exists(), (
+        "dependabot.yml must not be scaffolded by base — owned by clerk-mod-dep-updates (012)"
+    )
     assert not (dest / ".github" / "workflows").exists(), (
         ".github/workflows must not be scaffolded by base"
     )
