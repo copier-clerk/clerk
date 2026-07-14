@@ -49,3 +49,5 @@ path = "templates/clerk-mod-ci-gitlab"
 path = "templates/clerk-mod-package-add"
 [monorepo.packages.clerk-mod-terraform]
 path = "templates/clerk-mod-terraform"
+[monorepo.packages.clerk-mod-cdk]
+path = "templates/clerk-mod-cdk"

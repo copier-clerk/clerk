@@ -1133,6 +1133,14 @@ def clerk_mod_package_add(tmp_path: Path) -> TemplateRepo:
 
 
 @pytest.fixture
+def clerk_mod_cdk(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-cdk template as a hermetic repo (cdk init stubbed offline)."""
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-cdk", tmp_path / "clerk-mod-cdk", _CDK_STUB_TASKS
+    )
+
+
+@pytest.fixture
 def apm_stub_base(tmp_path: Path) -> TemplateRepo:
     """A minimal stub base layer that threads project_name into clerk-mod-apm (Q5)."""
     return build_template_repo(
