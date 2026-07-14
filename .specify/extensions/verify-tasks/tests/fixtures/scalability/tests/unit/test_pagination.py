@@ -1,4 +1,5 @@
 """Unit tests for paginate — T044."""
+
 from utils.pagination import paginate
 
 

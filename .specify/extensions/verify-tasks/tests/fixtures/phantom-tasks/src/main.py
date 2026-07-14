@@ -4,8 +4,8 @@ Wires together genuine modules (T001-T004). Does NOT import phantom modules.
 """
 
 from auth import UserAuth
-from db import DatabaseConnection
 from config import AppConfig
+from db import DatabaseConnection
 
 
 def main():

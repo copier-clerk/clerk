@@ -1,4 +1,5 @@
 """Integration tests for OrderService.place_order — T043."""
+
 from services.order_service import OrderService
 
 

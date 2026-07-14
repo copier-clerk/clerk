@@ -1,4 +1,5 @@
 """Unit tests for validate_email — T045."""
+
 from utils.validators import validate_email
 
 

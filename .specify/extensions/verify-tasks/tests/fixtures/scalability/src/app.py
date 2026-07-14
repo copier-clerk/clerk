@@ -1,16 +1,14 @@
 """Application bootstrap — T046."""
-from config.settings import Settings
+
 from config.logging_config import configure_logging
-from services.user_service import UserService
-from services.product_service import ProductService
-from services.order_service import OrderService
-from handlers.user_handler import UserHandler
-from handlers.product_handler import ProductHandler
+from config.settings import Settings
 from handlers.order_handler import OrderHandler
-from middleware.auth_middleware import AuthMiddleware
-from middleware.logging_middleware import LoggingMiddleware
-from middleware.cors_middleware import CorsMiddleware
+from handlers.product_handler import ProductHandler
+from handlers.user_handler import UserHandler
 from router import Router
+from services.order_service import OrderService
+from services.product_service import ProductService
+from services.user_service import UserService
 
 
 def create_app(settings: Settings = None) -> Router:

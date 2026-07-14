@@ -2,6 +2,7 @@
 Output formatters — T005, T006.
 Both functions referenced by src/pipeline.py and src/app.py.
 """
+
 from datetime import datetime
 
 

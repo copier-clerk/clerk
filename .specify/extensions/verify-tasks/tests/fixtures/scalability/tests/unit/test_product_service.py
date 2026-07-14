@@ -1,4 +1,5 @@
 """Unit tests for ProductService.create_product — T042."""
+
 from services.product_service import ProductService
 
 

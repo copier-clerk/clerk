@@ -30,9 +30,7 @@ def parse_graph(text: str) -> dict[str, list[str]]:
     blocked_by arrays were formatted across multiple lines.
     """
     graph: dict[str, list[str]] = {}
-    for m in re.finditer(
-        r"\[graph\.(T\d+)\]\s*\nblocked_by\s*=\s*\[([^\]]*)\]", text
-    ):
+    for m in re.finditer(r"\[graph\.(T\d+)\]\s*\nblocked_by\s*=\s*\[([^\]]*)\]", text):
         task = m.group(1)
         deps = [d.strip().strip('"') for d in m.group(2).split(",") if d.strip()]
         graph[task] = deps

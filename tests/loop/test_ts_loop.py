@@ -402,11 +402,11 @@ def test_test_runner_variants(
         assert "defineConfig" in content, f"vitest.config.ts missing defineConfig ({test_runner})"
         # Verify the branch-specific environment setting is rendered.
         if test_runner == "vitest-node":
-            assert '"node"' in content, f"vitest-node: environment=node not in config"
+            assert '"node"' in content, "vitest-node: environment=node not in config"
         elif test_runner == "vitest-browser":
-            assert "browser" in content, f"vitest-browser: browser block not in config"
+            assert "browser" in content, "vitest-browser: browser block not in config"
         elif test_runner == "vitest+playwright":
-            assert '"node"' in content, f"vitest+playwright: node env not in config"
+            assert '"node"' in content, "vitest+playwright: node env not in config"
     else:
         # For bun-test and playwright-only, vitest.config.ts must be absent or empty.
         if vitest_path.is_file():
@@ -419,9 +419,7 @@ def test_test_runner_variants(
             f"playwright.config.ts missing for test_runner={test_runner}"
         )
         content = playwright_path.read_text()
-        assert len(content) > 0, (
-            f"playwright.config.ts is empty for test_runner={test_runner}"
-        )
+        assert len(content) > 0, f"playwright.config.ts is empty for test_runner={test_runner}"
         assert "defineConfig" in content, (
             f"playwright.config.ts missing defineConfig ({test_runner})"
         )

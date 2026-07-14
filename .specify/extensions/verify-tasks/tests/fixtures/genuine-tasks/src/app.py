@@ -2,9 +2,10 @@
 Application entry point — T010.
 Imports and uses FileStore, Pipeline, and Calculator.
 """
+
 from calculator import Calculator
-from storage import FileStore
 from pipeline import Pipeline
+from storage import FileStore
 
 
 def run():

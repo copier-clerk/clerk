@@ -1,16 +1,16 @@
 """Product repository — T007, T010."""
-from typing import Dict, List, Optional
+
 from models.product import Product
 
 
 class ProductRepository:
     def __init__(self):
-        self._store: Dict[str, Product] = {}
+        self._store: dict[str, Product] = {}
 
-    def find_by_id(self, id: str) -> Optional[Product]:
+    def find_by_id(self, id: str) -> Product | None:
         return self._store.get(id)
 
-    def find_all(self) -> List[Product]:
+    def find_all(self) -> list[Product]:
         return list(self._store.values())
 
     def save(self, product: Product) -> None:

@@ -1,4 +1,5 @@
 """Logging middleware — T022."""
+
 import sys
 
 

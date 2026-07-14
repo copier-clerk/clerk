@@ -1,4 +1,5 @@
 """Unit tests for UserService.register — T041."""
+
 from services.user_service import UserService
 
 

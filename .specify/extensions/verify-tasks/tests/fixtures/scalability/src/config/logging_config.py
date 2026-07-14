@@ -1,4 +1,5 @@
 """Logging configuration — T028."""
+
 import logging
 
 

@@ -1,4 +1,5 @@
 """Product handler — T017."""
+
 from services.product_service import ProductService
 
 

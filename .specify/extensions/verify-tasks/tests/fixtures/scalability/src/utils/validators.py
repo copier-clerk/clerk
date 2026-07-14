@@ -1,4 +1,5 @@
 """Input validators — T039, T040."""
+
 import re
 import uuid
 

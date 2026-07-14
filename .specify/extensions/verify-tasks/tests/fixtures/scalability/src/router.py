@@ -1,12 +1,13 @@
 """Router — T047, T048."""
-from typing import Dict, Callable
+
+from collections.abc import Callable
 
 
 class Router:
     """Maps URL patterns to handler callables."""
 
     def __init__(self):
-        self._routes: Dict[str, Callable] = {}
+        self._routes: dict[str, Callable] = {}
 
     def register(self, path: str, handler: Callable) -> None:
         """Register a handler for the given path pattern."""

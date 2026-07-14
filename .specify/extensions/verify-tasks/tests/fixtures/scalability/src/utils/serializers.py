@@ -1,7 +1,7 @@
 """Serialization helpers — T037, T038, T040."""
+
 import json
 import re
-from typing import Type
 
 
 def to_json(obj) -> str:
@@ -11,7 +11,7 @@ def to_json(obj) -> str:
     return json.dumps(obj)
 
 
-def from_json(data: str, cls: Type):
+def from_json(data: str, cls: type):
     """Deserialize JSON string into an instance of cls."""
     d = json.loads(data)
     return cls(**d)

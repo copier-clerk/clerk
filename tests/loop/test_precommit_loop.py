@@ -328,10 +328,7 @@ def test_precommit_none_install_tasks_have_when_guards(
                 f"install task `when:` does not guard against hook_manager=none: {condition!r}"
             )
     # At least one task must reference hook_manager (the guard exists).
-    has_guard = any(
-        isinstance(t, dict) and "hook_manager" in t.get("when", "")
-        for t in tasks
-    )
+    has_guard = any(isinstance(t, dict) and "hook_manager" in t.get("when", "") for t in tasks)
     assert has_guard, "No install task guards on hook_manager — none case would run install"
 
 

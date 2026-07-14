@@ -1,13 +1,13 @@
 """User repository — T006, T010."""
-from typing import Optional, Dict
+
 from models.user import User
 
 
 class UserRepository:
     def __init__(self):
-        self._store: Dict[str, User] = {}
+        self._store: dict[str, User] = {}
 
-    def find_by_id(self, id: str) -> Optional[User]:
+    def find_by_id(self, id: str) -> User | None:
         return self._store.get(id)
 
     def save(self, user: User) -> None:

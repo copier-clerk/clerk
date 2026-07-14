@@ -8,7 +8,9 @@ def rate_limit(max_requests: int, window: int):
     def decorator(func):
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

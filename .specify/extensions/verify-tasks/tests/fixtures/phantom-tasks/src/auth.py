@@ -3,9 +3,9 @@ User authentication module.
 Genuine implementation — T001, T002.
 """
 
-import time
-import hmac
 import hashlib
+import hmac
+import time
 
 
 class UserAuth:
@@ -26,7 +26,9 @@ class UserAuth:
         """Check JWT expiry and signature. Returns True if valid."""
         try:
             payload, sig = token.rsplit(".", 1)
-            expected = hmac.new(self.SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
+            expected = hmac.new(
+                self.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
+            ).hexdigest()
             if not hmac.compare_digest(sig, expected):
                 return False
             _, expiry = payload.split(":")

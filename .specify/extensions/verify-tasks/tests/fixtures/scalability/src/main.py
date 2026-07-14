@@ -1,7 +1,8 @@
 """Application entry point — T049."""
-from config.settings import Settings
-from config.logging_config import configure_logging
+
 from app import create_app
+from config.logging_config import configure_logging
+from config.settings import Settings
 
 
 def main():

@@ -1,13 +1,13 @@
 """Order repository — T008, T010."""
-from typing import Dict, List
+
 from models.order import Order
 
 
 class OrderRepository:
     def __init__(self):
-        self._store: Dict[str, Order] = {}
+        self._store: dict[str, Order] = {}
 
-    def find_by_user(self, user_id: str) -> List[Order]:
+    def find_by_user(self, user_id: str) -> list[Order]:
         return [o for o in self._store.values() if o.user_id == user_id]
 
     def save(self, order: Order) -> None:
