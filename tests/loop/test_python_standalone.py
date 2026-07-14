@@ -35,8 +35,8 @@ def test_python_standalone_renders_with_defaults(
     # Self-contained: no upstream project_name → the default fallback renders, no crash.
     assert 'name = "project"' in pyproject, "standalone must fall back to a default name"
     assert 'requires-python = ">=3.13"' in pyproject
-    # Preflight stub ran.
-    assert (dest / ".clerk-python-preflight").is_file()
+    # Mise install sentinel present (init-only guard stub ran).
+    assert (dest / ".clerk-python-mise-installed").is_file()
 
 
 def test_python_standalone_explicit_name(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:

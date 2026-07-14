@@ -1,96 +1,131 @@
 # copier.yml — clerk-mod-python
 #
-# The Python language overlay: ports project-setup's `lang-python` module (add
-# Python tooling — uv, ruff, pytest) as a copier layer that `run_after`
-# clerk-mod-base (spec 009 Phase 0). Threads `project_name` from base; seeds a
-# pyproject.toml (SEED-ONCE) pinned to the chosen `python_version`; contributes
-# its language token into base's shared `gitignore_stack` (single .gitignore
-# writer — see clerk-mod-base).
+# Python language overlay (spec 011 / v1.0.0). Clean break from v0.x:
+# drops poetry/pip/pipenv, adds structured choice axes (FR-002), native-command
+# scaffold (FR-007 / ADR-0007), and the agent-frozen M1 threading contract.
 #
-# SOURCE: reconciled against the real lang-python manifest at tag
-# lang-python-v1.3.0 (srobroek/project-setup: module.toml + module.py). The
-# inputs, ordering and ruff config below match that manifest; clerk-model
-# adaptations (threaded ruff target-version, gitnr instead of a literal
-# .gitignore append, no Phase-0 pre-commit file) are noted inline where they
-# occur.
+# Lifecycle summary:
+#   MANAGED (byte-identical): ruff.toml, answers file.
+#   TASK-OUTPUT (process-deterministic): pyproject.toml — written by native init,
+#     then seed-once (_skip_if_exists); reproduce uses the committed file verbatim.
+#   CONTRIBUTES tokens only (M1): python version + uv token → mise_tools (base
+#     writes .mise.toml); python → gitignore_stack (base writes .gitignore);
+#     ruff hook block → hook_blocks (precommit writes hook config).
 #
 # Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
 # NO secret: questions; edges are when:false hidden answers.
 
-# Note: no _answers_file override — copier's default is used (see clerk-mod-base
-# for the rationale); clerk passes .copier-answers.clerk-mod-python.yml at
-# multi-template init.
+# --- Threaded identity -------------------------------------------------------
 
-# --- Identity + config questions (ported from lang-python [[inputs]]) ---------
-
-# Threaded from base via copier's default: "{{ project_name }}" mechanism
-# (ADR-0003 + clerk's data= threading). Standalone fallback: renders empty when
-# no upstream base supplied it (US2 #2 / SC-006-style self-containment). Does
-# NOT hardcode that *base* supplied it (FR-010). In lang-python this drives
-# `uv init --name` and the src/<name>/ package; here it seeds [project].name.
 project_name:
   type: str
   default: "{{ project_name }}"
-  help: "The project's name (threaded from clerk-mod-base; used in pyproject [project].name)."
+  help: "Project name (threaded from clerk-mod-base via data=; standalone: empty)."
 
-# One-line description → pyproject [project].description (lang-python syncs this
-# over uv init's placeholder; here it is rendered into the seed).
 description:
   type: str
   default: ""
   help: "One-line project description (written into pyproject [project].description)."
 
-# Free-text string, default 3.13 — matches lang-python's `python_version` input
-# (a plain string default, NOT a fixed-choice list). Threaded into
-# requires-python and the ruff target-version.
+# --- Python toolchain axes (FR-002) ------------------------------------------
+# Choices are FROZEN per C-06: do not reorder or remove after publishing a tag.
+
+python_pkg_manager:
+  type: str
+  choices:
+    - uv
+    - pdm
+  default: uv
+  help: "Package manager: uv (default) or pdm."
+
 python_version:
   type: str
+  choices:
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
   default: "3.13"
-  help: "Python version to target (pins requires-python + ruff target-version)."
+  help: "Python version — pins requires-python + ruff target-version + mise tool."
 
-# Optional framework hint (fastapi/django/flask; empty = none) — mirrors
-# lang-python's `framework` input. Recorded for downstream/agent use; the
-# Phase-0 seed does not branch on it (no framework scaffolding ported).
+python_layout:
+  type: str
+  choices:
+    - src
+    - flat
+  default: src
+  help: "Project layout: src (uv init --package, installable) or flat."
+
 framework:
   type: str
-  default: ""
-  help: "Framework (optional, e.g. fastapi, django, flask — leave empty for none)."
+  choices:
+    - none
+    - fastapi
+    - django
+    - flask
+  default: none
+  help: "Framework hint — recorded for agent use; no scaffolding branch."
 
-# --- Agent-resolved pins (lang-python's resolve step) ------------------------
-# In lang-python pinned_deps/dev_deps/ruff_version are normally produced by the
-# Tier-2 `resolve` agent step and frozen into answers. clerk Phase 0 has no
-# Tier-2 resolver, so they are plain injectable answers (default empty): a
-# pre-resolving agent or a scripted --data run can supply exact name@version
-# pins; empty → no deps written (faithful to lang-python's "empty → no deps").
-pinned_deps:
-  type: yaml
-  default: []
-  help: "Pinned runtime dependencies (name@version), if pre-resolved; empty = none."
+# --- Ruff axes (FR-002) -------------------------------------------------------
 
-dev_deps:
-  type: yaml
-  default: []
-  help: "Pinned dev dependencies (name@version), if pre-resolved; empty = none."
+ruff_line_length:
+  type: str
+  choices:
+    - "79"
+    - "88"
+    - "100"
+    - "119"
+    - "120"
+  default: "88"
+  help: "Ruff line-length (written to the managed ruff.toml)."
+
+ruff_quote_style:
+  type: str
+  choices:
+    - double
+    - single
+  default: double
+  help: "Ruff quote style (format.quote-style)."
+
+ruff_rule_profile:
+  type: str
+  choices:
+    - standard
+    - strict
+  default: standard
+  help: "standard = [E, F, I, N, W, UP, B, SIM, TCH]; strict adds [ANN, RUF, PERF, C4, PT]."
+
+# --- Test scaffold (opt-in) ---------------------------------------------------
+
+add_tests:
+  type: bool
+  default: false
+  help: "Add a tests/ scaffold with a pytest example (opt-in; pytest is the sole runner)."
+
+# --- Threading contracts (M1 / cross-cutting §2–§4) --------------------------
+# These are not written by this module; the phase-1 agent injects the frozen
+# union values via --data. They are declared here so copier records them and
+# downstream layers can thread them. See _cross-cutting.md.
+
+hook_manager:
+  type: str
+  default: "{{ hook_manager }}"
+  help: "Hook manager (threaded from selection; clerk-mod-precommit is the single writer)."
 
 ruff_version:
   type: str
   default: ""
-  help: "Pinned ruff version, if pre-resolved (used by the pre-commit hook when precommit-setup lands)."
+  help: "Pinned ruff version for the pre-commit hook block (agent-resolved)."
 
-# `today` is injected by clerk at init and frozen into the recorded answers
-# (FR-007); never sourced from jinja2_time (Constitution V). Present so the
-# overlay's answers file is uniform with base.
+# `today` is injected by clerk and frozen into answers (never jinja2_time — Constitution V).
 today:
   type: str
   default: ""
-  help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
+  help: "Generation date (YYYY-MM-DD); clerk injects this — leave blank."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
-# lang-python's `[order] after = ["gitignore-generate", "precommit-setup"]`. In
-# clerk Phase 0 gitignore-generate is collapsed inside clerk-mod-base and
-# precommit-setup does not exist yet, so the single edge is run_after
-# clerk-mod-base (ADR-0003 / plan Ordering). When clerk-mod-precommit lands, add
-# it to run_after to restore the second half of the upstream edge.
+
+# run_after: clerk-mod-precommit added here when clerk-mod-precommit lands (hook_blocks ordering).
 run_after:
   type: yaml
   default:
@@ -107,36 +142,57 @@ run_before:
   default: []
   when: false
 
-# The template body lives under template/ so copier renders only that subtree.
+# ruff.toml is MANAGED (byte-identical re-render on every reproduce).
+# pytest.ini is MANAGED (byte-identical, only present when add_tests=true).
+# pyproject.toml is TASK-OUTPUT (native init) then guarded by _skip_if_exists so
+# copier never clobbers the project-owned file on reproduce.
+# tests/test_example.py is SEED-ONCE (_skip_if_exists); project owns it after init.
 _subdirectory: template
 
-# --- Seed-once files (FR-005a / Q3 / D-009-7) --------------------------------
-# pyproject.toml is a language manifest: seeded with initial config once, then
-# the project adds/bumps deps. Re-rendering would revert real work. On a
-# fresh-checkout reproduce it does not yet exist so it still renders
-# (Constitution III holds).
 _skip_if_exists:
   - pyproject.toml
+  - tests/test_example.py
 
-# --- Trust-gated tasks (FR-007b / Q6) ----------------------------------------
-# uv preflight, ordered FIRST: checks `uv` on PATH and fails with the astral
-# install URL before any consequential task runs. This overlay writes no
-# .gitignore itself — lang-python appends a literal Python block
-# (templates/gitignore-block.txt: __pycache__, *.py[cod], *.egg-info, dist,
-# build, .venv, .pytest_cache, .ruff_cache); in clerk that block is instead
-# contributed as a gitnr stack token into clerk-mod-base's single gitignore
-# writer (Q7 decision — one .gitignore writer, no double-append).
-#
-# lang-python also appends ruff pre-commit hooks
-# (templates/precommit-block.yaml: astral-sh/ruff-pre-commit rev v0.6.9, hooks
-# `ruff --fix` + `ruff-format`) to the .pre-commit-config.yaml OWNED BY the
-# precommit-setup module. precommit-setup is a Phase-1 module not present in
-# Phase 0, so there is no .pre-commit-config.yaml to append to — this overlay
-# deliberately does not fabricate a standalone one. The hook block moves here
-# (rev pinned from ruff_version) when clerk-mod-precommit lands.
+# --- Trust-gated tasks (FR-007 / ADR-0007) -----------------------------------
+# Tasks run post-render at BOTH init and reproduce.
+# Init-only guard (FR-012a): sentinel .clerk-python-mise-installed prevents
+# `mise install` from re-running on reproduce over a populated tree.
 _tasks:
+  # (1) Preflight: mise must be on PATH.
   - >-
-    command -v uv >/dev/null 2>&1 ||
-    { echo "clerk-mod-python: required tool 'uv' not found on PATH." >&2;
-    echo "  uv — https://docs.astral.sh/uv/getting-started/installation/" >&2;
+    command -v mise >/dev/null 2>&1 ||
+    { echo "clerk-mod-python: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
     exit 1; }
+
+  # (2) mise install — init-only-guarded (FR-012a).
+  #   Sentinel written after a successful install so reproduce is a no-op.
+  - >-
+    test -f .clerk-python-mise-installed ||
+    ( mise install &&
+    printf 'mise-install: {{ python_pkg_manager }} python={{ python_version }}\n'
+    > .clerk-python-mise-installed )
+
+  # (3) Native init (TASK-OUTPUT / ADR-0007): guarded so reproduce never re-runs it.
+  #   uv init --package produces src/<name>/ layout with build-system (python_layout=src).
+  #   uv init (no --package) produces a flat layout (python_layout=flat).
+  #   pdm init --non-interactive uses pdm's heuristics.
+  #   copier's when: form keeps _tasks as valid YAML (no Jinja block tags).
+  - command: >-
+      test -f pyproject.toml ||
+      uv init
+      --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
+      --python {{ python_version }} --package
+    when: "{{ python_pkg_manager == 'uv' and python_layout == 'src' }}"
+
+  - command: >-
+      test -f pyproject.toml ||
+      uv init
+      --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
+      --python {{ python_version }}
+    when: "{{ python_pkg_manager == 'uv' and python_layout == 'flat' }}"
+
+  - command: >-
+      test -f pyproject.toml ||
+      pdm init --non-interactive --python {{ python_version }}
+    when: "{{ python_pkg_manager == 'pdm' }}"

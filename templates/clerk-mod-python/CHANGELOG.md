@@ -7,32 +7,27 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 ### Added
 
-- Initial port of the Python language overlay (spec 009 Phase 0), reconciled
-  against the real `lang-python` manifest at tag `lang-python-v1.3.0`:
-  - threaded `project_name` (`default: "{{ project_name }}"`), `description`,
-    a free-text `python_version` (string, default 3.13 — not a fixed-choice
-    list), `framework`, and the agent-resolved `pinned_deps` / `dev_deps` /
-    `ruff_version` inputs;
-  - a `run_after: [clerk-mod-base]` edge so base applies first;
-  - the seed-once `pyproject.toml`: the byte-faithful lang-python ruff config
-    (`line-length = 100`, `select = ["E","F","I","N","W","UP","B","SIM","TCH"]`,
-    `quote-style = "double"`), `requires-python` pinned, deps rendered from the
-    pin answers;
-  - a `uv` preflight `_task`.
-- With this module under `templates/`, `just check-modules` is a real gate,
-  which (with clerk-mod-base) unblocks the spec-008b fan-out pipeline (SC-008).
+- **v1.0.0 clean break (spec 011)**: de-opinionated Python overlay with structured
+  choice axes, native-command scaffold, and M1 agent-frozen threading contract.
+  - Choice questions (C-06 frozen): `python_pkg_manager` [uv, pdm]=uv,
+    `python_version` [3.11–3.14]=3.13, `python_layout` [src, flat]=src,
+    `framework` [none, fastapi, django, flask]=none,
+    `ruff_line_length` [79,88,100,119,120]=88, `ruff_quote_style` [double,single]=double,
+    `ruff_rule_profile` [standard,strict]=standard, `add_tests` bool=false.
+  - `pyproject.toml` is now TASK-OUTPUT (native `uv`/`pdm` init, init-only-guarded)
+    then seed-once; the old rendered template is removed.
+  - `ruff.toml` is now a standalone MANAGED (byte-identical) file.
+  - `run_after: [clerk-mod-base, clerk-mod-precommit]` edge.
+  - `mise install` init-only-guarded preflight (FR-012a sentinel).
+  - Contributes tokens only (M1): python version + pkg-manager → mise_tools;
+    python → gitignore_stack; ruff hook block → hook_blocks.
 
-### Notes / residual (spec 009)
+### Breaking changes
 
-- ruff `target-version` is threaded from `python_version` (upstream hardcodes
-  `py313`); the rest of the ruff block is byte-faithful to `lang-python-v1.3.0`.
-- ruff pre-commit hooks are **deferred**: `lang-python` appends them to a
-  `.pre-commit-config.yaml` owned by the Phase-1 `precommit-setup` module
-  (absent here), so there is no file to append to. The hook block (rev pinned
-  from `ruff_version`) lands when `clerk-mod-precommit` does.
-- installable src-package layout (`uv init --package`) is **flagged, not
-  ported**: it is a uv-driven task, not a static render; Phase 0 seeds a flat
-  manifest.
+- Dropped: `pinned_deps`, `dev_deps` questions (no longer seed deps into pyproject).
+- Dropped: `pip`, `pipenv`, `poetry` (dead options per FR-002).
+- Dropped: `python_version` as free-text string; now a fixed-choice list.
+- `pyproject.toml` lifecycle changed from MANAGED seed-once to TASK-OUTPUT seed-once.
 
 - - -
 ## clerk-mod-python-v0.1.0 - 2026-07-13

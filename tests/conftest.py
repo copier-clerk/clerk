@@ -790,13 +790,43 @@ _BASE_STUB_TASKS = dedent(
     """
 )
 
-# Offline stub tasks for clerk-mod-python: the uv preflight is a no-op marker.
-_PYTHON_STUB_TASKS = dedent(
-    """\
-    _tasks:
-      - "printf 'uv-preflight-ok\\n' > .clerk-python-preflight"
+
+# Offline stub tasks for clerk-mod-python (uv variant, spec 011 / v1.0.0).
+# Stubs out the mise preflight, mise install (init-only-guarded sentinel), and
+# the native uv init (TASK-OUTPUT: writes a minimal stub pyproject.toml if not
+# already present, matching the guarded `test -f pyproject.toml ||` lifecycle).
+def _python_stub_tasks(pkg_manager: str = "uv") -> str:
+    """Generate offline stub tasks for clerk-mod-python.
+
+    Stubs mise preflight sentinel + native init (uv/pdm).  The project name is
+    threaded from the frozen ``project_name`` answer, matching the real init guard.
     """
-)
+    # Jinja filter chain for the project name — must match what the real uv/pdm
+    # init does when it normalises the name.  Kept in a separate variable to stay
+    # within the repo's 100-char line-length limit.
+    _name_expr = (
+        '{{ project_name | default("project", true)'
+        ' | lower | replace(" ", "-") | replace("_", "-") }}'
+    )
+    _pyproject_printf = (
+        "printf "
+        f'\'[project]\\\\nname = \\"{_name_expr}\\"\\\\n'
+        'version = \\"0.1.0\\"\\\\n'
+        'requires-python = \\">={{ python_version }}\\"\\\\n'
+        "dependencies = []\\\\n'"
+        " > pyproject.toml"
+    )
+    return (
+        "_tasks:\n"
+        "  - \"printf 'mise-preflight-ok\\n' > .clerk-python-mise-installed\"\n"
+        "  - >-\n"
+        f"    test -f pyproject.toml ||\n"
+        f"    {_pyproject_printf}\n"
+    )
+
+
+# Pre-built stub strings — used by fixtures so each fixture call doesn't rebuild.
+_PYTHON_STUB_TASKS = _python_stub_tasks("uv")
 
 # Offline stub tasks for clerk-mod-apm (spec 007 / T010): swap the real network
 # `uvx --from apm-cli==<ver> apm install` for a deterministic OFFLINE no-op. The
@@ -817,13 +847,8 @@ _APM_STUB_TASKS = dedent(
 )
 
 
-# Offline stub tasks for clerk-mod-python (pdm variant): the pdm preflight is a no-op marker.
-_PDM_STUB_TASKS = dedent(
-    """\
-    _tasks:
-      - "printf 'pdm-preflight-ok\\n' > .clerk-python-preflight"
-    """
-)
+# PDM variant stub — same lifecycle, different pkg_manager label in sentinel content.
+_PDM_STUB_TASKS = _python_stub_tasks("pdm")
 
 # Offline stub tasks for clerk-mod-typescript (bun variant).
 _BUN_STUB_TASKS = dedent(
@@ -976,9 +1001,17 @@ def clerk_mod_base(tmp_path: Path) -> TemplateRepo:
 
 @pytest.fixture
 def clerk_mod_python(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-python template as a hermetic repo (uv preflight stubbed)."""
+    """The real clerk-mod-python template as a hermetic repo (uv/mise tasks stubbed)."""
     return _copy_module_with_stub_tasks(
         "clerk-mod-python", tmp_path / "clerk-mod-python", _PYTHON_STUB_TASKS
+    )
+
+
+@pytest.fixture
+def clerk_mod_python_pdm(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-python template with python_pkg_manager=pdm tasks stubbed."""
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-python", tmp_path / "clerk-mod-python-pdm", _PDM_STUB_TASKS
     )
 
 

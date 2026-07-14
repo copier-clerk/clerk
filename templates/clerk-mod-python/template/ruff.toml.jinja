@@ -1,0 +1,16 @@
+# ruff.toml — MANAGED by clerk-mod-python (byte-identical on every reproduce).
+# Edit via `clerk update` — direct edits will be overwritten.
+# To customise further, migrate settings into pyproject.toml [tool.ruff].
+
+target-version = "py{{ python_version | replace('.', '') }}"
+line-length = {{ ruff_line_length }}
+
+[lint]
+{% if ruff_rule_profile == "strict" %}
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "ANN", "RUF", "PERF", "C4", "PT"]
+{% else %}
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+{% endif %}
+
+[format]
+quote-style = "{{ ruff_quote_style }}"
