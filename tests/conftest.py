@@ -1016,6 +1016,56 @@ _APM_STUB_BASE_YML = dedent(
 )
 
 
+# Offline stub tasks for clerk-mod-package-add: the path-traversal guard is
+# preserved verbatim (SEC-001 — exit 1 on bad input), the monorepo gate is
+# preserved, but native tool calls (bun/pnpm/uv/cargo/go) are replaced with a
+# deterministic marker write. This keeps the guard logic hermetically testable
+# without requiring any language toolchain on the CI host.
+_PACKAGE_ADD_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      # Monorepo gate (no-op when layout != monorepo — same as real task 1).
+      - command: >-
+          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi
+        when: "{{ layout != 'monorepo' }}"
+      # Path-traversal guard (SEC-001) — preserved verbatim from the real template.
+      # Exits 1 on bad input before any mkdir; no side effects on traversal attempts.
+      - command: >-
+          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+          name="{{ name }}";
+          dir="{{ dir }}";
+          err() { echo "clerk-mod-package-add: $1" >&2; exit 1; };
+          [ -z "$name" ] && err "name must not be empty";
+          [ -z "$dir" ] && err "dir must not be empty";
+          [ "$name" = "." ] && err "name must not be a single dot";
+          printf '%s' "$name" | grep -qE '(/|[\\\\]|\\.\\.)' &&
+          err "name '$name' contains unsafe path component";
+          printf '%s' "$dir" | grep -qE '(\\.\\./)' && err "dir '$dir' contains path traversal";
+          true
+      # Stub scaffold + registration: mkdir + marker (no native tool invocation).
+      - command: >-
+          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+          mkdir -p "{{ dir.rstrip('/') }}/{{ name }}";
+          printf 'package-add-ok lang={{ lang }} name={{ name }}\\n' > .clerk-package-add-preflight
+    """
+)
+
+
+@pytest.fixture
+def clerk_mod_package_add(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-package-add template as a hermetic repo (native tools stubbed).
+
+    SEC-001: path-traversal guard is preserved in the stub so tests can assert
+    guard rejection with zero side effects. Native add/init calls replaced with
+    a deterministic marker write (offline-safe).
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-package-add",
+        tmp_path / "clerk-mod-package-add",
+        _PACKAGE_ADD_STUB_TASKS,
+    )
+
+
 @pytest.fixture
 def apm_stub_base(tmp_path: Path) -> TemplateRepo:
     """A minimal stub base layer that threads project_name into clerk-mod-apm (Q5)."""
