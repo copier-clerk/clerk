@@ -1,0 +1,69 @@
+# .pre-commit-config.yaml — managed by clerk-mod-precommit (DO NOT EDIT BY HAND)
+#
+# Single writer: clerk-mod-precommit owns this file (hook_manager+hook_blocks
+# frozen-union contract, _cross-cutting §4, M1). Language hook blocks are
+# injected via the frozen `hook_blocks` answer — never appended at runtime.
+# All rev pins are hardcoded for deterministic renders.
+{% if precommit_exclude_patterns %}
+exclude: "{{ precommit_exclude_patterns | join('|') }}"
+{% endif %}
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  # ---------------------------------------------------------------------------
+  # Base hygiene: trailing whitespace, end-of-file newlines, YAML/TOML syntax
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning — gitleaks
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # ---------------------------------------------------------------------------
+  # Shell script linting — shellcheck
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+{% if enable_typo_check %}
+
+  # ---------------------------------------------------------------------------
+  # Typo check — crate-ci/typos
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.28.4
+    hooks:
+      - id: typos
+{% endif %}
+{% if enforce_conventional_commits %}
+
+  # ---------------------------------------------------------------------------
+  # Conventional Commits — close-keywords commit-msg hook (vendored)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: conventional-commit-msg
+        name: Conventional Commits
+        language: python
+        entry: .pre-commit-hooks/check-commit-msg.py
+        stages: [commit-msg]
+        pass_filenames: false
+{% endif %}
+{% for block in hook_blocks %}
+{{ block | indent(2) }}
+{% endfor %}
