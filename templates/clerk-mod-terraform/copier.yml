@@ -1,0 +1,149 @@
+# copier.yml — clerk-mod-terraform
+#
+# IaC overlay for Terraform / OpenTofu projects. Generic skeleton — does NOT
+# ask cloud_provider or state_backend (user configures those via commented
+# examples in backend.tf). Works standalone or run_after clerk-mod-base.
+#
+# MANAGED: versions.tf, .tflint.hcl, .terraform-version
+# SEED-ONCE: main.tf, variables.tf, outputs.tf, backend.tf, terraform.tfvars.example
+# TASK-OUTPUT: .terraform.lock.hcl (via init; COMMITTED, not gitignored)
+# .terraform/ IS gitignored (contributed to gitignore_stack M1 union)
+#
+# Contract (Constitution VI / FR-021): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions; edges are when:false hidden answers.
+
+# --- Questions ---------------------------------------------------------------
+
+# Flavor: terraform (HashiCorp) or opentofu (CNCF fork with MPL-free license).
+# The choice drives which binary is invoked in tasks and which lockfile backend
+# comment is rendered in backend.tf.
+tf_flavor:
+  type: str
+  choices:
+    - terraform
+    - opentofu
+  default: terraform
+  help: "IaC flavor: 'terraform' (HashiCorp) or 'opentofu' (CNCF fork)."
+
+# Terraform version string — used when tf_flavor=terraform.
+terraform_version:
+  type: str
+  default: "1.12.2"
+  when: "{{ tf_flavor == 'terraform' }}"
+  help: "Terraform version to pin (used when tf_flavor=terraform)."
+
+# OpenTofu version string — used when tf_flavor=opentofu.
+opentofu_version:
+  type: str
+  default: "1.10.0"
+  when: "{{ tf_flavor == 'opentofu' }}"
+  help: "OpenTofu version to pin (used when tf_flavor=opentofu)."
+
+# tflint version — pinned in .mise.toml (via mise_tools union) and .tflint.hcl.
+tflint_version:
+  type: str
+  default: "0.57.0"
+  help: "tflint version to pin."
+
+# placement_dir controls the subdirectory inside the repo where IaC files land.
+# Default 'infrastructure'; use '.' for a standalone IaC-only repo.
+placement_dir:
+  type: str
+  default: "infrastructure"
+  help: "Subdirectory for IaC files (default: infrastructure; use '.' for repo root)."
+
+# Threaded from base when present (FR-010 / ADR-0003).
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from clerk-mod-base when used together)."
+
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); injected by clerk — leave blank."
+
+# --- Agent-frozen union answers (M1 / cross-cutting §2 + §4) -----------------
+# The phase-1 agent assembles the full union and injects via --data; clerk-mod-base
+# is the SINGLE WRITER of .mise.toml; clerk-mod-precommit is the SINGLE WRITER of
+# .pre-commit-config.yaml. This module contributes tokens only — it does NOT write
+# those files itself.
+mise_tools:
+  type: yaml
+  default: []
+  help: "Frozen union of mise tool pins; injected by the phase-1 agent via --data."
+
+hook_blocks:
+  type: yaml
+  default: []
+  help: "Frozen union of pre-commit hook blocks; injected by the phase-1 agent via --data."
+
+hook_manager:
+  type: str
+  default: "pre-commit"
+  help: "Hook manager choice (threaded from phase-1 agent)."
+
+gitignore_stack:
+  type: yaml
+  default: []
+  help: "Frozen gitignore token union; injected by the phase-1 agent via --data."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default:
+    - clerk-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# --- Seed-once files (FR-005a) -----------------------------------------------
+# These files are starter skeletons that the project will customise. Re-rendering
+# would overwrite resource definitions, variable declarations, and state config.
+_skip_if_exists:
+  - "{{ placement_dir }}/main.tf"
+  - "{{ placement_dir }}/variables.tf"
+  - "{{ placement_dir }}/outputs.tf"
+  - "{{ placement_dir }}/backend.tf"
+  - "{{ placement_dir }}/terraform.tfvars.example"
+
+# --- Trust-gated tasks (FR-007b / Q6) ----------------------------------------
+# Ordered: preflight first, then init (network, provider download) guarded so it
+# only runs on a fresh tree. NEVER terraform apply.
+_tasks:
+  # Preflight: check mise is available.
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "clerk-mod-terraform: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
+    exit 1; }
+  # Preflight: check the IaC binary is available via mise.
+  - >-
+    {% if tf_flavor == 'opentofu' -%}
+    command -v tofu >/dev/null 2>&1 ||
+    { echo "clerk-mod-terraform: 'tofu' not found; run: mise install" >&2; exit 1; }
+    {%- else -%}
+    command -v terraform >/dev/null 2>&1 ||
+    { echo "clerk-mod-terraform: 'terraform' not found; run: mise install" >&2; exit 1; }
+    {%- endif %}
+  # Init-only-guarded terraform/tofu init (network, provider download).
+  # The lock file is task-output; guard prevents re-init on reproduce.
+  - >-
+    {% if tf_flavor == 'opentofu' -%}
+    test -f {{ placement_dir }}/.terraform.lock.hcl ||
+    (cd {{ placement_dir }} && tofu init)
+    {%- else -%}
+    test -f {{ placement_dir }}/.terraform.lock.hcl ||
+    (cd {{ placement_dir }} && terraform init)
+    {%- endif %}

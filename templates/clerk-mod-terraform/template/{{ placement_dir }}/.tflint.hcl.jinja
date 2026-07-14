@@ -1,0 +1,29 @@
+{#-
+  .tflint.hcl — MANAGED (byte-identical on init and reproduce).
+
+  Enables the terraform ruleset. Cloud-provider rulesets (aws, azurerm, google)
+  are shown as commented examples — add and uncomment for your provider.
+  tfsec is DEAD; trivy is the replacement for security scanning (via
+  antonbabenko/pre-commit-terraform hooks contributed to hook_blocks).
+-#}
+plugin "terraform" {
+  enabled = true
+  preset  = "recommended"
+}
+
+# Cloud-provider rulesets — uncomment and pin to use:
+# plugin "aws" {
+#   enabled = true
+#   version = "0.38.0"
+#   source  = "github.com/terraform-linters/tflint-ruleset-aws"
+# }
+# plugin "azurerm" {
+#   enabled = true
+#   version = "0.27.0"
+#   source  = "github.com/terraform-linters/tflint-ruleset-azurerm"
+# }
+# plugin "google" {
+#   enabled = true
+#   version = "0.31.0"
+#   source  = "github.com/terraform-linters/tflint-ruleset-google"
+# }
