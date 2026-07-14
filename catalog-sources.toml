@@ -1,39 +1,15 @@
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-base.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-python.git"
+url = "https://github.com/copier-clerk/clerk-mod-agentic.git"
 
 [[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-apm.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-precommit.git"
+url = "https://github.com/copier-clerk/clerk-mod-base.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-ts.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-go.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-rust.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-quality.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-readme.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-stack-adr.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-agentic.git"
+url = "https://github.com/copier-clerk/clerk-mod-cdk.git"
 
 [[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-ci-github.git"
@@ -42,19 +18,40 @@ url = "https://github.com/copier-clerk/clerk-mod-ci-github.git"
 url = "https://github.com/copier-clerk/clerk-mod-ci-gitlab.git"
 
 [[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-cloudformation.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-github-repo.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-go.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
 
 [[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-package-add.git"
 
 [[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-precommit.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-python.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-quality.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-readme.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-rust.git"
+
+[[sources]]
+url = "https://github.com/copier-clerk/clerk-mod-stack-adr.git"
+
+[[sources]]
 url = "https://github.com/copier-clerk/clerk-mod-terraform.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-cdk.git"
-
-[[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-cloudformation.git"
-url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
-url = "https://github.com/copier-clerk/clerk-mod-stack-adr.git"
-url = "https://github.com/copier-clerk/clerk-mod-github-repo.git"
+url = "https://github.com/copier-clerk/clerk-mod-ts.git"
