@@ -1039,3 +1039,26 @@ def apm_stub_base(tmp_path: Path) -> TemplateRepo:
             "template/base_out.txt.jinja": "base={{ project_name }}\n",
         },
     )
+
+
+@pytest.fixture
+def clerk_mod_precommit(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-precommit template as a hermetic repo (install task stubbed).
+
+    pre-commit install / lefthook install are replaced with a deterministic
+    offline stub that writes a marker file (.clerk-precommit-preflight) so tests
+    never require the hook manager binary on PATH. The rendered hook config
+    (.pre-commit-config.yaml or lefthook.yml) is copied verbatim — only the
+    side-effecting install task is stubbed.
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-precommit", tmp_path / "clerk-mod-precommit", _PRECOMMIT_STUB_TASKS
+    )
+
+
+@pytest.fixture
+def clerk_mod_precommit_lefthook(tmp_path: Path) -> TemplateRepo:
+    """clerk-mod-precommit with the lefthook install task stubbed offline."""
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-precommit", tmp_path / "clerk-mod-precommit-lh", _LEFTHOOK_STUB_TASKS
+    )
