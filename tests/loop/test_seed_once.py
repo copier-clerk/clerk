@@ -64,7 +64,8 @@ def test_seed_once_files_preserved_managed_rerendered(
     (dest / "pyproject.toml").write_text(pyproject_edit)
 
     # Also clobber a MANAGED scaffold file to prove it IS re-rendered.
-    (dest / ".codex" / ".gitkeep").write_text("CORRUPTED")
+    # Use tests/.gitkeep — a managed dir that is always present in the thinned base.
+    (dest / "tests" / ".gitkeep").write_text("CORRUPTED")
 
     # Re-run over the populated tree.
     runner.reproduce_many(str(dest))
@@ -76,6 +77,6 @@ def test_seed_once_files_preserved_managed_rerendered(
     )
 
     # Managed file: re-rendered back to empty (a .gitkeep is always empty).
-    assert (dest / ".codex" / ".gitkeep").read_text() == "", (
+    assert (dest / "tests" / ".gitkeep").read_text() == "", (
         "managed .gitkeep was not re-rendered on reproduce"
     )

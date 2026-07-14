@@ -761,19 +761,32 @@ _BASE_STUB_TASKS = dedent(
     _tasks:
       # Stub gitnr: write a deterministic .gitignore marker recording the stack.
       - >-
+        test -f .clerk-base-init-done ||
         test -f .gitignore ||
         printf '# stub gitignore\\nstack={{ gitignore_stack | join(",") }}\\n' > .gitignore
       # Stub gh LICENSE fetch: guarded, idempotent, offline.
       - >-
         test -f LICENSE ||
-        printf '{{ license }} License\\nCopyright (c) {{ (today or "2026")[:4] }} {{ org }}\\n'
+        printf '%s License\\nCopyright (c) %s %s\\n'
+        '{{ license }}' '{{ (today or "2026")[:4] }}' '{{ copyright_name }}'
         > LICENSE
-      - "git init --quiet"
+      - command: "git init --quiet"
+        when: "{{ run_git_init }}"
+      # extra_dirs MANAGED: idempotent mkdir on every run (init + reproduce).
+      - >-
+        {% if extra_dirs %}
+        for _d in {{ extra_dirs | map('string') | join(' ') }}; do
+        mkdir -p "$_d" && touch "$_d/.gitkeep"; done
+        {% else %}
+        true
+        {% endif %}
+      # Sentinel: marks tree as init-done so gitnr stub skips on reproduce.
+      - "test -f .clerk-base-init-done || touch .clerk-base-init-done"
       - command: >-
           git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false add -A &&
           git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false commit
           -qm "Initial project scaffold (clerk-mod-base)"
-        when: "{{ initial_commit }}"
+        when: "{{ initial_commit and run_git_init }}"
     """
 )
 

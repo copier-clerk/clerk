@@ -5,23 +5,21 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- Initial port of the collapsed clerk base scaffold (spec 009 Phase 0). Ports
-  the six always-on project-setup base modules (core-identity, dirs-scaffold,
-  gitignore-generate, license-write, agents-md, git-init) into one reproducible
-  copier template:
-  - identity + choice questions (`project_name`, `org`, `description`, `layout`,
-    the 13-SPDX `license`);
-  - the managed directory scaffold (20 base dirs; +15 monorepo targets on
-    `layout=monorepo`);
-  - the seed-once `AGENTS.md` (single/monorepo body + frozen-fact architecture
-    splice gated on `write_architecture`);
-  - trust-gated tasks: tool preflight, `gitnr` `.gitignore`, `gh` LICENSE,
-    `git init`, and an `initial_commit`-gated commit.
-- With this module under `templates/`, `just check-modules` is now a real gate
-  (no longer the empty no-op), which unblocks the spec-008b fan-out pipeline
-  (SC-008). `cog.toml` `pre_bump_hooks` can drop its `|| true` guard.
+- **v1.0.0 clean break (spec 011)**: thinned scaffold — `.agents/` + `.codex/`
+  moved to clerk-mod-agentic; `infrastructure/` moved to IaC modules;
+  `.github/workflows/` moved to clerk-mod-ci; `specs/` moved to
+  clerk-mod-speckit; `archive/`, `assets/`, and 5 extra docs subdirs dropped
+  (available via `extra_dirs`).
+- New question axes: `copyright_name`, `branch_strategy`, `docs_subdirs`,
+  `github_host`, `extra_dirs`, `run_git_init`, `mise_tools`.
+- `.mise.toml` now managed (single writer, agent-frozen `mise_tools` union).
+- `.github/` minimal scaffold (issue/PR templates, CODEOWNERS, dependabot)
+  gated on `github_host`; no workflows (clerk-mod-ci).
+- Tasks restructured: mise preflight first, init-only-guarded via committed
+  sentinel (FR-012a), `copyright_name` replaces `org` in LICENSE substitution.
+- No `_migrations` / update path (M2 clean break to v1.0.0).
 
 - - -
 ## clerk-mod-base-v0.1.0 - 2026-07-13
@@ -31,4 +29,3 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - (**008b**) add cog changelog separator; gate on it in check-modules (#31) - (26a8db7) - Sjors Robroek
 
 - - -
-

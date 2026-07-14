@@ -30,9 +30,8 @@ from tests.conftest import TemplateRepo
 # seed-once: on this already-populated tree _skip_if_exists leaves them as-is, so
 # their bytes are trivially stable too (asserted in test_seed_once for edits).
 _MANAGED_PATHS = [
-    ".codex/.gitkeep",
+    "docs/.gitkeep",
     "docs/architecture/.gitkeep",
-    "specs/.gitkeep",
     "tests/.gitkeep",
     "AGENTS.md",
     "pyproject.toml",

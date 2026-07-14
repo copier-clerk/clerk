@@ -68,7 +68,7 @@ def test_base_python_ordered_and_threaded(
 
     # Base rendered: its scaffold + AGENTS.md exist.
     assert (dest / "AGENTS.md").is_file(), "base did not render (AGENTS.md missing)"
-    assert (dest / ".codex" / ".gitkeep").is_file(), "base dir scaffold missing"
+    assert (dest / "tests" / ".gitkeep").is_file(), "base dir scaffold missing"
 
     # Python overlay rendered: pyproject.toml present (seed-once) with threaded name + pin.
     pyproject = (dest / "pyproject.toml").read_text()

@@ -10,6 +10,8 @@
   sentinel pair is left for a later agent fill. The sentinel markers are kept
   VERBATIM from agents-md (BEGIN_SENTINEL/END_SENTINEL) so future tooling can
   find the span.
+
+  branch_strategy is substituted as a single guidance line (contract §2).
 -#}
 # {{ project_name }}
 
@@ -25,12 +27,6 @@
 - Put repo-wide workflow, architecture, tool, and source-of-truth guidance here.
 - Add nested `AGENTS.md` files only for subtrees that need materially different rules.
 - Prefer subtree placement over invented path metadata.
-
-## Codex Project Settings
-
-- Project and subfolder Codex overrides live in `.codex/config.toml`.
-- MCP servers for this repo or subtree should be declared under `mcp_servers.<name>` in `.codex/config.toml`.
-- Keep repo-specific Codex settings here and leave user-global defaults in `~/.codex/config.toml`.
 
 ## Architecture
 
@@ -51,13 +47,9 @@
 | `schemas/` | Shared/public contracts |
 | `data/` | Shared data assets where no single owner exists |
 | `docs/` | Project-wide documentation |
-| `specs/` | Feature specifications |
-| `infrastructure/` | Shared platform and IaC |
 | `tests/` | Cross-package integration and E2E tests |
 | `tools/` | Maintained CLIs, generators, and repo tooling |
 | `scripts/` | Thin repo automation |
-| `assets/` | Static files |
-| `archive/` | Archived/superseded material |
 
 ## Packages
 
@@ -69,19 +61,15 @@
 
 ## Repo
 
-- **Branch strategy**: feature branches off main, squash merge
+- **Branch strategy**: {{ branch_strategy }}
 {% else %}
 ## Path Mapping
 
 | Path | Contents |
 |------|----------|
-| `docs/` | Documentation — `architecture/`, `decisions/` (ADRs), `api/`, `research/`, `runbooks/`, `product/`, `engineering/`, `operations/` |
-| `specs/` | Feature specifications (speckit) |
-| `infrastructure/` | Infrastructure config — `environments/` and `terraform/{modules,stacks,environments}/` |
+| `docs/` | Documentation{% if docs_subdirs %} — `architecture/`, `decisions/` (ADRs), `runbooks/`{% endif %} |
 | `tests/` | Integration and E2E tests |
 | `scripts/` | Build tooling, automation |
-| `assets/` | Static files |
-| `archive/` | Retired / archived material |
 
 ## Build & Run
 
@@ -90,5 +78,5 @@
 ## Repo
 
 - **GitHub**: {{ org }}/{{ project_name }}
-- **Branch strategy**: feature branches off main, squash merge
+- **Branch strategy**: {{ branch_strategy }}
 {% endif %}
