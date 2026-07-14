@@ -1034,6 +1034,9 @@ def clerk_mod_python_pdm(tmp_path: Path) -> TemplateRepo:
     return _copy_module_with_stub_tasks(
         "clerk-mod-python", tmp_path / "clerk-mod-python-pdm", _PDM_STUB_TASKS
     )
+
+
+@pytest.fixture
 def clerk_mod_go(tmp_path: Path) -> TemplateRepo:
     """The real clerk-mod-go template as a hermetic repo (go preflight stubbed).
 

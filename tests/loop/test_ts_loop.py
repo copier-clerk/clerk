@@ -114,9 +114,9 @@ def test_base_ts_ordered_and_threaded(
     ]
     runner.init_many(selection, str(dest), today="2026-07-14")
 
-    # Base rendered first: scaffold present.
+    # Base rendered first: scaffold present (base v1.0.0 thinned: .codex/ moved to agentic).
     assert (dest / "AGENTS.md").is_file(), "base AGENTS.md missing"
-    assert (dest / ".codex" / ".gitkeep").is_file(), "base dir scaffold missing"
+    assert (dest / "docs").is_dir(), "base docs/ scaffold missing"
 
     # ts preflight stub marker written by the stub task.
     assert (dest / ".clerk-ts-preflight").is_file(), "ts preflight stub marker missing"
