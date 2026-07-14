@@ -1,6 +1,29 @@
 <!--
 SYNC IMPACT REPORT (latest amendment)
 ==================
+Version change: 2.2.0 → 2.3.0
+Bump rationale: MINOR — materially expanded guidance on Principle III's existing
+process-deterministic carve-out, to sanction spec 011's native-command scaffolding.
+  - III. Task-output is clarified to include native-tool-generated manifests
+         (uv/bun/cargo/go/cdk init) under a pinned mise toolchain — process-
+         deterministic, version-pinned, NOT byte-identical — the same category as the
+         existing LICENSE/gitnr/apm-lock outputs. The byte-identical guarantee is
+         scoped to MANAGED renders (config clerk owns). Faithful + agent-free intent
+         UNCHANGED; only the task-output boundary is spelled out.
+Reconciled in the same change (per governance: amend the principle with the change
+that relies on it):
+  - docs/decisions/0007-native-command-scaffolding.md — NEW ADR recording the decision,
+    the per-file managed/seed-once/task-output boundary, and the tradeoff.
+  - specs/011-deopinionated-module-family/{spec,plan}.md — FR-019 gate (no 011 module
+    releases until this amendment + ADR-0007 land).
+  - specs/007-agentic-module/spec.md — amended in the same 011 work (apm folds into
+    clerk-mod-agentic; apm FRs migrate).
+Unchanged in substance: I, II, IV, V, VI, VII, VIII.
+Prior roadmap-only bump 2.1.0 → 2.2.0 (2026-07-14, spec 009 de-opinionation Q8/Q9) was
+recorded in the roadmap; the constitution text was untouched then and is now at 2.3.0.
+
+PRIOR SYNC IMPACT REPORT (2.0.0 → 2.1.0)
+==================
 Version change: 2.0.0 → 2.1.0
 Bump rationale: MINOR — reconciles the constitution to the already-ratified
 runtime-recompute reproduce model (roadmap v2.1.0) and the spec-010 delivery shape,
@@ -127,7 +150,15 @@ because it derives solely from committed copier state, it depends on no
 clerk-authored file a user might forget to commit. `_tasks` run at both init and
 reproduce; migrations are update-only. Reproduce is process-deterministic (same
 pinned inputs → same commands), not necessarily byte-identical in the world,
-because tasks may touch external state.
+because tasks may touch external state. **Task-output includes native-tool-generated
+files** — a manifest produced by a tool's own init command (`uv init`, `bun init`,
+`cargo new`, `go mod init`, `cdk init`) under a pinned toolchain (`mise .mise.toml`)
+is task-output in exactly the sense LICENSE (`gh api`), `.gitignore` (`gitnr`), and
+`apm.lock.yaml` (`apm install`) already are: process-deterministic and version-pinned,
+NOT asserted byte-identical, and reproduced by re-running the guarded task, not by a
+byte/drift test. The byte-identical guarantee holds for **managed** renders (config
+clerk owns and the tool does not generate); the per-file boundary is drawn in
+[[0007-native-command-scaffolding]].
 
 Rationale: faithful reproduce is clerk's headline guarantee and the reason the
 pinning discipline exists; recomputing the order from committed answers + pinned
@@ -285,4 +316,4 @@ Versioning: MAJOR for backward-incompatible principle removals or redefinitions,
 MINOR for a new principle or materially expanded guidance, PATCH for
 clarifications.
 
-**Version**: 2.1.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-10
+**Version**: 2.3.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-14
