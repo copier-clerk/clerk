@@ -11,16 +11,16 @@ test:
     uv run pytest
 
 # Lint and format (hook_manager: {{ hook_manager }})
-{% if hook_manager == "pre-commit" %}
+{%- if hook_manager == "pre-commit" %}
 lint:
     pre-commit run --all-files
-{% elif hook_manager == "lefthook" %}
+{%- elif hook_manager == "lefthook" %}
 lint:
     lefthook run pre-commit
-{% else %}
+{%- else %}
 lint:
     uv run ruff check . && uv run ruff format --check .
-{% endif %}
+{%- endif %}
 
 # Build distribution packages
 build:
@@ -40,16 +40,16 @@ test:
     {{ js_pkg_manager }} test
 
 # Lint and format (hook_manager: {{ hook_manager }})
-{% if hook_manager == "pre-commit" %}
+{%- if hook_manager == "pre-commit" %}
 lint:
     pre-commit run --all-files
-{% elif hook_manager == "lefthook" %}
+{%- elif hook_manager == "lefthook" %}
 lint:
     lefthook run pre-commit
-{% else %}
+{%- else %}
 lint:
     {{ js_pkg_manager }} run lint
-{% endif %}
+{%- endif %}
 
 # Build output
 build:
@@ -69,16 +69,16 @@ test:
     go test ./...
 
 # Lint and format (hook_manager: {{ hook_manager }})
-{% if hook_manager == "pre-commit" %}
+{%- if hook_manager == "pre-commit" %}
 lint:
     pre-commit run --all-files
-{% elif hook_manager == "lefthook" %}
+{%- elif hook_manager == "lefthook" %}
 lint:
     lefthook run pre-commit
-{% else %}
+{%- else %}
 lint:
     go vet ./... && gofmt -l .
-{% endif %}
+{%- endif %}
 
 # Build binary
 build:
@@ -98,16 +98,16 @@ test:
     cargo test
 
 # Lint and format (hook_manager: {{ hook_manager }})
-{% if hook_manager == "pre-commit" %}
+{%- if hook_manager == "pre-commit" %}
 lint:
     pre-commit run --all-files
-{% elif hook_manager == "lefthook" %}
+{%- elif hook_manager == "lefthook" %}
 lint:
     lefthook run pre-commit
-{% else %}
+{%- else %}
 lint:
     cargo clippy -- -D warnings && cargo fmt --check
-{% endif %}
+{%- endif %}
 
 # Build debug binary (use `cargo build --release` for optimised release)
 build:

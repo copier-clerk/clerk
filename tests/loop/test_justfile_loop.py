@@ -7,6 +7,7 @@ Verifies the justfile module's seed-once lifecycle and threaded axes:
 - T011-d: rust renders cargo recipes with the --release escape-hatch comment.
 - T011-e: language="" renders fail-loud stubs for all recipes.
 - T011-f: seed-once — user-edited justfile survives reproduce byte-identical.
+- T011-g: all 15 lang×hook_manager combos produce syntactically valid justfiles.
 
 No network or tool tasks: the module only renders a static file, so no stub needed.
 """
@@ -14,10 +15,15 @@ No network or tool tasks: the module only renders a static file, so no stub need
 from __future__ import annotations
 
 import hashlib
+import itertools
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from jinja2.sandbox import SandboxedEnvironment
 
 from clerk import runner, trust
 from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
@@ -28,6 +34,50 @@ _JUSTFILE_STUB_TASKS = dedent(
     _tasks: []
     """
 )
+
+# Path to the Jinja template for direct rendering in the matrix test (avoids
+# spawning copier for each of the 15 combos).
+_TEMPLATE_PATH = (
+    Path(__file__).parent.parent.parent / "templates/clerk-mod-justfile/template/justfile.jinja"
+)
+
+_JUST_BIN: str | None = shutil.which("just")
+
+
+def _assert_justfile_valid(path: Path) -> None:
+    """Assert the file is syntactically valid for just.
+
+    Two checks:
+    1. Structural: no blank line immediately after a recipe header (name:) —
+       just terminates a recipe on a blank line, so any blank between a
+       header and its first indented line is a parse error.
+    2. Semantic: ``just --list --justfile <path>`` returns exit 0 when the
+       ``just`` binary is present (skipped silently when not installed).
+    """
+    content = path.read_text()
+    lines = content.split("\n")
+    for i, line in enumerate(lines):
+        # A recipe header: non-empty, not a comment, not indented, ends with ":"
+        is_recipe_header = (
+            line.endswith(":")
+            and line.strip()
+            and not line.startswith("#")
+            and not line.startswith(" ")
+            and not line.startswith("\t")
+        )
+        if is_recipe_header and i + 1 < len(lines) and lines[i + 1].strip() == "":
+            pytest.fail(
+                f"Blank line immediately after recipe header {line!r} "
+                f"at line {i + 1} — just would reject this as a syntax error."
+            )
+
+    if _JUST_BIN is not None:
+        proc = subprocess.run(
+            [_JUST_BIN, "--list", "--justfile", str(path)],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, f"just --list failed for {path}:\n{proc.stderr.strip()}"
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +131,7 @@ def test_python_precommit_renders_idiomatic_recipes(
     # No npm/yarn/pnpm/lefthook in a python+pre-commit justfile.
     assert "npm " not in justfile
     assert "lefthook" not in justfile
+    _assert_justfile_valid(dest / "justfile")
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +157,7 @@ def test_ts_pnpm_lefthook_renders_correct_tools(
     # Explicit non-occurrence guards: bun and pre-commit must not appear as commands.
     assert "bun " not in justfile
     assert "pre-commit run" not in justfile
+    _assert_justfile_valid(dest / "justfile")
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +183,7 @@ def test_ts_bun_no_hook_manager_uses_native_lint(
     assert "lefthook" not in justfile
     # Should fall back to a native bun run lint or equivalent.
     assert "bun run lint" in justfile, "no-hook lint must delegate to native bun run lint"
+    _assert_justfile_valid(dest / "justfile")
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +217,7 @@ def test_rust_renders_cargo_recipes_with_release_comment(
     assert "cargo build\n" in build_body or "    cargo build\n" in build_body, (
         "default build must not unconditionally pass --release"
     )
+    _assert_justfile_valid(dest / "justfile")
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +242,7 @@ def test_empty_language_renders_fail_loud_stubs(
     # All named recipes must be present even as stubs.
     for recipe in ("test:", "lint:", "build:", "dev:", "clean:"):
         assert recipe in justfile, f"recipe {recipe!r} must be present as a stub"
+    _assert_justfile_valid(dest / "justfile")
 
 
 # ---------------------------------------------------------------------------
@@ -220,3 +275,39 @@ def test_seed_once_justfile_survives_reproduce(
     assert (dest / "justfile").read_text() == edited_content, (
         "justfile content changed on reproduce"
     )
+
+
+# ---------------------------------------------------------------------------
+# T011-g: all 15 lang × hook_manager combos are syntactically valid
+# ---------------------------------------------------------------------------
+
+_LANGS = ["python", "ts", "go", "rust", ""]
+_HOOK_MANAGERS = ["pre-commit", "lefthook", "none"]
+_ALL_COMBOS = list(itertools.product(_LANGS, _HOOK_MANAGERS))
+
+
+@pytest.mark.parametrize(
+    "language,hook_manager",
+    _ALL_COMBOS,
+    ids=[f"{lang or 'empty'}+{hm}" for lang, hm in _ALL_COMBOS],
+)
+def test_all_combos_produce_valid_justfile(language: str, hook_manager: str) -> None:
+    """Every lang×hook_manager combo renders a justfile that just accepts.
+
+    Uses direct Jinja2 rendering (same engine copier uses) to avoid the
+    overhead of 15 copier subprocess invocations for a pure-syntax check.
+    """
+    env = SandboxedEnvironment(keep_trailing_newline=True)
+    template = env.from_string(_TEMPLATE_PATH.read_text())
+    rendered = template.render(
+        language=language,
+        hook_manager=hook_manager,
+        js_pkg_manager="bun",  # representative; only matters for ts combos
+    )
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".just", delete=False) as fh:
+        fh.write(rendered)
+        tmp_path = Path(fh.name)
+    try:
+        _assert_justfile_valid(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
