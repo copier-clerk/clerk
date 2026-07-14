@@ -41,3 +41,5 @@ path = "templates/clerk-mod-quality"
 path = "templates/clerk-mod-readme"
 [monorepo.packages.clerk-mod-agentic]
 path = "templates/clerk-mod-agentic"
+[monorepo.packages.clerk-mod-ci-github]
+path = "templates/clerk-mod-ci-github"
