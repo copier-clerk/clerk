@@ -1,0 +1,187 @@
+# copier.yml — clerk-mod-agentic
+#
+# Agentic-config rollup (spec 011, folding in clerk-mod-apm FRs).
+# Renders per-target config files for Claude, Codex, OpenCode, and Kiro.
+# Targets are selected via a multiselect with NO default — the phase-1 agent
+# picks by context and injects the list via --data.
+#
+# Outputs are on DELIBERATELY DISJOINT paths: multi-target selection produces
+# zero collisions. Empty selection (no targets) is a CLEAN no-op; only
+# .copier-answers.yml is written. The combination install_via_apm=true +
+# apm_packages==[] is refused loudly (R2; distinct from the module-level no-op).
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions (APM/Claude tokens are ambient env, never copier answers);
+# edges are when:false hidden answers.
+
+_subdirectory: template
+
+# --------------------------------------------------------------------------- #
+# Identity (threaded)                                                           #
+# --------------------------------------------------------------------------- #
+
+# Threaded from a base layer via copier's default: "{{ project_name }}" mechanism
+# (FR-010). Standalone fallback: renders empty when no upstream supplied it.
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "The project's name (threaded from a base layer)."
+
+# `today` is injected by clerk at init and frozen into the recorded answers
+# (FR-007); never sourced from jinja2_time (Constitution V).
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# --------------------------------------------------------------------------- #
+# Target selection                                                               #
+# --------------------------------------------------------------------------- #
+
+# NO default — the phase-1 agent picks by context and injects via --data.
+# Empty list = clean no-op (only .copier-answers.yml written).
+agentic_targets:
+  type: str
+  multiselect: true
+  choices:
+    - claude
+    - codex
+    - opencode
+    - kiro
+  help: "Agentic targets to configure (agent-selected; may be empty for a clean no-op)."
+
+# Kiro slug renders both shared .kiro/ files AND optional CLI-only agents/*.json.
+kiro_cli_agents:
+  type: bool
+  default: false
+  help: "When kiro is selected: also render .kiro/agents/*.json for CLI agent definitions."
+
+# --------------------------------------------------------------------------- #
+# Feature flags                                                                 #
+# --------------------------------------------------------------------------- #
+
+# Render per-target native MCP config file (.mcp.json, .codex/config.toml [mcp],
+# .kiro/settings/mcp.json, opencode.json mcp section).
+mcp_config:
+  type: bool
+  default: false
+  help: "Render per-target native MCP config file from the canonical mcp_servers list."
+
+# Claude/Codex marketplace manifests + plugin install task.
+# Marketplace-native targets: claude, codex only.
+native_marketplace:
+  type: bool
+  default: false
+  help: "Render marketplace manifests (claude/codex only) and add plugin install task."
+
+# APM install path (for non-marketplace targets or supplementary packages).
+# When true, apm_packages MUST be non-empty (R2 validator below).
+install_via_apm:
+  type: bool
+  default: false
+  help: "Run apm install at scaffold (requires non-empty apm_packages — see R2)."
+
+# --------------------------------------------------------------------------- #
+# Canonical MCP server list                                                     #
+# --------------------------------------------------------------------------- #
+
+# Each entry: {name: str, command: str, args: [...], env: {KEY: "${VAR_REF}"}}
+# Env values MUST use ${VAR} refs — never literal secret values.
+mcp_servers:
+  type: yaml
+  default: []
+  help: "Canonical MCP server list; fanned per-target format. Env values as ${VAR} refs."
+
+# --------------------------------------------------------------------------- #
+# Plugin / marketplace configuration                                            #
+# --------------------------------------------------------------------------- #
+
+# Marketplace/plugin definitions. Each entry: {name: str, owner_repo: str, ...}
+agentic_plugins:
+  type: yaml
+  default: []
+  help: "Marketplace/plugin definitions ({name, owner_repo, ...}) injected by the agent."
+
+# --------------------------------------------------------------------------- #
+# APM configuration                                                             #
+# --------------------------------------------------------------------------- #
+
+# APM package locators. Validated non-empty when install_via_apm=true (R2).
+apm_packages:
+  type: yaml
+  default: []
+  # R2: install_via_apm=true + empty apm_packages is a phase-1 mistake — refuse loudly.
+  # The legitimate module-level no-op (no targets at all) is a different case; only
+  # this specific combination (APM path selected but no packages) is refused.
+  validator: >-
+    {% if install_via_apm and apm_packages | length == 0 %}clerk-mod-agentic: install_via_apm=true requires at least one
+    APM package in apm_packages (R2). Either provide apm_packages via --data, or set
+    install_via_apm=false.{% endif %}
+  help: "APM package locators (agent-populated; required when install_via_apm=true)."
+
+# Pinned APM CLI version for process-determinism.
+apm_cli_version:
+  type: str
+  default: "0.25.0"
+  help: "APM CLI version the install task pins (uvx --from apm-cli==<version>)."
+
+# --------------------------------------------------------------------------- #
+# Dependency edges (when:false hidden answers — FR-004)                        #
+# --------------------------------------------------------------------------- #
+
+run_after:
+  type: yaml
+  default: []
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# --------------------------------------------------------------------------- #
+# Seed-once files                                                               #
+# --------------------------------------------------------------------------- #
+
+# Kiro steering files are seed-once: written once, then the project edits them.
+# Kiro agents/*.json are managed (re-rendered byte-identically).
+_skip_if_exists:
+  - .kiro/steering/project.md
+
+# --------------------------------------------------------------------------- #
+# Trust-gated tasks (FR-007b / FR-009)                                         #
+# --------------------------------------------------------------------------- #
+
+_tasks:
+  # PREFLIGHT (ordered first): verify mise is on PATH; verify uvx when install_via_apm.
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "clerk-mod-agentic: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
+    exit 1; }
+  - command: >-
+      command -v uvx >/dev/null 2>&1 ||
+      { echo "clerk-mod-agentic: required tool 'uvx' (from uv) not found on PATH." >&2;
+      echo "  uv/uvx — https://docs.astral.sh/uv/getting-started/installation/" >&2;
+      exit 1; }
+    when: "{{ install_via_apm }}"
+
+  # Claude marketplace plugin install (trust-gated: process-deterministic with frozen inputs).
+  # Runs only when native_marketplace=true AND claude in targets AND plugin list non-empty.
+  - command: >-
+      {% for plugin in agentic_plugins -%}
+      claude plugin install {{ plugin.name }}@{{ plugin.owner_repo }} --scope project &&
+      {%- endfor %}
+      true
+    when: "{{ native_marketplace and 'claude' in agentic_targets and agentic_plugins | length > 0 }}"
+
+  # APM install (when install_via_apm + apm_packages non-empty — guarded by R2 validator above).
+  # Writes apm.lock.yaml as external state (task-output, NOT byte-guaranteed).
+  - command: >-
+      uvx --from apm-cli=={{ apm_cli_version }} apm install
+    when: "{{ install_via_apm and apm_packages | length > 0 }}"

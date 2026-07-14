@@ -1026,3 +1026,39 @@ def apm_stub_base(tmp_path: Path) -> TemplateRepo:
             "template/base_out.txt.jinja": "base={{ project_name }}\n",
         },
     )
+
+
+# Offline stub tasks for clerk-mod-agentic (spec 011): swap the real network/tool
+# tasks (mise preflight, uvx/apm install, claude plugin install) for deterministic
+# OFFLINE no-ops. Stubs write markers so tests can assert task execution paths
+# without requiring live CLI tools or network access. The rendered template
+# surface (settings.json, .mcp.json, opencode.json, .codex/config.toml, etc.)
+# is copied verbatim — only the task side-effects are stubbed.
+_AGENTIC_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'mise-preflight-ok\\n' > .clerk-agentic-preflight"
+      - command: "printf 'uvx-preflight-ok\\n' >> .clerk-agentic-preflight"
+        when: "{{ install_via_apm }}"
+      - command: "printf 'claude-plugin-install-ok\\n' > .clerk-claude-plugin-install"
+        when: "{{ native_marketplace and 'claude' in agentic_targets
+          and agentic_plugins | length > 0 }}"
+      - command: >-
+          printf 'lockfile_version: stub\\napm_version: {{ apm_cli_version }}\\n'
+          > apm.lock.yaml
+        when: "{{ install_via_apm and apm_packages | length > 0 }}"
+    """
+)
+
+
+@pytest.fixture
+def clerk_mod_agentic(tmp_path: Path) -> TemplateRepo:
+    """The real clerk-mod-agentic template as a hermetic repo (all tasks stubbed offline).
+
+    spec 011 / T014: renders the real per-target config surface; the network/tool
+    tasks (mise/uvx preflight, claude plugin install, apm install) are replaced with
+    deterministic offline stubs that write markers so tests can assert execution paths.
+    """
+    return _copy_module_with_stub_tasks(
+        "clerk-mod-agentic", tmp_path / "clerk-mod-agentic", _AGENTIC_STUB_TASKS
+    )

@@ -1,0 +1,15 @@
+{#-
+  .agents/plugins/marketplace.json — MANAGED (when 'codex' in agentic_targets AND
+  native_marketplace=true). Records the Codex marketplace plugin manifest.
+  Re-rendered byte-identically at reproduce.
+-#}
+{
+  "plugins": [
+{% for plugin in agentic_plugins %}
+    {
+      "name": "{{ plugin.name }}",
+      "ownerRepo": "{{ plugin.owner_repo }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]
+}
