@@ -1,0 +1,25 @@
+{%- if test_runner in ['vitest-node', 'vitest-browser', 'vitest+playwright'] -%}
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+{% if test_runner == 'vitest-node' %}
+    environment: "node",
+{% elif test_runner == 'vitest-browser' %}
+    browser: {
+      enabled: true,
+      provider: "playwright",
+      instances: [{ browser: "chromium" }],
+    },
+{% elif test_runner == 'vitest+playwright' %}
+    environment: "node",
+    // playwright e2e tests run separately via `playwright test`
+{% endif %}
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+    },
+  },
+});
+{%- endif -%}
