@@ -25,3 +25,6 @@ path = "templates/clerk-mod-python"
 
 [monorepo.packages.clerk-mod-apm]
 path = "templates/clerk-mod-apm"
+
+[monorepo.packages.clerk-mod-cdk]
+path = "templates/clerk-mod-cdk"

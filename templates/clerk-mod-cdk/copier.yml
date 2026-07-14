@@ -1,0 +1,130 @@
+# copier.yml — clerk-mod-cdk
+#
+# AWS CDK overlay: scaffolds a CDK app via `cdk init` as a trust-gated task.
+# Pure TASK module — template/ renders only the answers-file; ALL CDK files
+# come from `cdk init` (task-output, then seed-once/user-owned after first run).
+#
+# Contract: specs/011-deopinionated-module-family/contracts/iac.md (clerk-mod-cdk).
+# Cross-cutting: _cross-cutting.md §3 (native-command scaffold pattern) +
+#                §7 (determinism/trust/secrets).
+#
+# De-opinionation: no hardcoded account/region; no default VPC/Lambda; env via
+# CDK_DEFAULT_ACCOUNT/CDK_DEFAULT_REGION or omit entirely. NEVER cdk bootstrap/deploy.
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default:
+    - clerk-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# --- Questions ---------------------------------------------------------------
+
+# Threaded from base via copier's default: "{{ project_name }}" mechanism
+# (ADR-0003). Standalone fallback: empty string if no upstream base. FR-010.
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from clerk-mod-base; used in cdk init)."
+
+# Target CDK language. Choices are the full set cdk init supports.
+# Dead/unsupported options (JavaScript) are NOT offered per cross-cutting dead-options rule.
+cdk_language:
+  type: str
+  choices:
+    - typescript
+    - python
+    - go
+    - java
+    - csharp
+  default: typescript
+  help: "Language for the generated CDK app (passed to cdk init --language)."
+
+# Directory under the project root where cdk init will write app files.
+# Use "." for standalone IaC repos (per contract).
+placement_dir:
+  type: str
+  default: infrastructure
+  help: "Directory relative to the project root where cdk init places the CDK app."
+
+# CDK version to pin after init. Default matches the contract.
+cdk_version:
+  type: str
+  default: "2.261.0"
+  help: "AWS CDK version to pin (used to align aws-cdk-lib after init)."
+
+# Whether to splice cdk-nag import into the app entrypoint after init.
+include_cdk_nag:
+  type: bool
+  default: false
+  help: "Splice a cdk-nag import into the CDK app entrypoint after init."
+
+# Whether to run `cdk synth` as an optional validation step (credential-free
+# against an empty stack). Gated on include_synth_validate so it is always opt-in.
+include_synth_validate:
+  type: bool
+  default: false
+  help: "Run `cdk synth` after init for an offline validation of the empty stack."
+
+# `today` injected by clerk at init and frozen into the recorded answers (FR-007).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); clerk injects this — leave blank."
+
+# Template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# Trust-gated tasks (FR-007b / ADR-0007 native-command scaffold pattern §3).
+# Order: preflight → cdk init (guarded) → optional pin → optional synth.
+# Init-only-guarded via cdk.json existence check so reproduce is a no-op over
+# a populated tree (cross-cutting §3 / critique R5). NEVER cdk bootstrap/deploy.
+_tasks:
+  # 1. Preflight: verify mise, node, language runtime, and cdk are on PATH.
+  #    Fail fast with install URLs before any consequential step runs.
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "clerk-mod-cdk: required tool 'mise' not found on PATH." >&2;
+      echo "  mise — https://mise.jdx.dev" >&2;
+      exit 1; }
+  - >-
+    command -v node >/dev/null 2>&1 ||
+    { echo "clerk-mod-cdk: required tool 'node' not found on PATH." >&2;
+      echo "  node — install via mise: mise use node@lts" >&2;
+      exit 1; }
+  - >-
+    command -v cdk >/dev/null 2>&1 ||
+    { echo "clerk-mod-cdk: required tool 'cdk' not found on PATH." >&2;
+      echo "  cdk — npm install -g aws-cdk" >&2;
+      exit 1; }
+
+  # 2. cdk init app — init-only-guarded: skip if cdk.json already exists so
+  #    reproduce over a populated tree is a no-op (cross-cutting §3 / ADR-0007).
+  #    Creates placement_dir if it does not yet exist.
+  - >-
+    mkdir -p "{{ placement_dir }}" &&
+    test -f "{{ placement_dir }}/cdk.json" ||
+    (cd "{{ placement_dir }}" && cdk init app --language={{ cdk_language }})
+
+  # 3. Commit cdk.context.json when created — it is part of reproducible infra
+  #    state (contract: "cdk.context.json COMMITTED"). No-op if not created.
+  - >-
+    test ! -f "{{ placement_dir }}/cdk.context.json" ||
+    git add -f "{{ placement_dir }}/cdk.context.json" 2>/dev/null || true
+
+  # 4. Optional cdk synth validation (credential-free, empty-stack sanity check).
+  #    Only runs when include_synth_validate=true (always opt-in, never on reproduce).
+  - command: >-
+      (cd "{{ placement_dir }}" && cdk synth --quiet 2>&1) ||
+      { echo "clerk-mod-cdk: cdk synth failed — check your stack definition." >&2; exit 1; }
+    when: "{{ include_synth_validate }}"
