@@ -74,3 +74,27 @@ path = "templates/bailiff-mod-terraform"
 [monorepo.packages.bailiff-mod-ts]
 path = "templates/bailiff-mod-ts"
 
+
+[monorepo.packages.bailiff-mod-devcontainer]
+path = "templates/bailiff-mod-devcontainer"
+
+[monorepo.packages.bailiff-mod-editorconfig]
+path = "templates/bailiff-mod-editorconfig"
+
+[monorepo.packages.bailiff-mod-cocogitto]
+path = "templates/bailiff-mod-cocogitto"
+
+[monorepo.packages.bailiff-mod-dep-updates]
+path = "templates/bailiff-mod-dep-updates"
+
+[monorepo.packages.bailiff-mod-moon]
+path = "templates/bailiff-mod-moon"
+
+[monorepo.packages.bailiff-mod-mkdocs]
+path = "templates/bailiff-mod-mkdocs"
+
+[monorepo.packages.bailiff-mod-gitlab-repo]
+path = "templates/bailiff-mod-gitlab-repo"
+
+[monorepo.packages.bailiff-mod-api]
+path = "templates/bailiff-mod-api"

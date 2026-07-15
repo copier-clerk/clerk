@@ -55,3 +55,27 @@ url = "https://github.com/bailiff-io/bailiff-mod-terraform.git"
 
 [[sources]]
 url = "https://github.com/bailiff-io/bailiff-mod-ts.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-devcontainer.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-editorconfig.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-cocogitto.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-dep-updates.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-moon.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-mkdocs.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-gitlab-repo.git"
+
+[[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-api.git"

@@ -79,7 +79,7 @@ Every module task implicitly includes ALL of the following before it is consider
   host-derived default rule (FR-004). No loop test changes needed. Verify
   `just check-modules` still green after annotation.
 
-- [ ] **T002** [US4] FR-010a: amend `bailiff-mod-ci-github` and `bailiff-mod-ci-gitlab` to
+- [x] **T002** [US4] FR-010a: amend `bailiff-mod-ci-github` and `bailiff-mod-ci-gitlab` to
   accept `monorepo_tool=moon` and render moon-specific affected-detection. Concrete changes:
   (1) In `templates/bailiff-mod-ci-github/copier.yml` and
   `templates/bailiff-mod-ci-gitlab/copier.yml`, update the `monorepo_tool` help text to

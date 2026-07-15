@@ -1,0 +1,54 @@
+# copier.yml — bailiff-mod-devcontainer
+#
+# Reproducible containerized dev environment (spec 012 / FR-005).
+# Pure MANAGED render — ZERO _tasks. `.devcontainer/devcontainer.json` derives
+# its toolchain from the SAME frozen `mise_tools` union that base pins into
+# `.mise.toml`, so the container and the host install the identical tool set
+# (zero drift by construction).
+#
+# Base image is FIXED (ledger, FR-005 resolution): the module's value is
+# zero-decision reproducibility — no `devcontainer_image` question. Projects
+# needing another image edit the file after scaffold.
+#
+# This module consumes `mise_tools` (agent-frozen via --data); it does NOT
+# write `.mise.toml` (bailiff-mod-base is the single writer — M1).
+#
+# Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
+# questions; no jinja2_time; edges are when:false hidden answers.
+
+# Threaded from base — used for the devcontainer "name" field.
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "The project's name (threaded from bailiff-mod-base)."
+
+# mise_tools — frozen union injected by the phase-1 agent. Base is the single
+# writer of .mise.toml; this module only DERIVES the container tool list from
+# the same frozen answer. Default [] renders a minimal valid devcontainer.
+mise_tools:
+  type: yaml
+  default: []
+  help: "Frozen list of mise tool name/version maps (e.g. [{python: '3.13'}]); bailiff injects this."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# Template body lives under template/ — copier renders only that subtree.
+_subdirectory: template
+
+# .devcontainer/devcontainer.json is MANAGED: byte-identical on reproduce.
+# No _tasks: pure render (FR-005).
