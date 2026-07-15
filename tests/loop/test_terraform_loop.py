@@ -190,7 +190,9 @@ class TestTerraformFlavor:
         # Presence/structure only (R5): it is a text file (not empty placeholder check)
         assert lock.stat().st_size > 0, ".terraform.lock.hcl must not be empty"
 
-    def test_preflight_stub_marker(self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path) -> None:
+    def test_preflight_stub_marker(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
         """The (stubbed) preflight task produced its marker file."""
         dest = tmp_path / "proj"
         _init(
@@ -200,7 +202,9 @@ class TestTerraformFlavor:
         )
         assert (dest / ".bailiff-terraform-preflight").is_file(), "preflight marker missing"
 
-    def test_answers_file_recorded(self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path) -> None:
+    def test_answers_file_recorded(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
         """The copier answers file is written and records the right answers."""
         dest = tmp_path / "proj"
         _init(

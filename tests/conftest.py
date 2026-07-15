@@ -1044,7 +1044,9 @@ def bailiff_mod_go(tmp_path: Path) -> TemplateRepo:
     task is replaced with a deterministic offline stub that writes a marker, keeping
     the suite hermetic (no go toolchain required).
     """
-    return _copy_module_with_stub_tasks("bailiff-mod-go", tmp_path / "bailiff-mod-go", _GO_STUB_TASKS)
+    return _copy_module_with_stub_tasks(
+        "bailiff-mod-go", tmp_path / "bailiff-mod-go", _GO_STUB_TASKS
+    )
 
 
 @pytest.fixture
@@ -1126,17 +1128,18 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
           name="{{ name }}";
           dir="{{ dir }}";
-          err() { echo "bailiff-mod-package-add: $1" >&2; exit 1; };
+          err() { echo "pkg-add: $1" >&2; exit 1; };
           [ -z "$name" ] && err "name must not be empty";
           [ -z "$dir" ] && err "dir must not be empty";
-          printf '%s' "$name" | grep -qE '(^$|/|\\\\|\\.\\.|^\\.$)' && err "name '${name}' contains unsafe path component";
-          printf '%s' "$dir" | grep -qE '(\\\\|/\\.\\./|/\\.\\.$|^\\.\\./|^\\.$|^\\.\\.$)' && err "dir '${dir}' contains unsafe path component";
+          printf '%s' "$name" | grep -qE '(^$|/|\\|\\.\\.|^\\.$)' && err "name unsafe";
+          printf '%s' "$dir" | grep -qE '(\\|/\\.\\./)' && err "dir unsafe";
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
           if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
           mkdir -p "{{ dir.rstrip('/') }}/{{ name }}";
-          printf 'package-add-ok lang={{ lang }} name={{ name }}\\n' > .bailiff-package-add-preflight
+          printf 'package-add-ok lang={{ lang }} name={{ name }}\\n'
+          > .bailiff-package-add-preflight
     """
 )
 

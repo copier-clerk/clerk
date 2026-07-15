@@ -144,7 +144,9 @@ def test_minimal_reproduce_byte_identical(
 # ---------------------------------------------------------------------------
 
 
-def test_standard_parallel_jobs_no_gate(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_standard_parallel_jobs_no_gate(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
     """standard: parallel per-language jobs, no explicit gate job, no deploy job."""
     answers = {**_BASE_ANSWERS, "ci_model": "standard"}
     parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
@@ -307,7 +309,9 @@ def test_optimized_reproduce_byte_identical(
 # ---------------------------------------------------------------------------
 
 
-def test_monorepo_affected_parent_child(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_monorepo_affected_parent_child(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
     """monorepo-affected: renders parent trigger jobs with strategy:depend."""
     answers = {
         **_BASE_ANSWERS,

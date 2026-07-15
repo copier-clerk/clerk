@@ -206,7 +206,9 @@ def test_order_independence_c_and_d(multi_template_set: MultiTemplateSet, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_no_bailiff_order_file_in_dest(multi_template_set: MultiTemplateSet, tmp_path: Path) -> None:
+def test_no_bailiff_order_file_in_dest(
+    multi_template_set: MultiTemplateSet, tmp_path: Path
+) -> None:
     """After multi-template init, dest contains no bailiff-authored order/recipe file."""
     tpl_a = multi_template_set.tpl_a
     tpl_b = multi_template_set.tpl_b

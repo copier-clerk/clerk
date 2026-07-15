@@ -62,7 +62,9 @@ def test_base_python_init_uv_src(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -143,7 +145,9 @@ def test_reproduce_ruff_managed_pyproject_preserved(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -205,7 +209,9 @@ def test_pyproject_seed_once_not_clobbered(
             {"project_name": "myapp", "org": "acme", "license": "mit", "layout": "single"},
         ),
         (
-            _record("demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]),
+            _record(
+                "demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]
+            ),
             {"python_pkg_manager": "uv", "python_version": "3.13", "python_layout": "src"},
         ),
     ]
@@ -402,7 +408,9 @@ def test_add_tests_false_no_scaffold(bailiff_mod_python: TemplateRepo, tmp_path:
     )
 
 
-def test_add_tests_seed_once_not_clobbered(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_add_tests_seed_once_not_clobbered(
+    bailiff_mod_python: TemplateRepo, tmp_path: Path
+) -> None:
     """SEED-ONCE: tests/test_example.py is not overwritten on reproduce."""
     trust.add_trust(bailiff_mod_python.url)
 

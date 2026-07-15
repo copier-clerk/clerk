@@ -225,7 +225,10 @@ def test_no_secret_questions() -> None:
     from pathlib import Path
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "bailiff-mod-go" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-go"
+        / "copier.yml"
     )
     text = copier_yml.read_text()
     lines = text.splitlines()

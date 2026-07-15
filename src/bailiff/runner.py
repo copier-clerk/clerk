@@ -729,7 +729,9 @@ def update_many(
         src_path = raw.get("_src_path")
         commit = raw.get("_commit")
         if not src_path:
-            raise BailiffError(f"answers file {af_path!r} has no _src_path; cannot update this layer")
+            raise BailiffError(
+                f"answers file {af_path!r} has no _src_path; cannot update this layer"
+            )
         if not commit:
             raise BailiffError(f"answers file {af_path!r} has no _commit; cannot update this layer")
 

@@ -102,7 +102,9 @@ def test_base_ts_ordered_and_threaded(
             },
         ),
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -197,7 +199,9 @@ def test_ts_eslint_prettier_variant(
             },
         ),
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "eslintapp",
                 "org": "acme",
@@ -239,7 +243,9 @@ def test_managed_configs_byte_identical_on_reproduce(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -297,7 +303,9 @@ def test_edited_package_json_preserved_on_reproduce(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -366,7 +374,9 @@ def test_test_runner_variants(
     dest = tmp_path / f"proj-{test_runner}"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "tstest",
                 "org": "acme",
@@ -443,7 +453,9 @@ def test_test_runner_variants_reproduce(
     dest = tmp_path / "proj-vn-reproduce"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "tstest",
                 "org": "acme",
@@ -485,7 +497,10 @@ def test_no_secret_questions() -> None:
     import yaml
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "bailiff-mod-ts" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
     )
     assert copier_yml.exists(), f"copier.yml not found at {copier_yml}"
     raw = yaml.safe_load(copier_yml.read_text()) or {}
@@ -503,7 +518,10 @@ def test_yarn_jest_not_offered() -> None:
     import yaml
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "bailiff-mod-ts" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
     )
     raw = yaml.safe_load(copier_yml.read_text()) or {}
 

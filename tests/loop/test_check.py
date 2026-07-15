@@ -66,7 +66,9 @@ def test_check_untrusted_reports_untrusted_precedence(
 # ---------------------------------------------------------------------------
 
 
-def test_check_via_bailiff_script_writes_nothing(base_template: TemplateRepo, tmp_path: Path) -> None:
+def test_check_via_bailiff_script_writes_nothing(
+    base_template: TemplateRepo, tmp_path: Path
+) -> None:
     """scripts/bailiff.py init --check exits 0 and writes nothing."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}

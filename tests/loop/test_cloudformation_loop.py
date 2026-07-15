@@ -53,7 +53,9 @@ def _digest(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_raw_template_yaml_rendered(bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_raw_template_yaml_rendered(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """Raw mode: template.yaml present with AWSTemplateFormatVersion, no SAM Transform."""
     dest = tmp_path / "proj"
     _init(
@@ -305,7 +307,9 @@ def test_answers_file_records_mode_and_envs(
 # ---------------------------------------------------------------------------
 
 
-def test_aws_validate_task_stubbed(bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_aws_validate_task_stubbed(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """aws_validate=true runs the (stubbed) task; stub writes its marker."""
     dest = tmp_path / "proj"
     _init(
@@ -320,7 +324,9 @@ def test_aws_validate_task_stubbed(bailiff_mod_cloudformation: TemplateRepo, tmp
     )
 
 
-def test_aws_validate_false_no_task(bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_aws_validate_false_no_task(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """aws_validate=false (default): the aws task does not run."""
     dest = tmp_path / "proj"
     _init(

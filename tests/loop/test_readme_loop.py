@@ -107,7 +107,9 @@ def test_static_skeleton_seed_once_on_reproduce(
 # ---------------------------------------------------------------------------
 
 
-def test_agent_draft_renders_body_verbatim(bailiff_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_agent_draft_renders_body_verbatim(
+    bailiff_mod_readme: TemplateRepo, tmp_path: Path
+) -> None:
     """agent-draft: README.md is rendered from frozen readme_body verbatim."""
     trust.add_trust(bailiff_mod_readme.url)
 
@@ -135,7 +137,9 @@ def test_agent_draft_renders_body_verbatim(bailiff_mod_readme: TemplateRepo, tmp
     assert "## Features" in content, "readme_body structure not preserved"
 
 
-def test_agent_draft_seed_once_on_reproduce(bailiff_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_agent_draft_seed_once_on_reproduce(
+    bailiff_mod_readme: TemplateRepo, tmp_path: Path
+) -> None:
     """agent-draft: README.md is NOT clobbered on reproduce (_skip_if_exists).
 
     Reproduce replays the frozen answers (including readme_body) but _skip_if_exists

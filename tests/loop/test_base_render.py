@@ -149,7 +149,9 @@ def test_base_monorepo_adds_targets(bailiff_mod_base: TemplateRepo, tmp_path: Pa
     assert "## Path Mapping" not in agents
 
 
-def test_base_github_host_false_no_github_dir(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_github_host_false_no_github_dir(
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
+) -> None:
     """github_host=false → .github/ must not be scaffolded at all."""
     dest = tmp_path / "proj"
     _init_base(

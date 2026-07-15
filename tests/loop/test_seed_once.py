@@ -47,11 +47,15 @@ def test_seed_once_files_preserved_managed_rerendered(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {"project_name": "myapp", "license": "mit", "layout": "single"},
         ),
         (
-            _record("demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]),
+            _record(
+                "demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]
+            ),
             {"python_version": "3.12"},
         ),
     ]

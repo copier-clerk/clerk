@@ -178,7 +178,9 @@ def test_rust_channel_nightly(
 ) -> None:
     """rust_channel=nightly written into rust-toolchain.toml."""
     dest = tmp_path / "proj"
-    _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"rust_channel": "nightly"})
+    _init_base_rust(
+        bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"rust_channel": "nightly"}
+    )
 
     toolchain = (dest / "rust-toolchain.toml").read_text()
     assert 'channel = "nightly"' in toolchain

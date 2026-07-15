@@ -28,7 +28,9 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def test_untrusted_base_refused_before_tasks(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_untrusted_base_refused_before_tasks(
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
+) -> None:
     """Untrusted base → UntrustedSourceError with a prefix; no task side-effects."""
     dest = tmp_path / "proj"
     spec = runner.RunSpec(

@@ -68,7 +68,7 @@ _GH_PUBLIC_STUB_TASKS = dedent(
     """\
     _tasks:
       - >-
-        echo "bailiff-mod-github-repo: ABORTED — visibility=public requires manual confirmation." >&2;
+        echo "bailiff-mod-github-repo: ABORTED — public requires manual confirmation." >&2;
         exit 1
     """
 )

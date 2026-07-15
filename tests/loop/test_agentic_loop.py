@@ -293,7 +293,9 @@ def test_kiro_target_renders_steering_seed_once(
     )
 
 
-def test_kiro_mcp_config_renders_mcp_json(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_kiro_mcp_config_renders_mcp_json(
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
+) -> None:
     """Kiro + mcp_config renders .kiro/settings/mcp.json (managed)."""
     dest = tmp_path / "proj"
     servers = [{"name": "kiro-server", "command": "kiro-mcp", "args": []}]

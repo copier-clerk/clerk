@@ -218,7 +218,9 @@ def test_no_defaults_file_in_project(defaults_template: TemplateRepo, tmp_path: 
     assert found == [], f"Unexpected defaults file in project: {found}"
     # No BAILIFF_DEFAULTS_PATH-named file either
     found_any = list(dest.rglob("*.yml"))
-    bailiff_files = [f for f in found_any if "defaults" in f.name and f.name != ".copier-answers.yml"]
+    bailiff_files = [
+        f for f in found_any if "defaults" in f.name and f.name != ".copier-answers.yml"
+    ]
     assert bailiff_files == []
 
 
