@@ -51,7 +51,7 @@ Every module task implicitly includes ALL of the following before it is consider
 
 ## Phase 1: Baseline
 
-- [ ] **T_baseline** Verify the 012 starting baseline: run `just check-modules` (must report
+- [x] **T_baseline** Verify the 012 starting baseline: run `just check-modules` (must report
   `ok` over the 19 existing 011 templates); run the existing loop suite targeted at
   `tests/loop/` (all tests green, including `tests/loop/test_secrets_policy.py` and
   `tests/loop/test_base_render.py` which already asserts dependabot.yml absence). Confirm

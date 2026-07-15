@@ -38,6 +38,7 @@ touches it (FR-002). Ratified axes:
 | `test_runner` (go) | str | go-test, gotestsum | go-test | — |
 | `test_runner` (ts) | str | none, vitest-node, vitest-browser, vitest+playwright, bun-test, playwright-only | none | jest |
 | test scaffolding (all) | bool/opt | — | OFF (opt-in) | — |
+| `dep_update_tool` | str | renovate, dependabot | `"{{ 'dependabot' if github_host else 'renovate' }}"` — host-derived (dependabot when GitHub-hosted, renovate otherwise; FR-004 spec 012), explicitly overridable | — |
 
 Version lists are subject to the meta-item CI auto-updater (out of module scope).
 

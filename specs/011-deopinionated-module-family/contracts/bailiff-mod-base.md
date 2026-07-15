@@ -13,7 +13,7 @@ Thinned universal scaffold + identity/license. References [_cross-cutting.md](./
 | copyright_name | str | "{{ org }}" | NEW — LICENSE holder distinct from org slug |
 | branch_strategy | str | [feature-branches-squash-merge, trunk-based, gitflow, feature-branches-merge-commit] / first | NEW — one AGENTS.md line |
 | docs_subdirs | bool | true | NEW — creates lean core subdirs only (architecture/decisions/runbooks) |
-| github_host | bool | true | NEW — gates a minimal `.github/` (issue/PR templates, CODEOWNERS, dependabot) — NOT workflows |
+| github_host | bool | true | NEW — gates a minimal `.github/` (issue/PR templates, CODEOWNERS; ~~dependabot~~ moved to bailiff-mod-dep-updates, FR-009 spec 012) — NOT workflows |
 | extra_dirs | yaml | [] | NEW — freeform append-only dir list (replaces extra_monorepo_dirs) |
 | run_git_init | bool | true | NEW — gates the git init task (opt out for existing repos) |
 | write_architecture | bool | false | KEEP — gates AGENTS.md arch splice from frozen architecture_md |
@@ -24,7 +24,7 @@ Thinned universal scaffold + identity/license. References [_cross-cutting.md](./
 
 ## Outputs / lifecycle
 - **always managed dirs** (`.gitkeep`): `docs/` + (if docs_subdirs) `docs/architecture` + `docs/decisions` + `docs/runbooks`; `scripts/`; `tests/`. `extra_dirs` entries appended (managed). monorepo layout adds its 15 dirs (managed, gated).
-- **minimal `.github/`** (managed, when `github_host`): issue/PR templates, CODEOWNERS, dependabot — NO `workflows/` (that's bailiff-mod-ci).
+- **minimal `.github/`** (managed, when `github_host`): issue/PR templates, CODEOWNERS — NO `workflows/` (that's bailiff-mod-ci). ~~dependabot~~ moved to bailiff-mod-dep-updates (FR-009, spec 012).
 - **AGENTS.md** — seed-once (`_skip_if_exists`); arch splice from frozen `architecture_md` iff `write_architecture`.
 - **`.mise.toml`** — managed skeleton (base owns it; language modules inject `[tools]` tokens — see cross-cutting §2).
 - **task-output**: `.gitignore` (gitnr, pinned), `LICENSE` (gh api, `copyright_name`/`today`), `.git/` + optional commit.
