@@ -98,7 +98,7 @@ Every module task implicitly includes ALL of the following before it is consider
 
 ## Phase 3: Slice A — P1 New Modules (parallel)
 
-- [ ] **T003** [US1] NEW module `bailiff-mod-devcontainer` per FR-005; loop test
+- [x] **T003** [US1] NEW module `bailiff-mod-devcontainer` per FR-005; loop test
   `tests/loop/test_devcontainer_loop.py`.
   [NEEDS CLARIFICATION FR-005 — base container image: fixed default vs `devcontainer_image`
   question. Resolve before executing this task.]

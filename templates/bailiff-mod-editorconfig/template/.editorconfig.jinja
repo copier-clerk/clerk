@@ -1,0 +1,26 @@
+# .editorconfig — managed by bailiff-mod-editorconfig; do not edit by hand.
+# Language sections derive from the frozen linter facts (indent from the
+# linter's convention, max_line_length from the frozen linter setting).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+{% if ts_linter %}
+
+# TypeScript/JavaScript — {{ ts_linter }} convention (2-space indent).
+[*.{js,jsx,ts,tsx,mjs,cjs}]
+indent_style = space
+indent_size = 2
+{% endif %}
+{% if python_linter %}
+
+# Python — {{ python_linter }} convention (PEP 8: 4-space indent).
+# max_line_length follows the frozen {{ python_linter }} line-length setting.
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = {{ ruff_line_length }}
+{% endif %}
