@@ -40,7 +40,7 @@ Every module task implicitly includes ALL of the following before it is consider
 
 ## Phase 0: Pre-plan prerequisite
 
-- [ ] **T000** Vendor `decisions-ledger.md` into `specs/012-module-batch-2/decisions-ledger.md`.
+- [x] **T000** Vendor `decisions-ledger.md` into `specs/012-module-batch-2/decisions-ledger.md`.
   This is the in-tree copy of the ratified 2026-07-14 maintainer decisions (same pattern as
   `specs/011-deopinionated-module-family/decisions-ledger.md`). **Hard gate — no task beyond
   T000 may be executed until this file exists at the exact path.** The file must cover the
