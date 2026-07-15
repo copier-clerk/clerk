@@ -130,6 +130,23 @@ class DowngradeError(BailiffError):
     """
 
 
+class CollisionError(BailiffError):
+    """Two selected modules would write the same managed destination path.
+
+    Raised by the init-time pre-render overlap scan (spec 013 FR-013) BEFORE any
+    real write, so the destination is never left half-rendered. Maps to exit 1
+    in the CLI (same handler as other ``BailiffError`` subclasses).
+    """
+
+    def __init__(self, path: str, modules: list[str]) -> None:
+        self.path = path
+        self.modules = modules
+        super().__init__(
+            f"file collision: modules {', '.join(modules)!r} would both write "
+            f"{path!r}. Resolve the conflict before running init."
+        )
+
+
 class DirtyWorktreeError(BailiffError):
     """The destination has uncommitted changes at the start of an upgrade.
 

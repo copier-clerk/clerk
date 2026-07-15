@@ -52,6 +52,9 @@ packages = ["src/bailiff"]
 target-version = "py311"
 line-length = 100
 src = ["src", "scripts"]
+# Vendored tooling (speckit hooks) and speckit test fixtures are not project
+# source; lint would flag code we do not author or maintain.
+extend-exclude = [".claude", ".codex", ".specify"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]

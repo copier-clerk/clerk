@@ -42,7 +42,7 @@ baseline — are in place. Nothing proceeds if either gate is red.
 
 **Purpose**: Land the constitution amendment that gates all PyPI publish work. Engine code (Phases 3-4) may proceed in parallel on the branch; the `[project.scripts]` addition and publish steps (Phases 5-6) MUST NOT merge before this task is complete.
 
-- [ ] T003 [US3] Author and commit the governance amendment in one atomic change:
+- [x] T003 [US3] Author and commit the governance amendment in one atomic change:
   (1) Amend `specs/013-engine-capabilities-pypi/decisions-ledger.md` — confirm it captures all ratified decisions from the 2026-07-14 adjudication session.
   (2) Amend `.specify/memory/constitution.md` to v3.0.0 (MAJOR): rewrite Principle I to permit and scope the published CLI (bailiff = the tool, bailiff-mod-* = the modules); scope C-11 to module-authoring specs; add a sync-impact report comment block at the top of the file recording the MAJOR bump rationale, the reconciled files list, and that spec 011's FR-011 gate remains honored for its scope. The existing v2.3.0 sync-impact comment MUST be preserved (prior history).
   (3) Amend `.specify/memory/roadmap.md`: scope the C-11 "glue only for capabilities copier lacks" rule to module-authoring specs; add a note that spec 013 is the governed engine exception.
