@@ -11,11 +11,11 @@ decisions, with two sanctioned 011-artifact amendments: the FR-009 base dependab
 
 ## Summary
 
-Deliver eight new `clerk-mod-*` templates plus amendments to `clerk-mod-ci-github` and
-`clerk-mod-ci-gitlab` (FR-010a). `clerk-mod-base` FR-009 is already done (commit a68295e —
+Deliver eight new `bailiff-mod-*` templates plus amendments to `bailiff-mod-ci-github` and
+`bailiff-mod-ci-gitlab` (FR-010a). `bailiff-mod-base` FR-009 is already done (commit a68295e —
 no template work remains; only 011 spec-artifact annotations needed). Every new module is
 pure template content: copier questions + rendered files + trust-gated tasks — no new
-`src/clerk/` code (C-11 / FR-003). One new cross-cutting axis: `dep_update_tool`
+`src/bailiff/` code (C-11 / FR-003). One new cross-cutting axis: `dep_update_tool`
 `[renovate, dependabot]` (FR-004). Publishing remains a maintainer-confirmed batch via
 the 008b pipeline.
 
@@ -23,7 +23,7 @@ the 008b pipeline.
 
 **Language/Version**: No application code. Deliverables are copier YAML + Jinja templates +
 shell `_tasks` + two 011-artifact amendments. `scripts/check_modules.py` (`just
-check-modules`) is the contract gate; no new `src/clerk/` module or verb (C-11).
+check-modules`) is the contract gate; no new `src/bailiff/` module or verb (C-11).
 
 **Primary Dependencies**: copier `>=9.16,<10`; mise; all 19 existing 011 templates
 (`templates/`); `tests/conftest.py` `_copy_module_with_stub_tasks` fixture (extend only if
@@ -80,22 +80,22 @@ specs/012-module-batch-2/
 
 ```text
 templates/
-├── clerk-mod-devcontainer/   # NEW — P1
-├── clerk-mod-editorconfig/   # NEW — P1
-├── clerk-mod-cocogitto/      # NEW — P1
-├── clerk-mod-dep-updates/    # NEW — P1
-├── clerk-mod-moon/           # NEW — P2
-├── clerk-mod-mkdocs/         # NEW — P2
-├── clerk-mod-gitlab-repo/    # NEW — P2
-└── clerk-mod-api/            # NEW — P3
+├── bailiff-mod-devcontainer/   # NEW — P1
+├── bailiff-mod-editorconfig/   # NEW — P1
+├── bailiff-mod-cocogitto/      # NEW — P1
+├── bailiff-mod-dep-updates/    # NEW — P1
+├── bailiff-mod-moon/           # NEW — P2
+├── bailiff-mod-mkdocs/         # NEW — P2
+├── bailiff-mod-gitlab-repo/    # NEW — P2
+└── bailiff-mod-api/            # NEW — P3
 
 # Amended (existing 011 modules):
-templates/clerk-mod-base/        # FR-009 DONE (a68295e) — no template work remaining
-templates/clerk-mod-ci-github/   # FR-010a — add moon branch to monorepo-affected
-templates/clerk-mod-ci-gitlab/   # FR-010a — add moon branch to monorepo-affected
+templates/bailiff-mod-base/        # FR-009 DONE (a68295e) — no template work remaining
+templates/bailiff-mod-ci-github/   # FR-010a — add moon branch to monorepo-affected
+templates/bailiff-mod-ci-gitlab/   # FR-010a — add moon branch to monorepo-affected
 
 # 011 spec artifacts requiring annotation:
-specs/011-deopinionated-module-family/contracts/clerk-mod-base.md  # strike dependabot row
+specs/011-deopinionated-module-family/contracts/bailiff-mod-base.md  # strike dependabot row
 specs/011-deopinionated-module-family/tasks.md (T004)              # strike dependabot render req
 specs/011-deopinionated-module-family/contracts/ci-github-gitlab.md  # add moon to monorepo_tool
 
@@ -103,50 +103,50 @@ specs/011-deopinionated-module-family/contracts/ci-github-gitlab.md  # add moon 
 specs/011-deopinionated-module-family/data-model.md   # add dep_update_tool axis row
 
 # Registration (per new module, via `just new-module` + check_modules.py):
-cog.toml · catalog-sources.toml · skills/clerk/SKILL.md
+cog.toml · catalog-sources.toml · skills/bailiff/SKILL.md
 ```
 
 ## How each module maps to implementation
 
 ### P1 modules
 
-**clerk-mod-devcontainer** (FR-005): Pure managed render. Zero `_tasks`. Consumes the
+**bailiff-mod-devcontainer** (FR-005): Pure managed render. Zero `_tasks`. Consumes the
 agent-frozen `mise_tools` union (does not write `.mise.toml`) and emits
 `.devcontainer/devcontainer.json` referencing the mise devcontainer feature with the same
 pinned tool/version set. Renders a minimal valid file when `mise_tools` is empty. No
-questions of its own beyond frozen facts. Edge: `run_after: [clerk-mod-base]`.
+questions of its own beyond frozen facts. Edge: `run_after: [bailiff-mod-base]`.
 [NEEDS CLARIFICATION on base image — FR-005]
 
-**clerk-mod-editorconfig** (FR-006): Pure managed render. Zero `_tasks`. Reads frozen
+**bailiff-mod-editorconfig** (FR-006): Pure managed render. Zero `_tasks`. Reads frozen
 language facts (`ts_linter`, Python linter identity, `ruff_line_length`) to emit
 language-specific sections; a universal defaults section (charset/newline/trailing-
 whitespace) is always present. Indentation derives from the linter's convention, never from
 line width. No questions of its own. The phase-1 agent must freeze `ts_linter` and
-`ruff_line_length` via `--data` (FR-006). Edge: `run_after: [clerk-mod-base]`.
+`ruff_line_length` via `--data` (FR-006). Edge: `run_after: [bailiff-mod-base]`.
 
-**clerk-mod-cocogitto** (FR-007): Renders managed `cog.toml` sized to project shape
+**bailiff-mod-cocogitto** (FR-007): Renders managed `cog.toml` sized to project shape
 (single vs monorepo from threaded `layout` fact). Contributes `cog` token to `mise_tools`
 union and a commit-message-lint block to `hook_blocks` union (written by
-`clerk-mod-precommit` only). Trust-gated `_task`: mise preflight + cog availability check,
+`bailiff-mod-precommit` only). Trust-gated `_task`: mise preflight + cog availability check,
 init-only-guarded. No `cog bump`, no tag creation, no changelog write at scaffold time.
-Edge: `run_after: [clerk-mod-base]`. [NEEDS CLARIFICATION on CI job seeding — FR-007]
+Edge: `run_after: [bailiff-mod-base]`. [NEEDS CLARIFICATION on CI job seeding — FR-007]
 
-**clerk-mod-dep-updates** (FR-008): One module with `dep_update_tool [renovate, dependabot]`
+**bailiff-mod-dep-updates** (FR-008): One module with `dep_update_tool [renovate, dependabot]`
 axis (isomorphic family — FR-001). Default derived from `github_host` (FR-004). Renovate
 branch → managed `renovate.json` sized from frozen language facts; dependabot branch →
 managed `.github/dependabot.yml` sized from frozen language facts. Neither branch deletes
 the other tool's file. `dep_update_tool=dependabot` + `github_host=false` → file still
 rendered but with a warning comment and README note (warn-and-render). Zero `_tasks`. Edge:
-`run_after: [clerk-mod-base]`.
+`run_after: [bailiff-mod-base]`.
 
 **FR-009 base amendment**: Already merged (commit a68295e). Template and loop test already
-patched. Remaining work: annotate `specs/011-deopinionated-module-family/contracts/clerk-mod-base.md`
+patched. Remaining work: annotate `specs/011-deopinionated-module-family/contracts/bailiff-mod-base.md`
 (strike dependabot from `github_host` row) and `specs/011-deopinionated-module-family/tasks.md`
 T004 (strike dependabot render requirement) per FR-009. These are spec-doc annotations, not
 code changes. See T001-annotate.
 
 **FR-010a CI amendment**: Amend the `monorepo_tool` help text in both
-`templates/clerk-mod-ci-github/copier.yml` and `templates/clerk-mod-ci-gitlab/copier.yml`
+`templates/bailiff-mod-ci-github/copier.yml` and `templates/bailiff-mod-ci-gitlab/copier.yml`
 to include `moon`. Amend the `monorepo-affected` model render in each to invoke moon's
 affected-detection command (not a hardcoded turborepo assumption) when
 `monorepo_tool == 'moon'`. Add loop-test coverage for the moon branch in both modules.
@@ -155,34 +155,34 @@ to `monorepo_tool`'s value list. See T002.
 
 ### P2 modules
 
-**clerk-mod-moon** (FR-010): Renders moon's workspace config (managed) wired to base's
+**bailiff-mod-moon** (FR-010): Renders moon's workspace config (managed) wired to base's
 package-dirs layout (threaded from frozen `layout`/`monorepo_packages` facts). Contributes
 `moon` token to `mise_tools` union. Setting `monorepo_tool=moon` as a frozen answer closes
 the dangling CI read. Trust-gated `_task`: mise preflight, init-only-guarded. Edge:
-`run_after: [clerk-mod-base]`; consumed by CI via frozen `--data`. [NEEDS CLARIFICATION on
+`run_after: [bailiff-mod-base]`; consumed by CI via frozen `--data`. [NEEDS CLARIFICATION on
 single-package behavior — FR-010; must be resolved before T007]
 
-**clerk-mod-mkdocs** (FR-011): Renders managed `mkdocs.yml` wired to base's `docs/` dir.
+**bailiff-mod-mkdocs** (FR-011): Renders managed `mkdocs.yml` wired to base's `docs/` dir.
 Seed-once starter pages (`docs/index.md` and nav siblings via `_skip_if_exists`). Contributes
 `mkdocs-material` (and `mkdocs`) token to `mise_tools` union. No build/deploy action at
-scaffold time. Zero `_tasks`. Edge: `run_after: [clerk-mod-base]`. [NEEDS CLARIFICATION on
+scaffold time. Zero `_tasks`. Edge: `run_after: [bailiff-mod-base]`. [NEEDS CLARIFICATION on
 Python co-selection pin strategy — FR-011]
 
-**clerk-mod-gitlab-repo** (FR-012): Exact semantic port of `clerk-mod-github-repo` to
+**bailiff-mod-gitlab-repo** (FR-012): Exact semantic port of `bailiff-mod-github-repo` to
 `glab`. Pure side-effect module (no file output, `reconcile=false`). Same question shape as
 github-repo (`visibility`, `remote_protocol`, `push_after_create`, `team`). Trust-gated
 `_task` chain: (1) `glab` presence check — non-fatal exit 0 if missing; (2) public consent
 gate — exit 1 on `visibility=public` without explicit consent; (3) `glab repo create` —
 non-fatal on creation failure; (4) optional push. Token from ambient env; no `secret:`
-questions. Init-only-guarded. Edge: `run_after: [clerk-mod-base]`.
+questions. Init-only-guarded. Edge: `run_after: [bailiff-mod-base]`.
 
 ### P3 module
 
-**clerk-mod-api** (FR-013): Seed-once OpenAPI skeleton document (`_skip_if_exists`) plus
+**bailiff-mod-api** (FR-013): Seed-once OpenAPI skeleton document (`_skip_if_exists`) plus
 managed spectral config (`.spectral.yaml`, byte-identical on reproduce). Contributes
 `spectral` token to `mise_tools` union and a spectral-lint block to `hook_blocks` union
-(written by `clerk-mod-precommit` only; inert when `hook_manager=none`). No codegen; no
-server scaffold. Zero `_tasks`. Edge: `run_after: [clerk-mod-base]`. [NEEDS CLARIFICATION
+(written by `bailiff-mod-precommit` only; inert when `hook_manager=none`). No codegen; no
+server scaffold. Zero `_tasks`. Edge: `run_after: [bailiff-mod-base]`. [NEEDS CLARIFICATION
 on OpenAPI document path and version — FR-013]
 
 ## Phase breakdown and sequencing
@@ -201,7 +201,7 @@ T000  Pre-plan: vendor decisions-ledger.md              [HARD GATE — nothing e
 
 ### Intra-phase ordering rationale
 
-- **Amendments before new modules**: FR-010a must land before `clerk-mod-moon` is authored
+- **Amendments before new modules**: FR-010a must land before `bailiff-mod-moon` is authored
   so that `monorepo_tool=moon` is a valid CI input from the moment moon exists.
 - **Slice A before B**: moon (Slice B) contributes `monorepo_tool=moon`; the CI modules
   must already accept it (FR-010a, Phase 2). All Slice A modules are independent of moon.
@@ -239,7 +239,7 @@ T000  Pre-plan: vendor decisions-ledger.md              [HARD GATE — nothing e
 |---|---|---|
 | decisions-ledger.md not vendored before work starts | Medium (file doesn't exist yet) | T000 is the hard gate; nothing proceeds without it |
 | FR-009 races 011 Phase 7 publish | Eliminated (a68295e already merged) | Loop test already asserts absence; spec annotations (T001-annotate) are the only remaining action |
-| FR-010a lands after clerk-mod-moon | Low | FR-010a is Phase 2 (before any Phase 3+ module) |
+| FR-010a lands after bailiff-mod-moon | Low | FR-010a is Phase 2 (before any Phase 3+ module) |
 | NEEDS CLARIFICATION items block a task | Medium for FR-010/FR-013 | Each task states its NC dependency; coder must not start until NC is resolved |
 | conftest.py missing stub coverage for glab, cog, moon, spectral | Low | Checked and extended in Phase 1 baseline if needed |
 | dep_update_tool default expression produces unexpected value | Low | Loop tests cover both github_host=true and false explicitly |
