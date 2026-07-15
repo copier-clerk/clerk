@@ -26,6 +26,7 @@ deterministic: same sources at same pins → identical output (SC-002).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import tomllib
@@ -35,12 +36,13 @@ from pathlib import Path
 from typing import Any
 
 import tomli_w
-from platformdirs import user_config_path
+from platformdirs import user_cache_path, user_config_path
 
 from bailiff import discovery
 from bailiff.errors import CatalogError, DiscoveryError
 
 _ENV_VAR = "BAILIFF_CATALOG_PATH"
+_CACHE_ENV_VAR = "BAILIFF_LISTING_CACHE_PATH"
 
 
 # ---------------------------------------------------------------------------
@@ -417,11 +419,70 @@ def build_listing(path: Path) -> FullListing:
 
 
 # ---------------------------------------------------------------------------
+# Persisted listing cache (spec 013 US6)
+# ---------------------------------------------------------------------------
+
+
+def listing_cache_path() -> Path:
+    """Resolve the listing-cache JSON path (env override → platformdirs default).
+
+    The env override mirrors ``BAILIFF_CATALOG_PATH`` and keeps tests hermetic.
+    """
+    env = os.getenv(_CACHE_ENV_VAR)
+    if env:
+        return Path(env)
+    return user_cache_path("bailiff", appauthor=False) / "listing.json"
+
+
+def persist_listing(listing: FullListing, cache_path: Path | None = None) -> None:
+    """Serialize ``listing`` to JSON at the cache path (atomic tmp+rename)."""
+    path = cache_path if cache_path is not None else listing_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(listing.to_dict(), indent=2) + "\n")
+    tmp.rename(path)  # atomic on POSIX — a reader never sees a partial file
+
+
+def load_listing_cache(cache_path: Path | None = None) -> FullListing | None:
+    """Deserialize the cached listing; ``None`` on absent/corrupt (never raise)."""
+    path = cache_path if cache_path is not None else listing_cache_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text())
+        catalogs = [
+            CatalogListing(
+                name=cl["name"],
+                templates=[TemplateRecord(**t) for t in cl["templates"]],
+                unusable=[UnusableRecord(**u) for u in cl["unusable"]],
+            )
+            for cl in data["catalogs"]
+        ]
+        return FullListing(catalogs=catalogs)
+    except (json.JSONDecodeError, KeyError, TypeError, OSError):
+        return None
+
+
+def build_and_cache_listing(catalog_path: Path, cache_path: Path | None = None) -> FullListing:
+    """Run the expensive discovery pass and persist the result.
+
+    ``catalog add``/``remove`` do NOT invalidate the cache — ``catalog refresh``
+    is the documented rebuild trigger (stale-cache risk accepted; the user
+    controls staleness).
+    """
+    listing = build_listing(catalog_path)
+    persist_listing(listing, cache_path)
+    return listing
+
+
+# ---------------------------------------------------------------------------
 # Selection-validation gate
 # ---------------------------------------------------------------------------
 
 
-def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
+def validate_selection(
+    path: Path, full_ids: list[str], listing: FullListing | None = None
+) -> list[TemplateRecord]:
     """Validate that every requested ``full_id`` names a usable template.
 
     Accepts:
@@ -436,8 +497,12 @@ def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
 
     Returns the resolved ``TemplateRecord`` list for accepted ids, in the same
     order as the input ``full_ids``.
+
+    ``listing`` lets the CLI pass a cached listing (spec 013 US6) instead of
+    re-running the expensive discovery pass.
     """
-    listing = build_listing(path)
+    if listing is None:
+        listing = build_listing(path)
 
     # Build lookup maps.
     usable_by_full_id: dict[str, TemplateRecord] = {}

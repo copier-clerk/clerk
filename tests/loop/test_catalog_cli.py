@@ -37,7 +37,13 @@ def _bailiff(
     process would not fall through to the real user config.
     """
     fallback = env_catalog_fallback if env_catalog_fallback is not None else catalog
-    full_env = {**os.environ, "BAILIFF_CATALOG_PATH": str(fallback)}
+    full_env = {
+        **os.environ,
+        "BAILIFF_CATALOG_PATH": str(fallback),
+        # Per-test listing-cache isolation (spec 013 US6): without this, `list`/
+        # `validate` would read/write the real user cache across tests.
+        "BAILIFF_LISTING_CACHE_PATH": str(catalog.parent / "listing-cache.json"),
+    }
     return subprocess.run(
         [sys.executable, str(_SCRIPT), "catalog", "--catalog", str(catalog), *args],
         capture_output=True,

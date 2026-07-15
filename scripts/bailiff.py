@@ -415,6 +415,18 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                 print(f"not found (no-op): {a.source}")
             return 0
 
+        def _cached_listing() -> catalog.FullListing:
+            """Load the persisted listing; auto-build once with a stderr notice (US6)."""
+            cached = catalog.load_listing_cache()
+            if cached is not None:
+                return cached
+            print(
+                "notice: no listing cache — building it now (run 'catalog refresh' "
+                "to rebuild after add/remove).",
+                file=sys.stderr,
+            )
+            return catalog.build_and_cache_listing(cat_path)
+
         if verb in ("list", "refresh"):
             if not cat_path.is_file():
                 print(
@@ -423,7 +435,14 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                     file=sys.stderr,
                 )
                 return 1
-            listing = catalog.build_listing(cat_path)
+            if verb == "refresh":
+                listing = catalog.build_and_cache_listing(cat_path)
+                print(
+                    f"refreshed listing cache: {catalog.listing_cache_path()}",
+                    file=sys.stderr,
+                )
+            else:
+                listing = _cached_listing()
             if getattr(a, "json", False):
                 print(json.dumps(listing.to_dict(), indent=2))
             else:
@@ -438,7 +457,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                     file=sys.stderr,
                 )
                 return 1
-            records = catalog.validate_selection(cat_path, list(a.full_ids))
+            records = catalog.validate_selection(cat_path, list(a.full_ids), _cached_listing())
             for rec in records:
                 print(f"ok: {rec.full_id} ({rec.source} @ {rec.ref})")
             return 0

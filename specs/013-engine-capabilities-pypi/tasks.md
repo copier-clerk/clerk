@@ -122,7 +122,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group F: Listing cache (depends on T006 for full TemplateRecord)
 
-- [ ] T012 [US6] Add the persisted listing cache to `src/bailiff/catalog.py` and wire it into the `catalog` CLI verb:
+- [x] T012 [US6] Add the persisted listing cache to `src/bailiff/catalog.py` and wire it into the `catalog` CLI verb:
   (1) Add `listing_cache_path() -> Path` using `platformdirs.user_cache_path("bailiff", appauthor=False) / "listing.json"`.
   (2) Add `persist_listing(listing: FullListing, cache_path: Path | None = None) -> None`: serialize via `FullListing.to_dict()`, write atomically (write to `<path>.tmp`, rename — avoids corrupt partial writes).
   (3) Add `load_listing_cache(cache_path: Path | None = None) -> FullListing | None`: deserialize; return None on absent/corrupt file (never raise).
