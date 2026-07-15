@@ -161,7 +161,7 @@ Every module task implicitly includes ALL of the following before it is consider
 
 ## Phase 4: Slice B — P2 New Modules (parallel)
 
-- [ ] **T007** [US4] NEW module `bailiff-mod-moon` per FR-010; loop test
+- [x] **T007** [US4] NEW module `bailiff-mod-moon` per FR-010; loop test
   `tests/loop/test_moon_loop.py`.
   [NEEDS CLARIFICATION FR-010 — single-package layout behavior. Must resolve before
   executing.]

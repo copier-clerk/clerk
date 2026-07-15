@@ -1,16 +1,92 @@
 # copier.yml — bailiff-mod-moon
 #
-# Answers-file key — MUST match the shipped .jinja file (FR-016).
-_answers_file: "{{ _copier_conf.answers_file }}.jinja"
+# Monorepo task orchestration via moon (spec 012 / FR-010). Renders a MANAGED
+# `.moon/workspace.yml` wired to base's monorepo package layout (threaded
+# `layout` / frozen `monorepo_packages`).
+#
+# A selection including moon freezes `monorepo_tool=moon`, closing the dangling
+# answer the CI modules read for their `monorepo-affected` model (FR-010a).
+# Monorepo tools are per-tool sibling splits (ratified: "too distinct");
+# turbo/nx are later siblings, NOT axes here.
+#
+# Single-package layout is WARN-AND-RENDER (ledger, FR-010 resolution): moon
+# works as a single-project task runner; a refusal would second-guess a
+# deliberate choice. The preflight prints the warning; the rendered workspace
+# uses a minimal '.' project map — valid, never broken.
+#
+# Frozen-union contribution (M1): moon → mise_tools (base writes .mise.toml).
+#
+# Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
+# questions; no jinja2_time; edges are when:false hidden answers.
 
-# --- Questions ---------------------------------------------------------------
-# Replace these placeholders with real questions for this module.
+# --- Threaded identity/shape facts (FR-010 pattern) ---------------------------
 
 project_name:
   type: str
-  help: "Name of the generated project."
+  default: "{{ project_name }}"
+  help: "The project's name (threaded from bailiff-mod-base)."
 
-description:
+layout:
   type: str
-  default: ""
-  help: "One-line description of the project."
+  default: "{{ layout }}"
+  help: "Project layout (threaded from bailiff-mod-base): single or monorepo."
+
+monorepo_packages:
+  type: yaml
+  default: []
+  help: "Monorepo package paths (frozen fact; wires workspace projects). bailiff injects this."
+
+# monorepo_tool — this module IS the supplier: a selection including moon
+# freezes monorepo_tool=moon for CI consumption (via frozen --data, not
+# run-order). Declared so the answer is recorded for reproduce.
+monorepo_tool:
+  type: str
+  default: moon
+  help: "Monorepo tool answer this module supplies (moon); consumed by CI modules' monorepo-affected model."
+
+# --- Frozen union consumed (declared for threading; NOT written here) ---------
+
+mise_tools:
+  type: yaml
+  default: []
+  help: "mise [tools] union (injected by phase-1 agent; base writes .mise.toml). moon contributes {moon: <version>}."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# Template body lives under template/ — copier renders only that subtree.
+_subdirectory: template
+
+# .moon/workspace.yml is MANAGED: byte-identical on reproduce.
+
+# --- Trust-gated tasks (FR-007b / FR-012a) -----------------------------------
+# Preflight only: mise presence + install, init-only-guarded via committed
+# sentinel. On single-package layouts it also prints the ratified warning
+# (warn-and-render, exit 0 — never a refusal).
+_tasks:
+  - >-
+    test -f .bailiff-moon-preflight || {
+    {% if layout != 'monorepo' %}
+    echo "bailiff-mod-moon: WARNING — moon is primarily a monorepo workspace tool; single-package config will be minimal." >&2;
+    {% endif %}
+    command -v mise >/dev/null 2>&1 ||
+    { echo "bailiff-mod-moon: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
+    exit 1; };
+    mise install &&
+    printf 'moon-preflight-ok\n' > .bailiff-moon-preflight; }

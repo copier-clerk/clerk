@@ -1,0 +1,27 @@
+# .moon/workspace.yml — managed by bailiff-mod-moon; do not edit by hand.
+# Projects are wired to base's package layout (frozen monorepo_packages).
+# https://moonrepo.dev/docs/config/workspace
+{% if layout == 'monorepo' and monorepo_packages %}
+projects:
+{% for pkg in monorepo_packages %}
+  {{ pkg.split('/')[-1] | replace('.', '-') }}: '{{ pkg }}'
+{% endfor %}
+{% elif layout == 'monorepo' %}
+# No monorepo_packages frozen: discover projects by glob under the standard
+# base monorepo dirs. Freeze monorepo_packages via --data for an explicit map.
+projects:
+  globs:
+    - 'apps/*'
+    - 'packages/*'
+    - 'services/*'
+    - 'libs/*'
+{% else %}
+# Single-package layout: moon runs as a single-project task runner (minimal
+# config — see the scaffold warning). The root is the only project.
+projects:
+  root: '.'
+{% endif %}
+
+vcs:
+  manager: 'git'
+  defaultBranch: 'main'
