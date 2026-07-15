@@ -1,0 +1,188 @@
+# copier.yml — bailiff-mod-cdk
+#
+# AWS CDK overlay: scaffolds a CDK app via `cdk init` as a trust-gated task.
+# Pure TASK module — template/ renders only the answers-file; ALL CDK files
+# come from `cdk init` (task-output, then seed-once/user-owned after first run).
+#
+# Contract: specs/011-deopinionated-module-family/contracts/iac.md (bailiff-mod-cdk).
+# Cross-cutting: _cross-cutting.md §3 (native-command scaffold pattern) +
+#                §7 (determinism/trust/secrets).
+#
+# De-opinionation: no hardcoded account/region; no default VPC/Lambda; env via
+# CDK_DEFAULT_ACCOUNT/CDK_DEFAULT_REGION or omit entirely. NEVER cdk bootstrap/deploy.
+
+# --- Capability tags (spec 013 — engine enforces warn-only exclusion) --------
+_bailiff_provides:
+  - iac-tool
+_bailiff_exclusive: true
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# --- Questions ---------------------------------------------------------------
+
+# Threaded from base via copier's default: "{{ project_name }}" mechanism
+# (ADR-0003). Standalone fallback: empty string if no upstream base. FR-010.
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from bailiff-mod-base; used in cdk init)."
+
+# Target CDK language. Choices are the full set cdk init supports.
+# Dead/unsupported options (JavaScript) are NOT offered per cross-cutting dead-options rule.
+cdk_language:
+  type: str
+  choices:
+    - typescript
+    - python
+    - go
+    - java
+    - csharp
+  default: typescript
+  help: "Language for the generated CDK app (passed to cdk init --language)."
+
+# Directory under the project root where cdk init will write app files.
+# Use "." for standalone IaC repos (per contract).
+placement_dir:
+  type: str
+  default: infrastructure
+  help: "Directory relative to the project root where cdk init places the CDK app."
+
+# cdk_version is NOT asked — `cdk init` installs the latest aws-cdk-lib and
+# that version is the source of truth.  Removed: the old pin step fought with
+# whatever version cdk init resolved, and the hardcoded default went stale.
+
+# Whether to splice cdk-nag import into the app entrypoint after init.
+include_cdk_nag:
+  type: bool
+  default: false
+  help: "Splice a cdk-nag import into the CDK app entrypoint after init."
+
+# Whether to run `cdk synth` as an optional validation step (credential-free
+# against an empty stack). Gated on include_synth_validate so it is always opt-in.
+include_synth_validate:
+  type: bool
+  default: false
+  help: "Run `cdk synth` after init for an offline validation of the empty stack."
+
+# `today` injected by bailiff at init and frozen into the recorded answers (FR-007).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# Template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# Trust-gated tasks (FR-007b / ADR-0007 native-command scaffold pattern §3).
+# Order: preflight → cdk init (guarded) → optional cdk-nag splice → optional synth.
+# Init-only-guarded via cdk.json existence check so reproduce is a no-op over
+# a populated tree (cross-cutting §3 / critique R5). NEVER cdk bootstrap/deploy.
+_tasks:
+  # 1. Preflight: verify mise, node, cdk, and the language-specific runtime are on PATH.
+  #    Fail fast with install URLs before any consequential step runs.
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "bailiff-mod-cdk: required tool 'mise' not found on PATH." >&2;
+      echo "  mise — https://mise.jdx.dev" >&2;
+      exit 1; }
+  - >-
+    command -v node >/dev/null 2>&1 ||
+    { echo "bailiff-mod-cdk: required tool 'node' not found on PATH." >&2;
+      echo "  node — install via mise: mise use node@lts" >&2;
+      exit 1; }
+  - >-
+    command -v cdk >/dev/null 2>&1 ||
+    { echo "bailiff-mod-cdk: required tool 'cdk' not found on PATH." >&2;
+      echo "  cdk — npm install -g aws-cdk" >&2;
+      exit 1; }
+
+  # Language-runtime preflight: check the runtime required by cdk_language.
+  # typescript is already covered by node above; each other language needs its own binary.
+  - command: >-
+      command -v python3 >/dev/null 2>&1 ||
+      { echo "bailiff-mod-cdk: required tool 'python3' not found on PATH." >&2;
+        echo "  python3 — install via mise: mise use python@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'python' }}"
+  - command: >-
+      command -v go >/dev/null 2>&1 ||
+      { echo "bailiff-mod-cdk: required tool 'go' not found on PATH." >&2;
+        echo "  go — install via mise: mise use go@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'go' }}"
+  - command: >-
+      command -v java >/dev/null 2>&1 ||
+      { echo "bailiff-mod-cdk: required tool 'java' not found on PATH." >&2;
+        echo "  java — install via mise: mise use java@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'java' }}"
+  - command: >-
+      command -v dotnet >/dev/null 2>&1 ||
+      { echo "bailiff-mod-cdk: required tool 'dotnet' not found on PATH." >&2;
+        echo "  dotnet — install via mise: mise use dotnet@latest" >&2;
+        exit 1; }
+    when: "{{ cdk_language == 'csharp' }}"
+
+  # 2. cdk init app — init-only-guarded: skip if cdk.json already exists so
+  #    reproduce over a populated tree is a no-op (cross-cutting §3 / ADR-0007).
+  #    Creates placement_dir if it does not yet exist.
+  - >-
+    mkdir -p "{{ placement_dir }}" &&
+    test -f "{{ placement_dir }}/cdk.json" ||
+    (cd "{{ placement_dir }}" && cdk init app --language={{ cdk_language }})
+
+  # 3. Splice a cdk-nag import into the CDK app entrypoint after init.
+  #    TypeScript: derive the actual entrypoint from cdk.json's "app" field
+  #    (cdk init names it after the directory, not project_name). Python: app.py.
+  #    Uses grep idempotency so re-run is safe.
+  - command: >-
+      ENTRYPOINT=$(cd "{{ placement_dir }}" && node -e "
+        const cdk=require('./cdk.json');
+        const m=cdk.app.match(/bin\/([^.]+)\.ts/);
+        if(m) console.log('bin/'+m[1]+'.ts');
+        else process.exit(1);
+      ") &&
+      test -f "{{ placement_dir }}/$ENTRYPOINT" &&
+      grep -qF 'cdk-nag' "{{ placement_dir }}/$ENTRYPOINT" ||
+      sed -i.bak '1s|^|import { Aspects } from "aws-cdk-lib";\nimport { AwsSolutionsChecks } from "cdk-nag";\n|' "{{ placement_dir }}/$ENTRYPOINT" &&
+      rm -f "{{ placement_dir }}/${ENTRYPOINT}.bak"
+    when: "{{ include_cdk_nag and cdk_language == 'typescript' }}"
+  - command: >-
+      ENTRYPOINT="{{ placement_dir }}/app.py" &&
+      test -f "$ENTRYPOINT" &&
+      grep -qF 'cdk_nag' "$ENTRYPOINT" ||
+      sed -i.bak '1s|^|import cdk_nag\n|' "$ENTRYPOINT" &&
+      rm -f "${ENTRYPOINT}.bak"
+    when: "{{ include_cdk_nag and cdk_language == 'python' }}"
+  - command: >-
+      echo "bailiff-mod-cdk: cdk-nag splice for {{ cdk_language }} — add the import manually to your app entrypoint." >&2
+    when: "{{ include_cdk_nag and cdk_language not in ['typescript', 'python'] }}"
+
+  # 4. Commit cdk.context.json when created — it is part of reproducible infra
+  #    state (contract: "cdk.context.json COMMITTED"). No-op if not created.
+  - >-
+    test ! -f "{{ placement_dir }}/cdk.context.json" ||
+    git add -f "{{ placement_dir }}/cdk.context.json" 2>/dev/null || true
+
+  # 5. Optional cdk synth validation (credential-free, empty-stack sanity check).
+  #    Init-only-guarded via its own committed sentinel (§3 FR-012a).
+  - command: >-
+      test -f "{{ placement_dir }}/.bailiff-cdk-synth-done" ||
+      { (cd "{{ placement_dir }}" && cdk synth --quiet 2>&1 && touch .bailiff-cdk-synth-done) ||
+      { echo "bailiff-mod-cdk: cdk synth failed — check your stack definition." >&2; exit 1; }; }
+    when: "{{ include_synth_validate }}"

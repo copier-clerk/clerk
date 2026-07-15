@@ -17,9 +17,9 @@ import yaml  # type: ignore[import-untyped]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APM_YML = REPO_ROOT / "apm.yml"
-PACKAGES_DIR = REPO_ROOT / "packages" / "clerk"
-SRC_CLERK = REPO_ROOT / "src" / "clerk"
-SCRIPTS_CLERK = REPO_ROOT / "scripts" / "clerk.py"
+PACKAGES_DIR = REPO_ROOT / "packages" / "bailiff"
+SRC_BAILIFF = REPO_ROOT / "src" / "bailiff"
+SCRIPTS_BAILIFF = REPO_ROOT / "scripts" / "bailiff.py"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,27 +56,27 @@ class TestApmYmlMarketplaceBlock:
             "marketplace.packages must be a non-empty list"
         )
 
-    def test_clerk_package_has_category(self) -> None:
+    def test_bailiff_package_has_category(self) -> None:
         data = self._load()
         packages = data["marketplace"]["packages"]
-        clerk_pkg = next((p for p in packages if p["name"] == "clerk"), None)
-        assert clerk_pkg is not None, "No 'clerk' entry in marketplace.packages"
-        assert "category" in clerk_pkg, (
-            "clerk package missing 'category:' — required when codex output is enabled"
+        bailiff_pkg = next((p for p in packages if p["name"] == "bailiff"), None)
+        assert bailiff_pkg is not None, "No 'bailiff' entry in marketplace.packages"
+        assert "category" in bailiff_pkg, (
+            "bailiff package missing 'category:' — required when codex output is enabled"
         )
 
-    def test_clerk_package_has_license(self) -> None:
+    def test_bailiff_package_has_license(self) -> None:
         data = self._load()
         packages = data["marketplace"]["packages"]
-        clerk_pkg = next(p for p in packages if p["name"] == "clerk")
-        assert "license" in clerk_pkg, "clerk package missing 'license:' (SBOM NOASSERTION)"
+        bailiff_pkg = next(p for p in packages if p["name"] == "bailiff")
+        assert "license" in bailiff_pkg, "bailiff package missing 'license:' (SBOM NOASSERTION)"
 
-    def test_clerk_package_source_is_local_path(self) -> None:
+    def test_bailiff_package_source_is_local_path(self) -> None:
         data = self._load()
         packages = data["marketplace"]["packages"]
-        clerk_pkg = next(p for p in packages if p["name"] == "clerk")
-        assert clerk_pkg["source"] == "./packages/clerk", (
-            f"Expected source './packages/clerk', got {clerk_pkg['source']!r}"
+        bailiff_pkg = next(p for p in packages if p["name"] == "bailiff")
+        assert bailiff_pkg["source"] == "./packages/bailiff", (
+            f"Expected source './packages/bailiff', got {bailiff_pkg['source']!r}"
         )
 
     def test_top_level_license_present(self) -> None:
@@ -98,13 +98,13 @@ class TestPackageLayout:
 
     def test_skill_md_exists(self) -> None:
         # Copied by `just vendor`; check it exists in the vendored location.
-        skill_md = PACKAGES_DIR / ".apm" / "skills" / "clerk" / "SKILL.md"
+        skill_md = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "SKILL.md"
         assert skill_md.is_file(), f"SKILL.md not found at {skill_md} — run 'just vendor' first"
 
-    def test_scripts_clerk_py_exists(self) -> None:
-        pkg_script = PACKAGES_DIR / ".apm" / "skills" / "clerk" / "scripts" / "clerk.py"
+    def test_scripts_bailiff_py_exists(self) -> None:
+        pkg_script = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "scripts" / "bailiff.py"
         assert pkg_script.is_file(), (
-            f"scripts/clerk.py not found at {pkg_script} — run 'just vendor' first"
+            f"scripts/bailiff.py not found at {pkg_script} — run 'just vendor' first"
         )
 
 
@@ -114,15 +114,15 @@ class TestPackageLayout:
 
 
 class TestVendorDrift:
-    """The vendored clerk/ copy must match src/clerk/ after `just vendor`."""
+    """The vendored bailiff/ copy must match src/bailiff/ after `just vendor`."""
 
     def test_vendored_modules_match_src(self) -> None:
-        vendor_dst = PACKAGES_DIR / ".apm" / "skills" / "clerk" / "scripts" / "clerk"
+        vendor_dst = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "scripts" / "bailiff"
         if not vendor_dst.is_dir():
-            pytest.skip("Vendored clerk/ not present — run 'just vendor' first")
+            pytest.skip("Vendored bailiff/ not present — run 'just vendor' first")
 
-        src_files = sorted(SRC_CLERK.glob("*.py"))
-        assert src_files, "src/clerk/ contains no .py files"
+        src_files = sorted(SRC_BAILIFF.glob("*.py"))
+        assert src_files, "src/bailiff/ contains no .py files"
 
         for src_file in src_files:
             dst_file = vendor_dst / src_file.name
@@ -179,25 +179,25 @@ class TestApmPackDryRun:
 
 
 # ---------------------------------------------------------------------------
-# clerk doctor subprocess exit codes
+# bailiff doctor subprocess exit codes
 # ---------------------------------------------------------------------------
 
 
-class TestClerkDoctorExitCodes:
+class TestBailiffDoctorExitCodes:
     def test_doctor_exits_zero_with_all_deps(self) -> None:
         """doctor returns 0 when all deps are present (dev venv has them all)."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_CLERK), "doctor"],
+            [sys.executable, str(SCRIPTS_BAILIFF), "doctor"],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0, (
-            f"clerk doctor failed unexpectedly:\n{result.stdout}\n{result.stderr}"
+            f"bailiff doctor failed unexpectedly:\n{result.stdout}\n{result.stderr}"
         )
 
     def test_doctor_output_says_ready(self) -> None:
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_CLERK), "doctor"],
+            [sys.executable, str(SCRIPTS_BAILIFF), "doctor"],
             capture_output=True,
             text=True,
         )

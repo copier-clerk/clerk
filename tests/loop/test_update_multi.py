@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner
-from clerk.errors import DirtyWorktreeError, OrderingError
+from bailiff import runner
+from bailiff.errors import DirtyWorktreeError, OrderingError
 from tests.conftest import MultiUpgradeFixture, NewDepUpgradeFixture
 
 _PATH = __import__("os").environ.get("PATH", "/usr/bin:/bin")
@@ -25,10 +25,10 @@ def _git(repo: Path, *args: str) -> None:
         check=True,
         capture_output=True,
         env={
-            "GIT_AUTHOR_NAME": "clerk-test",
-            "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-            "GIT_COMMITTER_NAME": "clerk-test",
-            "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+            "GIT_AUTHOR_NAME": "bailiff-test",
+            "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+            "GIT_COMMITTER_NAME": "bailiff-test",
+            "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_SYSTEM": "/dev/null",
             "PATH": _PATH,
@@ -189,8 +189,8 @@ def test_dirty_worktree_refused_before_any_write(
 ) -> None:
     """Prerequisite: a real upgrade on a dirty tree is refused up front, nothing written.
 
-    The between-layer commit stages everything (git add -A), so clerk must start from a
-    clean tree or the user's uncommitted work would be swept into a clerk commit.
+    The between-layer commit stages everything (git add -A), so bailiff must start from a
+    clean tree or the user's uncommitted work would be swept into a bailiff commit.
     """
     dest = tmp_path / "proj"
     a_url = str(multi_upgrade_fixture.tpl_a_path)
@@ -215,7 +215,7 @@ def test_dirty_worktree_refused_in_pretend_too(
     multi_upgrade_fixture: MultiUpgradeFixture, tmp_path: Path
 ) -> None:
     """Dirty tree is refused even with --pretend: copier's run_update refuses a dirty
-    tree regardless of pretend, so clerk surfaces the clear error up front in both modes.
+    tree regardless of pretend, so bailiff surfaces the clear error up front in both modes.
     """
     dest = tmp_path / "proj"
     a_url = str(multi_upgrade_fixture.tpl_a_path)

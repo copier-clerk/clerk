@@ -1,4 +1,4 @@
-# Feature Specification: clerk multi-template — dependency ordering + threaded init, recomputed reproduce
+# Feature Specification: bailiff multi-template — dependency ordering + threaded init, recomputed reproduce
 
 **Feature Branch**: `003-multi-template`
 
@@ -14,20 +14,20 @@ and plugs its topological order into spec 010's uniform 1..N reproduce loop.
 ## Overview
 
 Specs 001/010 proved and reshaped the single-template loop; spec 002 lets a user
-select templates from their own catalog. Spec 003 is where clerk earns its
+select templates from their own catalog. Spec 003 is where bailiff earns its
 **coordination glue** (C-11, the one place the roadmap sanctions it): apply
 **several** templates to one project in **correct dependency order**, threading
 answers between them, and — at reproduce — **recompute** that order deterministically
 from committed state, never a frozen recipe.
 
-The ordering is a pure function clerk computes from declared edges; copier does
-**zero** cross-template coordination (verified, ADR-0003). clerk issues **one
+The ordering is a pure function bailiff computes from declared edges; copier does
+**zero** cross-template coordination (verified, ADR-0003). bailiff issues **one
 `copier copy` per template layer**, in topological order, each writing a distinct
 committed answers file, threading each layer's answers into the next via copier's
 `data=` dict (not `_external_data` — ADR-0003).
 
-Crucially, **nothing clerk-authored is committed to encode the order** (the spec-010
-invariant). At reproduce, clerk enumerates the committed `.copier-answers*.yml`
+Crucially, **nothing bailiff-authored is committed to encode the order** (the spec-010
+invariant). At reproduce, bailiff enumerates the committed `.copier-answers*.yml`
 files, fetches each template at its recorded `_commit`, re-reads its `when:false`
 edges, and **recomputes** the same topological order with a stable tie-break. Pinned
 commits → identical edges → identical order, so reproduce is deterministic and
@@ -41,7 +41,7 @@ at once, not one failed layer at a time.
 
 ## Motivating decisions
 
-1. **clerk orders; copier renders one layer at a time.** clerk reads the hidden
+1. **bailiff orders; copier renders one layer at a time.** bailiff reads the hidden
    `when:false` edges (`depends_on`/`run_after`/`run_before`) from each selected
    template's `copier.yml` (already parsed into `discovery.Discovery.dependency_edges`),
    builds a DAG, topo-sorts it, and issues one `copier copy` per layer in that order.
@@ -53,26 +53,26 @@ at once, not one failed layer at a time.
    identical across runs and across init-vs-reproduce. Basename (not full-id) is the
    tie-break key because init and reproduce reconstruct full-ids differently, so
    basename is the only identity stable across both paths.
-3. **Reproduce RECOMPUTES the order; nothing clerk-authored is committed** (spec 010
-   / Constitution III). At reproduce clerk enumerates committed answers files,
+3. **Reproduce RECOMPUTES the order; nothing bailiff-authored is committed** (spec 010
+   / Constitution III). At reproduce bailiff enumerates committed answers files,
    fetches each at its `_commit`, re-reads edges, re-topo-sorts (same tie-break), and
    drives one `runner.reproduce(dest, answers_file=…)` per layer in that order. No
    recipe/DAG file exists in the project.
-4. **Each layer writes a distinct committed answers file.** clerk overrides copier's
+4. **Each layer writes a distinct committed answers file.** bailiff overrides copier's
    `answers_file=` per layer to `.copier-answers.<template-basename>.yml`. That name
    is the permanent reproduce key. If two *selected* templates share a repo basename,
    init **refuses loudly** (they cannot be layered under distinct files) — a rare
    case, caught before any write, never a silent overwrite. *(Resolves Q-010c; see
    Open Questions for the trade-off vs full-id-namespaced names.)*
-5. **Answers thread forward via `data=`, not `_external_data`** (ADR-0003). clerk
+5. **Answers thread forward via `data=`, not `_external_data`** (ADR-0003). bailiff
    holds all prior layers' answers in memory and passes them into each subsequent
    `copier copy` as `data=`, so a later template can default from an earlier one's
    answer without any cross-file read. `_external_data` stays out of the core; it is
-   only for standalone `copier update` runs done *without* clerk.
+   only for standalone `copier update` runs done *without* bailiff.
 6. **Cycles and missing dependencies are refused before any write.** A dependency
    cycle, or an edge naming a template not in the selection, is a loud init-time
    error naming the offending edge — never a partial render.
-7. **All-gaps preflight (C-10).** Before writing, clerk collates the questions across
+7. **All-gaps preflight (C-10).** Before writing, bailiff collates the questions across
    all selected templates and runs copier's `--pretend` per layer (threading answers)
    to surface *every* missing/invalid answer at once, rather than failing at layer N.
 8. **Reproduce stays faithful; changed deps are an UPDATE concern (spec 006).**
@@ -85,7 +85,7 @@ at once, not one failed layer at a time.
 ### US1 — Generate a project from several templates in dependency order (Priority: P1)
 
 A developer selects multiple templates (e.g. a base + a language layer that
-`depends_on` it); clerk applies them in the correct order, threading answers, into
+`depends_on` it); bailiff applies them in the correct order, threading answers, into
 one project.
 
 **Why this priority**: this is the feature — multi-template composition.
@@ -105,7 +105,7 @@ A's threaded answer.
 
 ### US2 — Reproduce a multi-template project by recomputed order (Priority: P1)
 
-A developer reproduces a multi-template project on a fresh machine; clerk recomputes
+A developer reproduces a multi-template project on a fresh machine; bailiff recomputes
 the order from committed state — no recipe file involved.
 
 **Why this priority**: the headline determinism guarantee for multi-template.
@@ -118,15 +118,15 @@ the project), and (d) reproduce also works by hand with plain `copier recopy` pe
 answers file in the recomputed order (the copier-only fallback, US1 of spec 010).
 
 **Acceptance Scenarios**:
-1. **Given** a committed multi-template project, **When** `scripts/clerk.py
-   reproduce`, **Then** clerk recomputes the order from the committed files + pinned
+1. **Given** a committed multi-template project, **When** `scripts/bailiff.py
+   reproduce`, **Then** bailiff recomputes the order from the committed files + pinned
    fetches and drives one recopy per layer in that order.
 2. **Given** the same project reproduced twice, **Then** the two outputs are
    byte-identical (deterministic recompute).
 
 ### US3 — All missing answers reported at once (Priority: P2)
 
-A developer starts a multi-template init with incomplete answers; clerk reports
+A developer starts a multi-template init with incomplete answers; bailiff reports
 every missing/invalid answer across all layers in one pass, not one per failed run.
 
 **Why this priority**: ergonomics for multi-template; avoids N round-trips.
@@ -161,17 +161,17 @@ dependency (or, per policy, auto-includes it — see Open Questions), writes not
 
 ### Functional Requirements
 
-- **FR-001**: clerk MUST build a dependency DAG from the selected templates' hidden
+- **FR-001**: bailiff MUST build a dependency DAG from the selected templates' hidden
   `when:false` edges (`depends_on`/`run_after`/`run_before`), reusing
   `discovery.Discovery.dependency_edges` (no new parser). `run_before` MUST be
   normalized into the same edge direction as `depends_on`/`run_after`.
-- **FR-002**: clerk MUST topologically sort the DAG and apply one `copier copy` per
+- **FR-002**: bailiff MUST topologically sort the DAG and apply one `copier copy` per
   template layer in that order, with a **stable, documented tie-break**
   (lexicographic by repo-basename) for mutually-independent layers.
 - **FR-003**: Each layer MUST be written to a **distinct committed answers file**
   (`.copier-answers.<template-basename>.yml`). A basename collision among *selected*
   templates MUST be refused at init before any write.
-- **FR-004**: clerk MUST thread earlier layers' answers into later layers via
+- **FR-004**: bailiff MUST thread earlier layers' answers into later layers via
   copier's `data=` dict (NOT `_external_data`), so a later template can default from
   an earlier answer.
 - **FR-005**: Reproduce MUST **recompute** the order at runtime from the committed
@@ -186,14 +186,14 @@ dependency (or, per policy, auto-includes it — see Open Questions), writes not
 - **FR-007**: A dependency **cycle**, or an edge naming a template **not in the
   selection**, MUST be refused before any write, with a message naming the offending
   edge/cycle.
-- **FR-008**: clerk MUST provide an **all-gaps preflight**: collate questions across
+- **FR-008**: bailiff MUST provide an **all-gaps preflight**: collate questions across
   all selected layers and `--pretend`-dry-run (threading answers) to report every
   missing/invalid answer in one pass (C-10), writing nothing.
 - **FR-009**: Reproduce MUST resolve only from recorded pins and MUST NOT reorder
   based on a dependency added in a newer template version; that is an `update`
   concern (spec 006).
-- **FR-010**: The orchestrator MUST ship bundled with the skill (`scripts/clerk.py`
-  + `src/clerk/`), invoked through the uniform surface — NOT as a separate CLI, and
+- **FR-010**: The orchestrator MUST ship bundled with the skill (`scripts/bailiff.py`
+  + `src/bailiff/`), invoked through the uniform surface — NOT as a separate CLI, and
   the mechanical order/apply/reproduce path MUST contain no LLM judgment (spec 010 /
   Constitution II).
 
@@ -257,7 +257,7 @@ dependency (or, per policy, auto-includes it — see Open Questions), writes not
 - Constitution II (two-phase; the order/apply/reproduce mechanics are LLM-free), III
   (faithful, agent-free, recomputed reproduce), VII (per-step hardening: determinism
   + cycle/gap refusal + tests for the ordering glue).
-- ADR-0003 (clerk computes the DAG from hidden `when:false` edges; one `copier copy`
+- ADR-0003 (bailiff computes the DAG from hidden `when:false` edges; one `copier copy`
   per template; thread answers via `data=`, not `_external_data`; no ordering
   template), ADR-0002 (`_src_path` = the split per-template repo; answers carry
   state), ADR-0001 (copier is the engine).

@@ -1,8 +1,8 @@
 ---
-description: "Task list for clerk multi-template — dependency ordering + threaded init, recomputed reproduce (spec 003)"
+description: "Task list for bailiff multi-template — dependency ordering + threaded init, recomputed reproduce (spec 003)"
 ---
 
-# Tasks: clerk multi-template — dependency ordering + threaded init, recomputed reproduce
+# Tasks: bailiff multi-template — dependency ordering + threaded init, recomputed reproduce
 
 **Input**: Design documents from `specs/003-multi-template/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
@@ -25,7 +25,7 @@ threaded answers, N=1 no-regression) part of this spec's definition-of-done.
   stable across init vs reproduce (Q-003c).
 - Reuse: `discovery.dependency_edges` (parser), `catalog.validate_selection`
   (selection), `runner.reproduce(dest, answers_file=…)` + `enumerate_answers_files`
-  (the 010 per-layer loop). New glue = ONE module `src/clerk/ordering.py`. Stdlib
+  (the 010 per-layer loop). New glue = ONE module `src/bailiff/ordering.py`. Stdlib
   `graphlib` for topo-sort; no new dependency.
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -37,10 +37,10 @@ threaded answers, N=1 no-regression) part of this spec's definition-of-done.
 
 ## Phase 1: Setup + fixtures
 
-- [ ] T001 Add `OrderingError(ClerkError)` to `src/clerk/errors.py` (cycle / dangling edge / basename collision; message names the offending relation). Create `src/clerk/ordering.py` skeleton (module docstring: the C-11 coordination glue — DAG build, validation, stable topo-sort, layer naming; pure functions, no copier import).
+- [ ] T001 Add `OrderingError(BailiffError)` to `src/bailiff/errors.py` (cycle / dangling edge / basename collision; message names the offending relation). Create `src/bailiff/ordering.py` skeleton (module docstring: the C-11 coordination glue — DAG build, validation, stable topo-sort, layer naming; pure functions, no copier import).
 - [ ] T002 [P] Extend `tests/conftest.py` with multi-template local-git fixtures (reuse the existing template-repo builder + when:false-edge support): (a) A (no edges); (b) B with `depends_on: [A]`; (c) C, D edge-independent, writing DISJOINT paths; (d) a cycle pair (E depends_on F, F depends_on E); (e) a basename-collision pair (two repos whose basename is identical under different parents). Each ships the answers-file .jinja (reproducible). Return handles + a helper to assemble a selection/run-spec over them.
 
-**Checkpoint**: `import clerk.ordering` works; fixtures build; `mypy` clean on the skeleton.
+**Checkpoint**: `import bailiff.ordering` works; fixtures build; `mypy` clean on the skeleton.
 
 ---
 
@@ -58,8 +58,8 @@ threaded answers, N=1 no-regression) part of this spec's definition-of-done.
 
 ## Phase 3: US1 — multi-template init (ordered apply + threaded answers)
 
-- [ ] T008 [US1] `runner.init_many(selection, dest, *, today, check)` — compute order via `ordering.layer_plan`; for each layer in order, `run_copy(source, dest, data=<accumulated answers + today>, vcs_ref=ref, answers_file=".copier-answers.<basename>.yml", defaults=True, overwrite=True, quiet=True, pretend=check)`; merge each layer's answers into the accumulating `data=` dict BEFORE the next layer (threading, ADR-0003); reuse the existing trust/reproducibility pre-checks per layer. Writes NO clerk order file. Surface copier errors via the existing `_translate`.
-- [ ] T009 [US1] `tests/loop/test_multi_init.py` (NEW): B depends_on A, selection given mis-ordered [B,A] → A applies before B (assert via a per-layer marker/task or answers-file presence order); each layer commits its own `.copier-answers.<name>.yml`; a threaded answer from A is visible as B's default; **order-independence** — init [C,D] and [D,C] into fresh dests → byte-identical trees (SC-003). Assert NO clerk recipe/order file exists in dest (SC-002 partial).
+- [ ] T008 [US1] `runner.init_many(selection, dest, *, today, check)` — compute order via `ordering.layer_plan`; for each layer in order, `run_copy(source, dest, data=<accumulated answers + today>, vcs_ref=ref, answers_file=".copier-answers.<basename>.yml", defaults=True, overwrite=True, quiet=True, pretend=check)`; merge each layer's answers into the accumulating `data=` dict BEFORE the next layer (threading, ADR-0003); reuse the existing trust/reproducibility pre-checks per layer. Writes NO bailiff order file. Surface copier errors via the existing `_translate`.
+- [ ] T009 [US1] `tests/loop/test_multi_init.py` (NEW): B depends_on A, selection given mis-ordered [B,A] → A applies before B (assert via a per-layer marker/task or answers-file presence order); each layer commits its own `.copier-answers.<name>.yml`; a threaded answer from A is visible as B's default; **order-independence** — init [C,D] and [D,C] into fresh dests → byte-identical trees (SC-003). Assert NO bailiff recipe/order file exists in dest (SC-002 partial).
 
 **Checkpoint**: multi-template init applies in order, threads answers, commits per-layer files, order-independent for disjoint layers.
 
@@ -93,8 +93,8 @@ threaded answers, N=1 no-regression) part of this spec's definition-of-done.
 
 ## Phase 7: CLI surface + SKILL
 
-- [ ] T015 Wire the multi-template surface into `scripts/clerk.py`: extend `init`/`reproduce` (or add multi handling that N=1 folds into) so a selection / multi-answers-file project routes through `init_many`/`reproduce_many`, while a single template stays the N=1 case with NO behavior change (spec 010 uniform loop). Accept the multi run-spec shape (contracts/ordering.md). Reuse error→exit mapping (0/1/2/3; OrderingError → exit 1). Do NOT regress the existing single-template verbs.
-- [ ] T016 [P] Extend `skills/clerk/SKILL.md`: after catalog selection (spec 002), document the multi-template flow — validated selection + per-layer answers → clerk orders + applies layers → recomputed reproduce. State that selection/answers are agent judgment; ordering/apply/reproduce are LLM-free. Note the copier-only-by-hand fallback for N layers. Reference specs/003-multi-template/contracts/ordering.md. Use `uv run scripts/clerk.py …` form.
+- [ ] T015 Wire the multi-template surface into `scripts/bailiff.py`: extend `init`/`reproduce` (or add multi handling that N=1 folds into) so a selection / multi-answers-file project routes through `init_many`/`reproduce_many`, while a single template stays the N=1 case with NO behavior change (spec 010 uniform loop). Accept the multi run-spec shape (contracts/ordering.md). Reuse error→exit mapping (0/1/2/3; OrderingError → exit 1). Do NOT regress the existing single-template verbs.
+- [ ] T016 [P] Extend `skills/bailiff/SKILL.md`: after catalog selection (spec 002), document the multi-template flow — validated selection + per-layer answers → bailiff orders + applies layers → recomputed reproduce. State that selection/answers are agent judgment; ordering/apply/reproduce are LLM-free. Note the copier-only-by-hand fallback for N layers. Reference specs/003-multi-template/contracts/ordering.md. Use `uv run scripts/bailiff.py …` form.
 
 **Checkpoint**: `uv run pytest -q` green (hermetic); multi + single both work through the one surface; SKILL documents the flow.
 

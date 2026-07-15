@@ -1,0 +1,252 @@
+# copier.yml — bailiff-mod-base v1.0.0
+#
+# Thinned universal scaffold + identity/license.  Major revision (spec 011 /
+# FR-019): `.agents/`, `.codex/`, `infrastructure/`, `.github/workflows/`,
+# `specs/`, `archive/`, `assets/`, and 5 extra docs subdirs are MOVED OUT to
+# their respective modules. Base owns only the minimal always-on scaffold.
+#
+# Lifecycles:
+#   MANAGED (re-rendered byte-identically): dir-scaffold .gitkeep files,
+#     .mise.toml, .github/ (when github_host), .copier-answers file.
+#   SEED-ONCE (_skip_if_exists): AGENTS.md.
+#   TASK-OUTPUT (process-deterministic, outside the byte-identical set):
+#     .gitignore (gitnr, pinned), LICENSE (gh api), .git/ + optional commit.
+#
+# Single writers (cross-cutting §2/§6): base owns .mise.toml (from frozen
+# mise_tools union) and .gitignore (from gitignore_stack via gitnr). Language
+# modules contribute tokens to those frozen answers, not additional writers.
+
+# Note: no _answers_file override — copier's default (.copier-answers.yml) is
+# used, matching examples/bailiff-template-example. bailiff passes a per-layer
+# answers_file name at multi-template init (.copier-answers.<basename>.yml).
+
+# --- Identity questions -------------------------------------------------------
+
+project_name:
+  type: str
+  help: "The project's name (used in AGENTS.md, LICENSE, repo line)."
+
+org:
+  type: str
+  default: acme
+  help: "The owning person or organisation (LICENSE copyright + repo line)."
+
+description:
+  type: str
+  default: ""
+  help: "A one-line description of the project (fills the AGENTS.md header)."
+
+# --- Layout ------------------------------------------------------------------
+
+layout:
+  type: str
+  choices:
+    - single
+    - monorepo
+  default: single
+  help: "Project layout. monorepo adds 15 monorepo target directories."
+
+# --- License (13-SPDX set, gh Licenses API) ----------------------------------
+
+license:
+  type: str
+  choices:
+    - agpl-3.0
+    - apache-2.0
+    - bsd-2-clause
+    - bsd-3-clause
+    - bsl-1.0
+    - cc0-1.0
+    - epl-2.0
+    - gpl-2.0
+    - gpl-3.0
+    - lgpl-2.1
+    - mit
+    - mpl-2.0
+    - unlicense
+  default: apache-2.0
+  help: "SPDX license id; the LICENSE body is fetched from the GitHub Licenses API."
+
+copyright_name:
+  type: str
+  default: "{{ org }}"
+  help: "LICENSE holder name (defaults to org; can be a full legal name)."
+
+# --- New v1.0.0 question axes (spec 011 contract §2) -------------------------
+
+branch_strategy:
+  type: str
+  choices:
+    - feature-branches-squash-merge
+    - trunk-based
+    - gitflow
+    - feature-branches-merge-commit
+  default: feature-branches-squash-merge
+  help: "Branch strategy for AGENTS.md guidance line."
+
+docs_subdirs:
+  type: bool
+  default: true
+  help: "Create lean core docs subdirs (architecture/, decisions/, runbooks/)?"
+
+github_host:
+  type: bool
+  default: true
+  help: "Scaffold minimal .github/ (issue/PR templates, CODEOWNERS)? No workflows (bailiff-mod-ci-*) or dependabot (bailiff-mod-dep-updates)."
+
+extra_dirs:
+  type: yaml
+  default: []
+  help: "Additional directories to scaffold as managed .gitkeep entries (append-only)."
+
+run_git_init:
+  type: bool
+  default: true
+  help: "Run `git init` during scaffold? Set false for existing repos."
+
+# --- Gate booleans (carried forward) -----------------------------------------
+
+write_architecture:
+  type: bool
+  default: false
+  help: "Splice the frozen architecture section into AGENTS.md? (agent-authored)."
+
+initial_commit:
+  type: bool
+  default: false
+  help: "Create an initial commit once the scaffold is complete?"
+
+# --- Frozen agent facts (cross-cutting §2) -----------------------------------
+
+mise_tools:
+  type: yaml
+  default: []
+  help: "Frozen list of mise tool name/version maps (e.g. [{python: '3.13'}]); bailiff injects this."
+
+architecture_md:
+  type: str
+  default: ""
+  help: "Frozen ## Architecture section body (agent-authored in phase 1). No heading, no sentinels."
+
+agent_editable_globs:
+  type: yaml
+  default: []
+  help: "Frozen list of glob patterns agents may freely edit (agent-authored in phase 1)."
+
+# --- gitignore stack (single writer, cross-cutting §6) -----------------------
+
+gitignore_stack:
+  type: yaml
+  default: []
+  help: "Frozen list of gitnr template tokens (e.g. ghg:macOS, Python); bailiff injects this."
+
+# --- Injected today (never from jinja2_time — Constitution V) ----------------
+
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+# base is the root: no cross-module edges. Declared so discovery parses them.
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_after:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+_subdirectory: template
+
+# AGENTS.md is seed-once: scaffolded once, then project-owned. A re-run must
+# not clobber project edits. On a fresh-checkout reproduce it re-renders once
+# (Constitution III holds). task-output files (.gitignore, LICENSE) are NOT here
+# — their idempotency is the task guard.
+_skip_if_exists:
+  - AGENTS.md
+
+# --- Trust-gated tasks (FR-007 / cross-cutting §2/§3) ------------------------
+# Tasks run post-render at BOTH init and reproduce. Init-only guard (FR-012a):
+# a committed sentinel file ensures the heavy mise install + gitnr + gh steps
+# only run on a genuinely empty tree; reproduce over a committed tree skips them.
+_tasks:
+  # (1) PREFLIGHT — ordered FIRST (FR-007b). Check mise on PATH; fail with
+  #     explicit install guidance. Then `mise install` to pin language/tool
+  #     versions. Git/gh/gitnr are checked via command -v fallback (ubiquitous
+  #     tools not in the mise registry — cross-cutting §2).
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "bailiff-mod-base: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
+    exit 1; };
+    for tool in git gh gitnr; do
+    command -v "$tool" >/dev/null 2>&1 ||
+    { echo "bailiff-mod-base: required tool '$tool' not found on PATH." >&2;
+    echo "  git   — https://git-scm.com/downloads" >&2;
+    echo "  gh    — https://cli.github.com  (authenticate with: gh auth status)" >&2;
+    echo "  gitnr — https://github.com/reemus-dev/gitnr" >&2;
+    exit 1; }; done;
+    test -f .bailiff-base-init-done || mise install
+
+  # (2) gitnr → .gitignore (TASK-OUTPUT, init-only-guarded via sentinel).
+  #     gitnr is pinned to 0.3.0; a version mismatch warns. Stack tokens come
+  #     from the frozen gitignore_stack answer. Pinned: gitnr 0.3.0.
+  - >-
+    test -f .bailiff-base-init-done || {
+    gitnr --version 2>&1 | grep -q '0.3.0' ||
+    echo "bailiff-mod-base: WARNING gitnr is not the pinned 0.3.0 — .gitignore may drift." >&2;
+    gitnr create --save
+    {% if gitignore_stack %}{{ gitignore_stack | map('string') | join(' ') }}{% else %}ghg:macOS ghg:Linux ghg:Windows ghg:JetBrains ghg:VisualStudioCode ghg:Vim{% endif %}; }
+
+  # (3) gh → LICENSE (TASK-OUTPUT, guarded test -f). Fetches the canonical body
+  #     from the GitHub Licenses API; fills bracket placeholders from frozen
+  #     answers (copyright_name / today), NOT wall clock. gh must be authenticated.
+  - >-
+    test -f LICENSE ||
+    { body="$(gh api '/licenses/{{ license|lower }}' --jq '.body')" &&
+    printf '%s\n' "$body"
+    | sed -e 's/\[year\]/{{ (today or "2026")[:4] }}/g'
+    -e 's/\[yyyy\]/{{ (today or "2026")[:4] }}/g'
+    -e 's|\[fullname\]|{{ copyright_name }}|g'
+    -e 's|\[name of copyright owner\]|{{ copyright_name }}|g' > LICENSE; }
+
+  # (4) git init — gated on run_git_init (opt out for existing repos).
+  #     Idempotent no-op on an already-initialized repo.
+  - command: "git init --quiet"
+    when: "{{ run_git_init }}"
+
+  # (5) extra_dirs — MANAGED: create each extra_dirs entry as an empty
+  #     .gitkeep directory on EVERY run (init + reproduce) so the managed
+  #     lifecycle guarantee holds (contract §Outputs). mkdir -p + touch is
+  #     idempotent: no-op on reproduce if the dir already exists.
+  - >-
+    {% if extra_dirs %}
+    for _d in {{ extra_dirs | map('string') | join(' ') }}; do
+    mkdir -p "$_d" && touch "$_d/.gitkeep"; done
+    {% else %}
+    true
+    {% endif %}
+
+  # (6) Commit sentinel — marks this tree as init-done so reproduce tasks
+  #     (1) and (2) skip the heavy tool invocations (FR-012a). Written after
+  #     all scaffold tasks so it only lands when they succeeded.
+  - >-
+    test -f .bailiff-base-init-done || touch .bailiff-base-init-done
+
+  # (7) Initial commit — the LAST base task, gated on initial_commit AND
+  #     run_git_init. A fallback identity keeps the commit from failing in
+  #     fresh/CI environments where user.name/email are unset.
+  - command: >-
+      git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false add -A &&
+      git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false commit
+      -qm "Initial project scaffold (bailiff-mod-base)"
+    when: "{{ initial_commit and run_git_init }}"

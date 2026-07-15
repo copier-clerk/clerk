@@ -5,12 +5,12 @@
 
 ## Superseded in part (spec 002)
 
-Spec 010 reshaped clerk to a **skill-bundled copier wrapper with no committed
-clerk artifacts**. Spec 002 (implemented 2026-07-10) consequently supersedes the
+Spec 010 reshaped bailiff to a **skill-bundled copier wrapper with no committed
+bailiff artifacts**. Spec 002 (implemented 2026-07-10) consequently supersedes the
 two-template meta-flow described in the Decision section below:
 
 - **repos-collector template → plain user-owned catalog file.** Sources are
-  managed by `scripts/clerk.py catalog` verbs (`init`/`add`/`remove`/`list`/
+  managed by `scripts/bailiff.py catalog` verbs (`init`/`add`/`remove`/`list`/
   `validate`) in a user-config TOML file. No copier template whose only job is
   holding a list; no `.copier-answers.yml` acting as a catalog store. See
   `specs/002-catalog/spec.md` §"Reconciliation" and
@@ -41,7 +41,7 @@ two-template meta-flow described in the Decision section below:
 
 Two candidate designs for how the agent learns the available modules and how the
 user selects among them:
-- **(A) Sidecar `clerk.yml`** per template carrying agentic metadata + a CI
+- **(A) Sidecar `bailiff.yml`** per template carrying agentic metadata + a CI
   *catalog generator* that regenerates a selector's baked-in `choices`.
 - **(B) A copier "selector template"** whose questions enumerate the catalog,
   with the catalog supplied at **runtime** rather than baked into the template.
@@ -71,9 +71,9 @@ runtime-supplied catalog. This was verified against copier v9.16.0 **source**.
 - **Two-template meta flow.** (1) A *repos-collector* template asks the user for
   one or more source github repos; those repo URLs + refs persist in its
   `.copier-answers.yml` (re-answering updates them — no `catalog.yml` file). (2)
-  clerk extracts + verifies the templates found in those repos, then invokes a
+  bailiff extracts + verifies the templates found in those repos, then invokes a
   *selector* template with the discovered catalog injected via
-  `run_copy(data={"catalog": [...]})`. Extraction is clerk's job, NOT a copier
+  `run_copy(data={"catalog": [...]})`. Extraction is bailiff's job, NOT a copier
   task (copier cannot run a command mid-questionnaire).
 - **Selection is one or more `multiselect` questions.** Grouping (skills / mcp /
   bundles vs plain templates) is by template metadata or filename when there are
@@ -83,29 +83,29 @@ runtime-supplied catalog. This was verified against copier v9.16.0 **source**.
 - **The catalog is injected at runtime via `run_copy(data={"catalog": [...]})`**
   (equivalently `--data`) — source-verified in scope from question 1. No sidecar,
   no CI catalog generator, no template mutation.
-- **`_external_data` is NOT part of the core design.** clerk drives every run and
+- **`_external_data` is NOT part of the core design.** bailiff drives every run and
   threads one module's answers into the next via `--data`, so cross-template
   answer sharing does not need `_external_data`. It remains only as an optional
-  nicety for standalone per-module `copier update` runs done WITHOUT clerk.
+  nicety for standalone per-module `copier update` runs done WITHOUT bailiff.
 - **This supersedes the sidecar recommendation** from earlier design notes.
 
-## Dependencies + ordering — hidden answer, clerk-generated DAG
+## Dependencies + ordering — hidden answer, bailiff-generated DAG
 
 - Each module declares its edges as a **hidden computed answer** (`when: false`)
   in its own `copier.yml`: `depends_on` / `run_after` / `run_before`. This travels
   with the template at its pinned ref and is statically readable from `copier.yml`
   at selection time. (Note: a `when: false` answer is not written to the answers
-  file, but its default is in `copier.yml`, so clerk parses it directly — it never
+  file, but its default is in `copier.yml`, so bailiff parses it directly — it never
   needs to be persisted.)
-- **clerk builds a DAG from these declarations and drives the copier invocations
+- **bailiff builds a DAG from these declarations and drives the copier invocations
   in topological order.** Modules with no edges run in any order; edges force
   sequence. There is NO separate "ordering template" — ordering is a pure function
-  clerk computes, not a user step or artifact.
+  bailiff computes, not a user step or artifact.
 - This also orders the imperative task-bearing runs (a module whose `_tasks` must
-  run after another's) since clerk sequences the whole graph.
+  run after another's) since bailiff sequences the whole graph.
 
 - **Verified: `when:false` beats the alternatives for this.** Research confirmed
-  hidden answers are statically parseable (clerk reads `copier.yml` at catalog
+  hidden answers are statically parseable (bailiff reads `copier.yml` at catalog
   time), require **no trust**, and travel with the pinned ref. The
   `copier-template-extensions` **context-hook** was considered and rejected for
   metadata: it escalates the whole invocation to `unsafe=True`, adds a pip dep,
@@ -115,13 +115,13 @@ runtime-supplied catalog. This was verified against copier v9.16.0 **source**.
 
 ## Multi-template composition (verified)
 
-- copier does **zero** cross-template coordination — clerk issues **one
+- copier does **zero** cross-template coordination — bailiff issues **one
   `run_copy` call per template**, in DAG order, each with a distinct
   `answers_file` so per-module answers do not collide.
-- clerk threads one module's answers into the next via the `data=` dict (it holds
+- bailiff threads one module's answers into the next via the `data=` dict (it holds
   all prior answers in memory). This is why `_external_data` is not needed in the
   core: `_external_data` only earns its place if a template must read a sibling's
-  answers during a **standalone** `copier update` run done without clerk.
+  answers during a **standalone** `copier update` run done without bailiff.
 - If a template's `_external_data` paths traverse **outside** the destination
   directory, that specific run needs `unsafe=True` — a per-template opt-in flag in
   the catalog entry, never a global default.
@@ -133,11 +133,11 @@ Carried inside the injected catalog data or the hidden `depends_on` answers,
 contract):
 1. `id -> gituser/repo/path#ref` locator map — this *is* the catalog the agent
    injects.
-2. Dependency edges — the hidden `depends_on` answers above; clerk builds the DAG.
+2. Dependency edges — the hidden `depends_on` answers above; bailiff builds the DAG.
 
 ## Consequences
 
-- Clerk carries no per-template sidecar files and no catalog-generation CI. The
+- Bailiff carries no per-template sidecar files and no catalog-generation CI. The
   agent + a small orchestrator + copier are the whole surface.
 - Reproduce byte-stability depends on pinning the copier version (see
   [[0001-copier-as-engine]]).

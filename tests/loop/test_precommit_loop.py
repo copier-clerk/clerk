@@ -1,4 +1,4 @@
-"""spec 011 T005: clerk-mod-precommit loop tests.
+"""spec 011 T005: bailiff-mod-precommit loop tests.
 
 Covers:
 - All three hook_manager values render the right file / no file (MANAGED lifecycle).
@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 
@@ -44,11 +44,11 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
 
 
 def test_precommit_renders_precommit_config(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """hook_manager=pre-commit → .pre-commit-config.yaml created (MANAGED)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "pre-commit"})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit"})
 
     cfg = dest / ".pre-commit-config.yaml"
     assert cfg.is_file(), ".pre-commit-config.yaml must exist for hook_manager=pre-commit"
@@ -59,7 +59,7 @@ def test_precommit_renders_precommit_config(
     assert not (dest / "lefthook.yml").exists(), "lefthook.yml must not be written for pre-commit"
 
     # Stub task ran (install marker present)
-    assert (dest / ".clerk-precommit-preflight").is_file(), "preflight stub must run"
+    assert (dest / ".bailiff-precommit-preflight").is_file(), "preflight stub must run"
 
     # Vendored close-keywords script is present (MANAGED)
     check_script = dest / ".pre-commit-hooks" / "check-commit-msg.py"
@@ -67,11 +67,11 @@ def test_precommit_renders_precommit_config(
 
 
 def test_precommit_config_contains_base_hooks(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """Base hygiene hooks, gitleaks, shellcheck are in the rendered pre-commit config."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "pre-commit"})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit"})
 
     text = (dest / ".pre-commit-config.yaml").read_text()
     # Base hygiene
@@ -85,12 +85,12 @@ def test_precommit_config_contains_base_hooks(
 
 
 def test_precommit_config_enforce_conventional_commits(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """enforce_conventional_commits=true adds the close-keywords commit-msg hook."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_precommit,
+        bailiff_mod_precommit,
         dest,
         {"hook_manager": "pre-commit", "enforce_conventional_commits": True},
     )
@@ -103,12 +103,12 @@ def test_precommit_config_enforce_conventional_commits(
 
 
 def test_precommit_config_no_conventional_commits_when_disabled(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """enforce_conventional_commits=false omits the close-keywords hook block."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_precommit,
+        bailiff_mod_precommit,
         dest,
         {"hook_manager": "pre-commit", "enforce_conventional_commits": False},
     )
@@ -120,29 +120,29 @@ def test_precommit_config_no_conventional_commits_when_disabled(
 
 
 def test_precommit_config_typo_check_default_on(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """enable_typo_check=true (default) includes the typos hook."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "pre-commit", "enable_typo_check": True})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit", "enable_typo_check": True})
 
     text = (dest / ".pre-commit-config.yaml").read_text()
     assert "typos" in text, "typos hook must be present when enable_typo_check=true"
 
 
 def test_precommit_config_typo_check_disabled(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """enable_typo_check=false excludes the typos hook."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "pre-commit", "enable_typo_check": False})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit", "enable_typo_check": False})
 
     text = (dest / ".pre-commit-config.yaml").read_text()
     assert "typos" not in text, "typos hook must be absent when enable_typo_check=false"
 
 
 def test_precommit_config_hook_blocks_injected_once(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """Frozen hook_blocks appear in the rendered config (no double-append on reproduce)."""
     ruff_block = (
@@ -155,7 +155,7 @@ def test_precommit_config_hook_blocks_injected_once(
     )
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_precommit,
+        bailiff_mod_precommit,
         dest,
         {"hook_manager": "pre-commit", "hook_blocks": [ruff_block]},
     )
@@ -178,7 +178,7 @@ def test_precommit_config_hook_blocks_injected_once(
 
 
 def test_precommit_config_byte_identical_on_reproduce(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """MANAGED: .pre-commit-config.yaml is byte-identical after reproduce."""
     dest = tmp_path / "proj"
@@ -187,15 +187,15 @@ def test_precommit_config_byte_identical_on_reproduce(
         "enforce_conventional_commits": True,
         "enable_typo_check": True,
     }
-    _init(clerk_mod_precommit, dest, answers)
+    _init(bailiff_mod_precommit, dest, answers)
 
     cfg = dest / ".pre-commit-config.yaml"
     before = _digest(cfg)
     check_script_before = _digest(dest / ".pre-commit-hooks" / "check-commit-msg.py")
 
     # Use single-layer reproduce (not reproduce_many) to avoid the DAG dangling-edge
-    # error that fires when clerk-mod-base is absent from the selection — this module
-    # declares run_after: [clerk-mod-base] which reproduce_many enforces strictly.
+    # error that fires when bailiff-mod-base is absent from the selection — this module
+    # declares run_after: [bailiff-mod-base] which reproduce_many enforces strictly.
     runner.reproduce(str(dest))
 
     assert _digest(cfg) == before, ".pre-commit-config.yaml not byte-identical after reproduce"
@@ -210,13 +210,13 @@ def test_precommit_config_byte_identical_on_reproduce(
 
 
 def test_precommit_renders_lefthook_yml(
-    clerk_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
 ) -> None:
     """hook_manager=lefthook → lefthook.yml created (MANAGED)."""
     dest = tmp_path / "proj"
-    trust.add_trust(clerk_mod_precommit_lefthook.url)
+    trust.add_trust(bailiff_mod_precommit_lefthook.url)
     spec = runner.RunSpec(
-        source=clerk_mod_precommit_lefthook.url,
+        source=bailiff_mod_precommit_lefthook.url,
         dest=str(dest),
         answers={"hook_manager": "lefthook"},
     )
@@ -230,18 +230,18 @@ def test_precommit_renders_lefthook_yml(
     assert not (dest / ".pre-commit-config.yaml").exists()
 
     # Stub task ran
-    assert (dest / ".clerk-precommit-preflight").is_file()
+    assert (dest / ".bailiff-precommit-preflight").is_file()
 
 
 def test_lefthook_hook_blocks_injected_once(
-    clerk_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
 ) -> None:
     """Frozen hook_blocks appear exactly once in lefthook.yml (no double-append)."""
     ruff_block = "pre-commit:\n  commands:\n    ruff:\n      run: ruff check {staged_files}\n"
     dest = tmp_path / "proj"
-    trust.add_trust(clerk_mod_precommit_lefthook.url)
+    trust.add_trust(bailiff_mod_precommit_lefthook.url)
     spec = runner.RunSpec(
-        source=clerk_mod_precommit_lefthook.url,
+        source=bailiff_mod_precommit_lefthook.url,
         dest=str(dest),
         answers={"hook_manager": "lefthook", "hook_blocks": [ruff_block]},
     )
@@ -255,13 +255,13 @@ def test_lefthook_hook_blocks_injected_once(
 
 
 def test_lefthook_byte_identical_on_reproduce(
-    clerk_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
 ) -> None:
     """MANAGED: lefthook.yml is byte-identical after reproduce."""
     dest = tmp_path / "proj"
-    trust.add_trust(clerk_mod_precommit_lefthook.url)
+    trust.add_trust(bailiff_mod_precommit_lefthook.url)
     spec = runner.RunSpec(
-        source=clerk_mod_precommit_lefthook.url,
+        source=bailiff_mod_precommit_lefthook.url,
         dest=str(dest),
         answers={"hook_manager": "lefthook"},
     )
@@ -269,7 +269,7 @@ def test_lefthook_byte_identical_on_reproduce(
 
     before = _digest(dest / "lefthook.yml")
 
-    # Single-layer reproduce avoids DAG dangling-edge error (run_after: clerk-mod-base).
+    # Single-layer reproduce avoids DAG dangling-edge error (run_after: bailiff-mod-base).
     runner.reproduce(str(dest))
 
     assert _digest(dest / "lefthook.yml") == before, (
@@ -283,24 +283,24 @@ def test_lefthook_byte_identical_on_reproduce(
 
 
 def test_precommit_none_writes_no_hook_file(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """hook_manager=none → neither .pre-commit-config.yaml nor lefthook.yml is written."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "none"})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "none"})
 
     assert not (dest / ".pre-commit-config.yaml").exists(), (
         ".pre-commit-config.yaml must not exist for hook_manager=none"
     )
     assert not (dest / "lefthook.yml").exists(), "lefthook.yml must not exist for hook_manager=none"
     # The answers file is still written (copier always writes it).
-    assert (dest / ".copier-answers.clerk-mod-precommit.yml").exists() or (
+    assert (dest / ".copier-answers.bailiff-mod-precommit.yml").exists() or (
         dest / ".copier-answers.yml"
     ).exists(), "answers file must be written regardless of hook_manager"
 
 
 def test_precommit_none_install_tasks_have_when_guards(
-    clerk_mod_precommit: TemplateRepo,
+    bailiff_mod_precommit: TemplateRepo,
 ) -> None:
     """hook_manager=none → install tasks declare a when: guard excluding none.
 
@@ -311,14 +311,14 @@ def test_precommit_none_install_tasks_have_when_guards(
     """
     import yaml as _yaml
 
-    copier_yml = Path(clerk_mod_precommit.url) / "copier.yml"
+    copier_yml = Path(bailiff_mod_precommit.url) / "copier.yml"
     _yaml.safe_load(copier_yml.read_text())  # validates YAML is parseable
 
     # The _tasks block is replaced by the stub — read the ORIGINAL module copier.yml.
     # The fixture path points to the repo root of the stub, so read from templates/.
     from tests.conftest import _MODULES_DIR
 
-    orig = _yaml.safe_load((_MODULES_DIR / "clerk-mod-precommit" / "copier.yml").read_text())
+    orig = _yaml.safe_load((_MODULES_DIR / "bailiff-mod-precommit" / "copier.yml").read_text())
     tasks = orig.get("_tasks", [])
     # Both install tasks must carry a `when:` expression that excludes none.
     for task in tasks:
@@ -333,13 +333,13 @@ def test_precommit_none_install_tasks_have_when_guards(
 
 
 def test_precommit_none_reproduce_no_new_files(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
     """hook_manager=none: reproduce does not create hook config files."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_precommit, dest, {"hook_manager": "none"})
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "none"})
 
-    # Single-layer reproduce: avoids DAG dangling-edge error (run_after: clerk-mod-base).
+    # Single-layer reproduce: avoids DAG dangling-edge error (run_after: bailiff-mod-base).
     runner.reproduce(str(dest))
 
     assert not (dest / ".pre-commit-config.yaml").exists()
@@ -347,21 +347,21 @@ def test_precommit_none_reproduce_no_new_files(
 
 
 # ---------------------------------------------------------------------------
-# Ordering edge: run_after clerk-mod-base
+# Ordering edge: run_after bailiff-mod-base
 # ---------------------------------------------------------------------------
 
 
 def test_precommit_run_after_edge_declared(
-    clerk_mod_precommit: TemplateRepo, tmp_path: Path
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
 ) -> None:
-    """run_after: [clerk-mod-base] is declared in the module."""
+    """run_after: [bailiff-mod-base] is declared in the module."""
     import yaml as _yaml
 
-    copier_yml = Path(clerk_mod_precommit.url) / "copier.yml"
+    copier_yml = Path(bailiff_mod_precommit.url) / "copier.yml"
     cfg = _yaml.safe_load(copier_yml.read_text())
     run_after = cfg.get("run_after", {}).get("default", [])
-    assert "clerk-mod-base" in run_after, (
-        "clerk-mod-precommit must declare run_after: [clerk-mod-base]"
+    assert "bailiff-mod-base" in run_after, (
+        "bailiff-mod-precommit must declare run_after: [bailiff-mod-base]"
     )
 
 
@@ -370,11 +370,11 @@ def test_precommit_run_after_edge_declared(
 # ---------------------------------------------------------------------------
 
 
-def test_no_secret_questions(clerk_mod_precommit: TemplateRepo, tmp_path: Path) -> None:
+def test_no_secret_questions(bailiff_mod_precommit: TemplateRepo, tmp_path: Path) -> None:
     """Compliance: no secret: questions in copier.yml (Constitution VI)."""
     import yaml as _yaml
 
-    copier_yml = Path(clerk_mod_precommit.url) / "copier.yml"
+    copier_yml = Path(bailiff_mod_precommit.url) / "copier.yml"
     cfg = _yaml.safe_load(copier_yml.read_text())
     secret_keys = [
         key

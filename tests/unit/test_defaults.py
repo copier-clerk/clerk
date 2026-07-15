@@ -1,4 +1,4 @@
-"""Unit tests for clerk.defaults (spec 004, T006).
+"""Unit tests for bailiff.defaults (spec 004, T006).
 
 Tests: path resolution, load, select_keys, fold_settings_defaults.
 All hermetic — no copier calls, no network.
@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from clerk.defaults import defaults_path, fold_settings_defaults, load, select_keys
-from clerk.discovery import Question
-from clerk.errors import DefaultsError
+from bailiff.defaults import defaults_path, fold_settings_defaults, load, select_keys
+from bailiff.discovery import Question
+from bailiff.errors import DefaultsError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,24 +41,24 @@ def _q(key: str, *, secret: bool = False, when: Any = True) -> Question:
 
 class TestDefaultsPath:
     def test_env_unset_returns_platformdirs_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("CLERK_DEFAULTS_PATH", raising=False)
+        monkeypatch.delenv("BAILIFF_DEFAULTS_PATH", raising=False)
         p = defaults_path()
         assert p.name == "defaults.yml"
-        assert "clerk" in str(p)
+        assert "bailiff" in str(p)
 
     def test_env_set_to_existing_file(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         target = tmp_path / "my_defaults.yml"
         target.write_text("author_name: Ada\n")
-        monkeypatch.setenv("CLERK_DEFAULTS_PATH", str(target))
+        monkeypatch.setenv("BAILIFF_DEFAULTS_PATH", str(target))
         assert defaults_path() == target
 
     def test_env_set_to_missing_file_raises(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         missing = tmp_path / "nonexistent.yml"
-        monkeypatch.setenv("CLERK_DEFAULTS_PATH", str(missing))
+        monkeypatch.setenv("BAILIFF_DEFAULTS_PATH", str(missing))
         with pytest.raises(DefaultsError, match="not found"):
             defaults_path()
 
@@ -175,8 +175,8 @@ class TestFoldSettingsDefaults:
         mock_settings = MagicMock()
         mock_settings.defaults = {"user_name": "copier-value", "user_email": "copier@x.com"}
         with patch("copier.load_settings", return_value=mock_settings):
-            result = fold_settings_defaults({"user_name": "clerk-value"})
-        assert result["user_name"] == "clerk-value"
+            result = fold_settings_defaults({"user_name": "bailiff-value"})
+        assert result["user_name"] == "bailiff-value"
         assert result["user_email"] == "copier@x.com"
 
     def test_settings_keys_merged_when_absent_from_toml(self) -> None:

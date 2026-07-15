@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import MultiUpgradeFixture, UpgradeFixture
 
 _PATH = __import__("os").environ.get("PATH", "/usr/bin:/bin")
@@ -24,10 +24,10 @@ def _git(repo: Path, *args: str) -> None:
         check=True,
         capture_output=True,
         env={
-            "GIT_AUTHOR_NAME": "clerk-test",
-            "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-            "GIT_COMMITTER_NAME": "clerk-test",
-            "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+            "GIT_AUTHOR_NAME": "bailiff-test",
+            "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+            "GIT_COMMITTER_NAME": "bailiff-test",
+            "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_SYSTEM": "/dev/null",
             "PATH": _PATH,

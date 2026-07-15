@@ -38,61 +38,61 @@ assignments:
     reason: "Doc verification/amendment of _cross-cutting.md contract vocabulary; tightly scoped non-code task"
   T004:
     agent: "parallel-coder"
-    reason: "Module implementation (REVISE clerk-mod-base); worktree isolation for fleet safety"
+    reason: "Module implementation (REVISE bailiff-mod-base); worktree isolation for fleet safety"
   T005:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-precommit); owns the hook frozen-union contract"
+    reason: "Module implementation (NEW bailiff-mod-precommit); owns the hook frozen-union contract"
   T006:
     agent: "parallel-coder"
-    reason: "Module implementation (REVISE clerk-mod-python); parallel within Slice A"
+    reason: "Module implementation (REVISE bailiff-mod-python); parallel within Slice A"
   T007:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-ts); parallel within Slice A"
+    reason: "Module implementation (NEW bailiff-mod-ts); parallel within Slice A"
   T008:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-go); parallel within Slice A"
+    reason: "Module implementation (NEW bailiff-mod-go); parallel within Slice A"
   T009:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-rust); parallel within Slice A"
+    reason: "Module implementation (NEW bailiff-mod-rust); parallel within Slice A"
   T010:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-quality); parallel within Slice A"
+    reason: "Module implementation (NEW bailiff-mod-quality); parallel within Slice A"
   T011:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-justfile); parallel within Slice A"
+    reason: "Module implementation (NEW bailiff-mod-justfile); parallel within Slice A"
   T012:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-readme); parallel within Slice B"
+    reason: "Module implementation (NEW bailiff-mod-readme); parallel within Slice B"
   T013:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-stack-adr); parallel within Slice B"
+    reason: "Module implementation (NEW bailiff-mod-stack-adr); parallel within Slice B"
   T014:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-agentic, folds apm); parallel within Slice B"
+    reason: "Module implementation (NEW bailiff-mod-agentic, folds apm); parallel within Slice B"
   T015:
     agent: "speckit-implement-task"
     reason: "Spec-document amendment (specs/007-agentic-module/spec.md); non-code, ships with T014"
   T016:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-ci-github); parallel within Slice B"
+    reason: "Module implementation (NEW bailiff-mod-ci-github); parallel within Slice B"
   T017:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-ci-gitlab); parallel within Slice B"
+    reason: "Module implementation (NEW bailiff-mod-ci-gitlab); parallel within Slice B"
   T018:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-github-repo); parallel within Slice C"
+    reason: "Module implementation (NEW bailiff-mod-github-repo); parallel within Slice C"
   T019:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-package-add); parallel within Slice C"
+    reason: "Module implementation (NEW bailiff-mod-package-add); parallel within Slice C"
   T020:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-terraform); parallel within Slice C"
+    reason: "Module implementation (NEW bailiff-mod-terraform); parallel within Slice C"
   T021:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-cdk); parallel within Slice C"
+    reason: "Module implementation (NEW bailiff-mod-cdk); parallel within Slice C"
   T022:
     agent: "parallel-coder"
-    reason: "Module implementation (NEW clerk-mod-cloudformation); parallel within Slice C"
+    reason: "Module implementation (NEW bailiff-mod-cloudformation); parallel within Slice C"
   T023:
     agent: "default"
     reason: "Whole-tree quickstart validation; main loop drives and fixes deviations"

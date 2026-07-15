@@ -1,4 +1,4 @@
-"""spec 011 / T022: clerk-mod-cloudformation render + reproduce loop.
+"""spec 011 / T022: bailiff-mod-cloudformation render + reproduce loop.
 
 Tests cover:
 - raw mode: template.yaml has no SAM Transform; .cfnlintrc.yaml is MANAGED.
@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 # ---------------------------------------------------------------------------
@@ -53,11 +53,13 @@ def _digest(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_raw_template_yaml_rendered(clerk_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_raw_template_yaml_rendered(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """Raw mode: template.yaml present with AWSTemplateFormatVersion, no SAM Transform."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "raw",
@@ -83,12 +85,12 @@ def test_raw_template_yaml_rendered(clerk_mod_cloudformation: TemplateRepo, tmp_
 
 
 def test_raw_per_env_parameter_files(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """Raw mode: one parameters/<env>.json exists for each environment_names entry."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "raw",
@@ -107,12 +109,12 @@ def test_raw_per_env_parameter_files(
 
 
 def test_cfnlintrc_managed_no_ignore_rules(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """.cfnlintrc.yaml rendered with empty ignore_checks when cfnlint_ignore_rules=[]."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {"mode": "raw", "cfnlint_ignore_rules": []},
     )
@@ -124,12 +126,12 @@ def test_cfnlintrc_managed_no_ignore_rules(
 
 
 def test_cfnlintrc_managed_with_ignore_rules(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """.cfnlintrc.yaml includes each rule ID from cfnlint_ignore_rules."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "raw",
@@ -149,11 +151,11 @@ def test_cfnlintrc_managed_with_ignore_rules(
 # ---------------------------------------------------------------------------
 
 
-def test_sam_mode_adds_transform(clerk_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_sam_mode_adds_transform(bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
     """SAM mode: template.yaml includes Transform: AWS::Serverless-2016-10-31."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "sam",
@@ -173,11 +175,11 @@ def test_sam_mode_adds_transform(clerk_mod_cloudformation: TemplateRepo, tmp_pat
 # ---------------------------------------------------------------------------
 
 
-def test_custom_placement_dir(clerk_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_custom_placement_dir(bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
     """placement_dir=. renders artifacts at project root."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "raw",
@@ -197,12 +199,12 @@ def test_custom_placement_dir(clerk_mod_cloudformation: TemplateRepo, tmp_path: 
 
 
 def test_cfnlintrc_byte_identical_on_reproduce(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """.cfnlintrc.yaml is byte-identical after reproduce (MANAGED lifecycle)."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "raw",
@@ -224,12 +226,12 @@ def test_cfnlintrc_byte_identical_on_reproduce(
 
 
 def test_template_yaml_not_overwritten_on_reproduce(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """template.yaml is SEED-ONCE: local edits survive reproduce."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {"mode": "raw"},
     )
@@ -247,12 +249,12 @@ def test_template_yaml_not_overwritten_on_reproduce(
 
 
 def test_parameter_files_not_overwritten_on_reproduce(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """parameters/<env>.json files are SEED-ONCE: local edits survive reproduce."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {"mode": "raw", "environment_names": ["dev"]},
     )
@@ -274,12 +276,12 @@ def test_parameter_files_not_overwritten_on_reproduce(
 
 
 def test_answers_file_records_mode_and_envs(
-    clerk_mod_cloudformation: TemplateRepo, tmp_path: Path
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
 ) -> None:
     """Answers file records mode and environment_names; no secret questions."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {
             "mode": "sam",
@@ -292,7 +294,7 @@ def test_answers_file_records_mode_and_envs(
     assert af["mode"] == "sam"
     assert af["environment_names"] == ["qa", "prod"]
     assert af["cfnlint_ignore_rules"] == ["W3002"]
-    assert clerk_mod_cloudformation.url in af["_src_path"]
+    assert bailiff_mod_cloudformation.url in af["_src_path"]
     # Hidden edge answers must not be persisted.
     assert "run_after" not in af
     assert "depends_on" not in af
@@ -305,31 +307,35 @@ def test_answers_file_records_mode_and_envs(
 # ---------------------------------------------------------------------------
 
 
-def test_aws_validate_task_stubbed(clerk_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_aws_validate_task_stubbed(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """aws_validate=true runs the (stubbed) task; stub writes its marker."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {"mode": "raw", "aws_validate": True},
     )
 
-    # The stub writes .clerk-aws-preflight (from _AWS_STUB_TASKS).
-    assert (dest / ".clerk-aws-preflight").is_file(), (
+    # The stub writes .bailiff-aws-preflight (from _AWS_STUB_TASKS).
+    assert (dest / ".bailiff-aws-preflight").is_file(), (
         "aws stub task marker not present (aws_validate=true should trigger stub)"
     )
 
 
-def test_aws_validate_false_no_task(clerk_mod_cloudformation: TemplateRepo, tmp_path: Path) -> None:
+def test_aws_validate_false_no_task(
+    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
+) -> None:
     """aws_validate=false (default): the aws task does not run."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_cloudformation,
+        bailiff_mod_cloudformation,
         dest,
         {"mode": "raw", "aws_validate": False},
     )
     # With aws_validate=false, the stub task is guarded by `when: aws_validate`,
     # so it does NOT run and no marker is written.
-    assert not (dest / ".clerk-aws-preflight").is_file(), (
+    assert not (dest / ".bailiff-aws-preflight").is_file(), (
         "aws stub task ran despite aws_validate=false"
     )

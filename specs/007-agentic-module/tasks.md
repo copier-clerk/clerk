@@ -1,20 +1,20 @@
 ---
-description: "Task list for clerk agentic-ecosystem module — clerk-mod-apm (spec 007)"
+description: "Task list for bailiff agentic-ecosystem module — bailiff-mod-apm (spec 007)"
 ---
 
-# Tasks: clerk agentic-ecosystem module — `clerk-mod-apm` (spec 007)
+# Tasks: bailiff agentic-ecosystem module — `bailiff-mod-apm` (spec 007)
 
 **Input**: Design documents from `specs/007-agentic-module/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md) (Clarified 2026-07-13),
 [contracts/agentic-module.md](./contracts/agentic-module.md),
 [constitution](../../.specify/memory/constitution.md) v2.1.0
 
-**Scope (clarified, Q1)**: v1 ships `clerk-mod-apm` ONLY. MCP / SpecKit / steering-ADR
-are deferred to their own future `clerk-mod-*` modules and are NOT part of this task
+**Scope (clarified, Q1)**: v1 ships `bailiff-mod-apm` ONLY. MCP / SpecKit / steering-ADR
+are deferred to their own future `bailiff-mod-*` modules and are NOT part of this task
 list. Tests are included (Constitution VII makes per-step hardening mandatory).
 
-**Delivery**: pure template + task content (no `src/clerk/` code, no new
-`scripts/clerk.py` verb). Authored via the spec-008b tooling (`just new-module`,
+**Delivery**: pure template + task content (no `src/bailiff/` code, no new
+`scripts/bailiff.py` verb). Authored via the spec-008b tooling (`just new-module`,
 `scripts/check_modules.py`), driven by the existing spec-003/010 engine.
 
 ---
@@ -42,13 +42,13 @@ list. Tests are included (Constitution VII makes per-step hardening mandatory).
   and the `apm.yml` **catalogue/registry-source** key (Residual Open Item #1/#2 in
   plan.md). Supply a sensible default catalogue source. If APM has no CLI install
   command, record the correct equivalent and adjust T007 accordingly.
-- [x] T003 Scaffold the module: `just new-module name=clerk-mod-apm`. Confirm it
-  creates `templates/clerk-mod-apm/` with `copier.yml`,
+- [x] T003 Scaffold the module: `just new-module name=bailiff-mod-apm`. Confirm it
+  creates `templates/bailiff-mod-apm/` with `copier.yml`,
   `{{ _copier_conf.answers_file }}.jinja`, `README.md`, `CHANGELOG.md`, and the
-  registration edits in `cog.toml [monorepo.packages.clerk-mod-apm]` +
+  registration edits in `cog.toml [monorepo.packages.bailiff-mod-apm]` +
   `catalog-sources.toml`. Run `just check-modules` — the fresh stub MUST pass.
 
-**Checkpoint**: `templates/clerk-mod-apm/` exists, is registered three ways, and
+**Checkpoint**: `templates/bailiff-mod-apm/` exists, is registered three ways, and
 passes `check_modules.py` as an empty stub.
 
 ---
@@ -61,11 +61,11 @@ dependency edge, and answer threading — before any rendered content or tasks.
 **⚠️ Blocks US1 and US2.**
 
 - [x] T004 Author the `apm_packages` question in
-  `templates/clerk-mod-apm/copier.yml` as a **runtime-injected list-typed answer**
+  `templates/bailiff-mod-apm/copier.yml` as a **runtime-injected list-typed answer**
   (ADR-0003 / Q2 / FR-002): `default: []`, populated by the agent via
   `--data apm_packages=[…]`; NO frozen `choices:` list; persists to the answers file.
   DEVIATION from the literal `type: str`/`multiselect: true` wording: used
-  `type: yaml` (the proven injected-list convention in `clerk-mod-base`). Verified
+  `type: yaml` (the proven injected-list convention in `bailiff-mod-base`). Verified
   empirically — copier passes a `data=` list straight through to a `type: yaml`
   question, whereas `multiselect: true` WITHOUT a frozen `choices:` list does NOT
   accept injected values (the validator/render sees an empty list). `type: yaml`
@@ -75,11 +75,11 @@ dependency edge, and answer threading — before any rendered content or tasks.
   fallback default (FR-006, SC-006). Author the `apm_cli_version` question (pinned
   APM tool version, `default:` the version confirmed in T002) used by the install
   `_task` (FR-009). Author `today` as an injected answer (VI/C-05), mirroring
-  `examples/clerk-template-example/copier.yml`.
+  `examples/bailiff-template-example/copier.yml`.
 - [x] T006 [P] Declare the dependency edge in `copier.yml` as a `when:false` hidden
   answer `depends_on` with `default: []` (Q5 / FR-005): 007 does NOT hardcode a base
   layer; ordering is computed at reproduce time by the spec-003 engine from edges.
-  Confirm `uv run scripts/clerk.py discover templates/clerk-mod-apm` returns
+  Confirm `uv run scripts/bailiff.py discover templates/bailiff-mod-apm` returns
   `reproducible: true`, `has_tasks: true` (after T007), and the `apm_packages` question.
 
 **Checkpoint**: discovery reports the correct shape; `project_name` threads;
@@ -89,22 +89,22 @@ dependency edge, and answer threading — before any rendered content or tasks.
 
 ## Phase 3: User Story 1 — Generate a project with APM wiring (Priority: P1) 🎯 MVP
 
-**Goal**: selecting `clerk-mod-apm` with an injected package set produces a valid
+**Goal**: selecting `bailiff-mod-apm` with an injected package set produces a valid
 `apm.yml` (packages + ≥ 1 catalogue) and runs the trust-gated pinned install task;
 an empty set is refused; an untrusted source is refused at exit 3.
 
-**Independent Test**: `copier`/`clerk init` a `[stub_base, clerk-mod-apm]` selection
+**Independent Test**: `copier`/`bailiff init` a `[stub_base, bailiff-mod-apm]` selection
 with `--data apm_packages=[…]` on a trusted source → `apm.yml` present and correct;
 repeat with `apm_packages=[]` → refusal; repeat untrusted → exit 3.
 
 ### Implementation for US1
 
 - [x] T007 [US1] Add the **trust-gated APM install `_task`** to
-  `templates/clerk-mod-apm/copier.yml` (FR-004, FR-009, Q3): a portable shell command
+  `templates/bailiff-mod-apm/copier.yml` (FR-004, FR-009, Q3): a portable shell command
   using the pinned form from T002 (`uv run apm=={{ apm_cli_version }} <verb>`), guarded
   by `when: "{{ apm_packages | length > 0 }}"`, idempotent at reproduce. Document that
   it writes `apm.lock.yaml` as external state.
-- [x] T008 [US1] Author `templates/clerk-mod-apm/apm.yml.jinja` (FR-003): render
+- [x] T008 [US1] Author `templates/bailiff-mod-apm/apm.yml.jinja` (FR-003): render
   `dependencies.apm[]` from the injected `apm_packages`, plus **≥ 1 catalogue/registry
   source** (Q2 / FR-002a) — supply the default from T002 when the injected data yields
   none. Mirror the schema of the repo's own `/apm.yml`
@@ -115,13 +115,13 @@ repeat with `apm_packages=[]` → refusal; repeat untrusted → exit 3.
   the user to drop the module — NOT an empty `apm.yml`. Use copier's validator/`when`
   mechanism (e.g. an `apm_packages` validator that rejects an empty list, or a guard
   question); confirm no `apm.yml` is written on refusal.
-- [x] T010 [P] [US1] Add the `clerk-mod-apm` fixture + minimal **stub base layer** to
+- [x] T010 [P] [US1] Add the `bailiff-mod-apm` fixture + minimal **stub base layer** to
   `tests/conftest.py` (FR-007), reusing the `build_template_repo` / `multi_template_set`
   pattern. The stub base provides the threaded `project_name`; the install `_task` is
   stubbed to a deterministic offline no-op (writes a marker, no network) so the suite
   stays hermetic.
 - [x] T011 [P] [US1] `tests/loop/test_apm_render.py` (US1 acceptance #1, SC-001, SC-006,
-  Q2, Q4): render `[stub_base, clerk-mod-apm]` with an injected `apm_packages` set →
+  Q2, Q4): render `[stub_base, bailiff-mod-apm]` with an injected `apm_packages` set →
   assert `apm.yml` has the right `dependencies.apm[]` and ≥ 1 catalogue; render
   standalone (no base) → defaults hold; render with `apm_packages=[]` → refusal, no
   `apm.yml` written.
@@ -145,16 +145,16 @@ byte-identical; assert the lock is regenerated by the task, not diffed.
 ### Implementation for US2
 
 - [x] T013 [US2] `tests/loop/test_apm_reproduce.py` (US2 acceptance #1/#2, SC-002, Q3):
-  from a generated `clerk-mod-apm` project, `reproduce` re-renders `apm.yml`
+  from a generated `bailiff-mod-apm` project, `reproduce` re-renders `apm.yml`
   byte-identically (same recorded `apm_packages` + pinned `_commit`). Assert the
   install `_task` re-runs under trust and that `apm.lock.yaml` is regenerated as
   external state — explicitly do NOT assert lock byte-identity. Cover N=1 (apm only)
   and the multi-layer case through `reproduce_many`.
 - [x] T014 [P] [US2] `tests/loop/test_apm_ordering.py` (SC-005, Q5): a
-  `[stub_base, clerk-mod-apm]` selection where the edge (if declared) sequences base
+  `[stub_base, bailiff-mod-apm]` selection where the edge (if declared) sequences base
   first; assert `init_many` order, `reproduce_many` recomputes the same order from
   committed state, and `project_name` threads from base into the rendered `apm.yml`.
-  Confirm no clerk-specific recipe file is committed to the project (spec-010 invariant).
+  Confirm no bailiff-specific recipe file is committed to the project (spec-010 invariant).
 
 **Checkpoint**: reproduce byte-identity for `apm.yml`, lock-as-external-state, and
 ordering/threading all verified hermetically.
@@ -165,7 +165,7 @@ ordering/threading all verified hermetically.
 
 **Purpose**: make the flow discoverable and prove the module is contract-clean.
 
-- [x] T015 [P] Extend `skills/clerk/SKILL.md` (FR-010): add the `clerk-mod-apm` step —
+- [x] T015 [P] Extend `skills/bailiff/SKILL.md` (FR-010): add the `bailiff-mod-apm` step —
   when to include it; that the AGENT builds the runtime-injected `apm_packages` list
   from user input + project requirements and the user MAY override; the ≥ 1-package
   precondition and empty-set refusal (Q4); trust consent for the install `_task`; the
@@ -175,14 +175,14 @@ ordering/threading all verified hermetically.
   it matches the APM-only scope + the verified APM command/catalogue key from T002
   (no residual MCP/SpecKit/steering content, no `[TBD]` in the questions / rendered-
   file / `_task` sections).
-- [x] T017 `just check-modules` on the finished `templates/clerk-mod-apm/`: passes all
+- [x] T017 `just check-modules` on the finished `templates/bailiff-mod-apm/`: passes all
   contract checks (answers-file `.jinja`, README, CHANGELOG, three-way registration
   parity, published-label immutability). Update `CHANGELOG.md` for the module.
 - [x] T018 Full gate: `uv run ruff check . && uv run ruff format --check . &&
   uv run mypy && uv run pytest -q`. Confirm existing 001/002/003/006/008 suites still
   pass (007 adds zero Python glue) and the new `test_apm_*` fixtures pass hermetically.
 - [x] T019 Update `.specify/memory/roadmap.md`: mark spec 007 `planned → implemented`
-  with a completion note (clerk-mod-apm; APM-only v1; Q1–Q5 resolutions; MCP/SpecKit/
+  with a completion note (bailiff-mod-apm; APM-only v1; Q1–Q5 resolutions; MCP/SpecKit/
   steering deferred to future modules). Confirm 008/009 dependency wording still reads
   correctly (007 independent of 009, Q5).
 
@@ -225,7 +225,7 @@ ordering/threading all verified hermetically.
 - SC-005 — Multi-layer `[stub_base, apm]` orders base first and threads `project_name`
   (T014).
 - SC-006 — Standalone application (no base layer) renders with defaults (T011).
-- Contract: `clerk-mod-apm` passes `check_modules.py` (T017); SKILL.md documents the
+- Contract: `bailiff-mod-apm` passes `check_modules.py` (T017); SKILL.md documents the
   step (T015).
 
 ---
@@ -233,10 +233,10 @@ ordering/threading all verified hermetically.
 ## Notes
 
 - [P] = different files, no incomplete-task dependency.
-- No `src/clerk/` or `scripts/clerk.py` changes — pure template + task content
+- No `src/bailiff/` or `scripts/bailiff.py` changes — pure template + task content
   (Principle I / C-11). Any discovered copier gap must be justified against C-11 first.
 - MCP, SpecKit-bridge, and steering/ADR are OUT of v1 (Q1) — do not add their questions,
-  files, or tasks here; each is a future `clerk-mod-*` spec.
+  files, or tasks here; each is a future `bailiff-mod-*` spec.
 - The stale US3/US4 scenarios and the "MCP config skeleton" phrase in `spec.md` predate
   the clarification; the Clarifications section governs. Prune them in a separate
   spec-refine pass (not part of these tasks).

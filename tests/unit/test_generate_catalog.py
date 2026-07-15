@@ -61,7 +61,7 @@ def _make_catalog_sources(root: Path, names: list[str]) -> None:
     lines = []
     for name in names:
         lines.append("[[sources]]")
-        lines.append(f'url = "https://github.com/copier-clerk/{name}.git"')
+        lines.append(f'url = "https://github.com/bailiff-io/{name}.git"')
         lines.append("")
     (root / "catalog-sources.toml").write_text("\n".join(lines))
 
@@ -83,8 +83,8 @@ def mono(tmp_path: Path) -> Path:
 
 
 def test_catalog_shape_matches_contract(mono: Path) -> None:
-    _make_templates(mono, {"clerk-mod-base": _COPIER_YML_WITH_DESC})
-    _make_catalog_sources(mono, ["clerk-mod-base"])
+    _make_templates(mono, {"bailiff-mod-base": _COPIER_YML_WITH_DESC})
+    _make_catalog_sources(mono, ["bailiff-mod-base"])
 
     with (
         patch.object(_gc, "_REPO_ROOT", mono),
@@ -100,9 +100,9 @@ def test_catalog_shape_matches_contract(mono: Path) -> None:
     assert "generated_at" in catalog
     assert len(catalog["modules"]) == 1
     mod = catalog["modules"][0]
-    assert mod["name"] == "clerk-mod-base"
+    assert mod["name"] == "bailiff-mod-base"
     assert mod["description"] == "Base project scaffold"
-    assert mod["source"] == "https://github.com/copier-clerk/clerk-mod-base.git"
+    assert mod["source"] == "https://github.com/bailiff-io/bailiff-mod-base.git"
     assert mod["latest_version"] == "v1.2.0"
     assert mod["tags"] == ["v1.0.0", "v1.1.0", "v1.2.0"]
 
@@ -116,13 +116,13 @@ def test_module_with_no_tags_omitted(mono: Path, capsys) -> None:
     _make_templates(
         mono,
         {
-            "clerk-mod-released": _COPIER_YML_WITH_DESC,
-            "clerk-mod-unreleased": _COPIER_YML_NO_DESC,
+            "bailiff-mod-released": _COPIER_YML_WITH_DESC,
+            "bailiff-mod-unreleased": _COPIER_YML_NO_DESC,
         },
     )
 
     def mock_list_versions(url: str) -> list[str]:
-        if "clerk-mod-released" in url:
+        if "bailiff-mod-released" in url:
             return ["v1.0.0"]
         return []  # unreleased module
 
@@ -133,10 +133,10 @@ def test_module_with_no_tags_omitted(mono: Path, capsys) -> None:
         catalog = _gc.generate_catalog(mono / "templates")
 
     names = [m["name"] for m in catalog["modules"]]
-    assert "clerk-mod-released" in names
-    assert "clerk-mod-unreleased" not in names
+    assert "bailiff-mod-released" in names
+    assert "bailiff-mod-unreleased" not in names
     captured = capsys.readouterr()
-    assert "clerk-mod-unreleased" in captured.err
+    assert "bailiff-mod-unreleased" in captured.err
     assert "omitting" in captured.err
 
 
@@ -146,7 +146,7 @@ def test_module_with_no_tags_omitted(mono: Path, capsys) -> None:
 
 
 def test_generated_at_present_and_utc(mono: Path) -> None:
-    _make_templates(mono, {"clerk-mod-x": _COPIER_YML_NO_DESC})
+    _make_templates(mono, {"bailiff-mod-x": _COPIER_YML_NO_DESC})
 
     with (
         patch.object(_gc, "_REPO_ROOT", mono),
@@ -173,11 +173,11 @@ def test_source_urls_are_https(mono: Path) -> None:
     _make_templates(
         mono,
         {
-            "clerk-mod-a": _COPIER_YML_NO_DESC,
-            "clerk-mod-b": _COPIER_YML_NO_DESC,
+            "bailiff-mod-a": _COPIER_YML_NO_DESC,
+            "bailiff-mod-b": _COPIER_YML_NO_DESC,
         },
     )
-    _make_catalog_sources(mono, ["clerk-mod-a", "clerk-mod-b"])
+    _make_catalog_sources(mono, ["bailiff-mod-a", "bailiff-mod-b"])
 
     with (
         patch.object(_gc, "_REPO_ROOT", mono),
@@ -212,7 +212,7 @@ def test_empty_templates_produces_empty_catalog(mono: Path) -> None:
 
 
 def test_dry_run_does_not_write_file(mono: Path, capsys) -> None:
-    _make_templates(mono, {"clerk-mod-dry": _COPIER_YML_NO_DESC})
+    _make_templates(mono, {"bailiff-mod-dry": _COPIER_YML_NO_DESC})
 
     with (
         patch.object(_gc, "_REPO_ROOT", mono),
@@ -233,8 +233,8 @@ def test_dry_run_does_not_write_file(mono: Path, capsys) -> None:
 
 
 def test_catalog_sources_toml_url_used(mono: Path) -> None:
-    _make_templates(mono, {"clerk-mod-z": _COPIER_YML_NO_DESC})
-    _make_catalog_sources(mono, ["clerk-mod-z"])
+    _make_templates(mono, {"bailiff-mod-z": _COPIER_YML_NO_DESC})
+    _make_catalog_sources(mono, ["bailiff-mod-z"])
 
     captured_urls: list[str] = []
 
@@ -248,5 +248,5 @@ def test_catalog_sources_toml_url_used(mono: Path) -> None:
     ):
         catalog = _gc.generate_catalog(mono / "templates")
 
-    assert captured_urls == ["https://github.com/copier-clerk/clerk-mod-z.git"]
-    assert catalog["modules"][0]["source"] == "https://github.com/copier-clerk/clerk-mod-z.git"
+    assert captured_urls == ["https://github.com/bailiff-io/bailiff-mod-z.git"]
+    assert catalog["modules"][0]["source"] == "https://github.com/bailiff-io/bailiff-mod-z.git"

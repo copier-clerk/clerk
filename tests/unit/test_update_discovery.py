@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from clerk.discovery import _check_migrations_format
-from clerk.errors import DeprecatedMigrationFormatError
+from bailiff.discovery import _check_migrations_format
+from bailiff.errors import DeprecatedMigrationFormatError
 
 
 class TestCheckMigrationsFormat:

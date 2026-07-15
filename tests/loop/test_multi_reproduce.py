@@ -21,10 +21,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import MultiTemplateSet
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +45,7 @@ def _tree_digest(root: Path) -> dict[str, str]:
 
 
 def _make_record(full_id: str, repo):
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     return TemplateRecord(
         full_id=full_id,
@@ -133,7 +133,7 @@ def test_no_recipe_file_present_and_reproduce_works(
     _init_ab(multi_template_set, dest)
 
     # Confirm no recipe/DAG file was written at init
-    for name in ("clerk_order.yml", "clerk_dag.yml", ".clerk_order", "clerk_recipe.yml"):
+    for name in ("bailiff_order.yml", "bailiff_dag.yml", ".bailiff_order", "bailiff_recipe.yml"):
         assert not (dest / name).exists(), f"Unexpected recipe file: {name}"
 
     # reproduce still works without any recipe file
@@ -154,10 +154,10 @@ def test_copier_only_parity_multi_layer(
 
     The recomputed order is A then B (tpl-a before tpl-b, since B depends_on A).
     """
-    # Build a reference project via clerk
-    dest_clerk = tmp_path / "proj_clerk"
-    _init_ab(multi_template_set, dest_clerk)
-    reference = _tree_digest(dest_clerk)
+    # Build a reference project via bailiff
+    dest_bailiff = tmp_path / "proj_bailiff"
+    _init_ab(multi_template_set, dest_bailiff)
+    reference = _tree_digest(dest_bailiff)
 
     # Build a second project, corrupt it, then restore via copier-only path
     dest_manual = tmp_path / "proj_manual"
@@ -194,7 +194,7 @@ def test_copier_only_parity_multi_layer(
 
     manual_digest = _tree_digest(dest_manual)
     assert reference == manual_digest, (
-        "copier-only-by-hand diverges from clerk reproduce_many.\n"
+        "copier-only-by-hand diverges from bailiff reproduce_many.\n"
         f"Missing in manual: {set(reference) - set(manual_digest)}\n"
         f"Extra in manual: {set(manual_digest) - set(reference)}\n"
         "Changed: "
@@ -235,7 +235,7 @@ def test_n1_reproduce_many_matches_reproduce(
 
 
 def test_n1_reproduce_many_via_cli(multi_template_set: MultiTemplateSet, tmp_path: Path) -> None:
-    """scripts/clerk.py reproduce on a single-template project exits 0 and is byte-identical."""
+    """scripts/bailiff.py reproduce on a single-template project exits 0 and is byte-identical."""
     tpl_a = multi_template_set.tpl_a
     trust.add_trust(tpl_a.url)
 

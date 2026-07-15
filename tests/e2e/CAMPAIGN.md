@@ -1,7 +1,7 @@
 # E2E Campaign — agent-driven validation + fuzzing
 
 An orchestrating agent spawns multiple parallel test agents, each running a
-category of real-world `clerk init` scenarios using `tests/e2e/harness.py`.
+category of real-world `bailiff init` scenarios using `tests/e2e/harness.py`.
 The harness uses REAL native tools (mise, uv, bun, cargo, go, gitnr, gh) —
 NOT the stubbed loop tests. It is a live integration test, not a unit test.
 
@@ -16,7 +16,7 @@ export GITHUB_TOKEN=$(gh auth token)    # mise attestation + gh rate limits
 
 ```python
 from tests.e2e.harness import (
-    run_scenario, expect_failure, check, runner, ClerkError
+    run_scenario, expect_failure, check, runner, BailiffError
 )
 ```
 
@@ -24,8 +24,8 @@ from tests.e2e.harness import (
 - `expect_failure(name, [(module, answers), ...], match="")` → `(bool, str)`
 - `check(condition, message, failures_list)` → prints PASS/FAIL, appends on fail
 
-Each agent MUST set a unique `CLERK_E2E_ROOT` env var (e.g.
-`/tmp/clerk-e2e-<agent-id>`) to avoid collision on the trust store / project dirs.
+Each agent MUST set a unique `BAILIFF_E2E_ROOT` env var (e.g.
+`/tmp/bailiff-e2e-<agent-id>`) to avoid collision on the trust store / project dirs.
 
 ## Known answer-shape quirks
 
@@ -89,7 +89,7 @@ Programmatically enumerate each module's `copier.yml` questions: read choices,
 types, defaults. Generate random valid values for each question and run init
 with randomized stacks (2-4 modules, random selection). Run N=20 iterations.
 
-Assert: every run either succeeds cleanly OR raises ClerkError with a message
+Assert: every run either succeeds cleanly OR raises BailiffError with a message
 (never an unhandled exception, never a Jinja UndefinedError, never a partial
 render that leaves no error). Capture any crash as a finding with full answers.
 
@@ -112,7 +112,7 @@ FINDINGS:
 ## How to continue
 
 1. Read `tests/e2e/harness.py` for the exact API.
-2. Read `templates/clerk-mod-*/copier.yml` for each module's question schema.
-3. Set unique `CLERK_E2E_ROOT`, run scenarios, report findings.
+2. Read `templates/bailiff-mod-*/copier.yml` for each module's question schema.
+3. Set unique `BAILIFF_E2E_ROOT`, run scenarios, report findings.
 4. For any bug found: create a targeted reproducer (minimal answers), note the
    root cause (template logic, answer shape, init_many ordering), suggest fix.

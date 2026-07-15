@@ -1,0 +1,71 @@
+# bailiff-template-example — the exemplar bailiff template.
+#
+# A minimal, reproducible identity template: it asks who you are and what you're
+# building, renders a README / LICENSE / .gitignore, and initializes a git repo.
+# It is deliberately small — its job is to demonstrate the whole bailiff loop
+# (discover → init → reproduce) end to end and show what a conforming template
+# looks like. It is NOT a shippable `bailiff-mod-*` module (that family is spec
+# 009); it is a disposable example.
+#
+# Contract (Constitution VI): it ships the answers-file template
+# (`template/{{ _copier_conf.answers_file }}.jinja`) so every generated project
+# records its own source + commit and can be reproduced with no agent.
+
+project_name:
+  type: str
+  help: The project's name (used in the README title and LICENSE).
+
+org:
+  type: str
+  help: The owning person or organization (used in the LICENSE copyright line).
+  default: acme
+
+license:
+  type: str
+  help: Which license to generate.
+  choices:
+    - MIT
+    - Apache-2.0
+  default: Apache-2.0
+
+description:
+  type: str
+  help: A one-line description of the project.
+  default: ""
+
+# `today` is injected by bailiff at init (`--data today=…`) and frozen into the
+# recorded answers, so reproduce replays the original generation date rather than
+# the wall clock (FR-007). Never sourced from jinja2_time (determinism, C-05).
+today:
+  type: str
+  help: The generation date (YYYY-MM-DD); bailiff injects this — leave blank.
+  default: ""
+
+# The template body lives under template/ so copier renders only that subtree
+# (copier.yml and this comment block never land in the generated project).
+_subdirectory: template
+
+# Hermetic, re-runnable tasks (FR-018). Because the template runs commands (code
+# execution), bailiff requires the source to be trusted before they run
+# (Constitution V).
+_tasks:
+  # `git init` on an already-initialized repo is a no-op — safe to re-run at
+  # reproduce, seeds no time-varying bytes.
+  - "git init --quiet"
+  # Generate the LICENSE from GitHub's canonical license database via the `gh` CLI
+  # (a maintained binary; no license text is vendored in this template). The
+  # [year]/[fullname] placeholders are filled from the FROZEN answers
+  # ({{ today }} / {{ org }}), not a wall-clock date, so a given init is stable.
+  # NOTE: this text comes from GitHub's LIVE database, which is NOT pinned to the
+  # template's recorded commit — so the LICENSE is a task side effect, deliberately
+  # OUTSIDE copier's byte-identical reproduce set (like `.git`). The
+  # `test -f LICENSE ||` guard makes reproduce skip regeneration (idempotent).
+  # A `gh` failure aborts via command substitution rather than writing a partial
+  # file (the `$(…)` capture short-circuits the `&&`). Requires `gh` on PATH and
+  # authenticated (`gh auth status`).
+  - >-
+    test -f LICENSE ||
+    { body="$(gh api '/licenses/{{ license|lower }}' --jq '.body')" &&
+    printf '%s\n' "$body"
+    | sed -e 's/\[year\]/{{ (today or "2026")[:4] }}/g'
+    -e 's|\[fullname\]|{{ org }}|g' > LICENSE; }

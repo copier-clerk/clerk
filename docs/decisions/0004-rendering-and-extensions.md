@@ -5,7 +5,7 @@
 
 ## Context
 
-Clerk drives copier **non-interactively** (the agent pre-authors answers). That
+Bailiff drives copier **non-interactively** (the agent pre-authors answers). That
 changes which copier kwargs and settings are correct, and raises a determinism
 hazard around jinja extensions (notably time). This ADR records the canonical
 invocation and the extension policy. All facts verified against copier v9.16
@@ -23,10 +23,10 @@ docs/source (see the copier-feature research, 2026-07-09).
   `defaults=True` is the safety net for anything not in `data`. Use `data=`, NOT
   `user_defaults=` (the latter still prompts).
 - **There is no `force=` API kwarg** — `--force` is a CLI alias for
-  `defaults + overwrite`. clerk exposes `defaults`/`overwrite` explicitly, not a
+  `defaults + overwrite`. bailiff exposes `defaults`/`overwrite` explicitly, not a
   `force`.
 - **Pre-run validation:** every question a template asks must have a `default:`
-  or be supplied in `data=`. clerk validates this before calling copier and
+  or be supplied in `data=`. bailiff validates this before calling copier and
   raises a structured error listing questions missing defaults, rather than
   letting copier raise an interactive-session error.
 - Trust comes from `settings.yml` `trust:` (see [[0001-copier-as-engine]]), not a
@@ -36,16 +36,16 @@ docs/source (see the copier-feature research, 2026-07-09).
 
 - **`_exclude`** supports negation: `_exclude: ["*.txt", "!a.txt"]` excludes all
   `.txt` except `a.txt`. The CLI/API `exclude` **extends** (does not replace) the
-  template's `_exclude`; clerk must not pass excludes that strip copier's own
+  template's `_exclude`; bailiff must not pass excludes that strip copier's own
   defaults (`copier.yml`, `.git`, …). (Negation depends on a recent enough
   `pathspec`; ensure the pin guarantees it — open item.)
-- **`_skip_if_exists`** is the mechanism for user-owned files clerk generates once
+- **`_skip_if_exists`** is the mechanism for user-owned files bailiff generates once
   and must never overwrite on reproduce (`.env`, seed configs). Distinct from
   `_exclude` (which keeps files out of output entirely).
 - **`_preserve_symlinks`** defaults to false; opt-in only for templates that ship
   symlinked shared assets. Document as advanced.
 - **`message_after_copy` / `message_after_update` / `message_before_copy`** are
-  templated with answers and render to stderr (suppressed by `quiet=True`). clerk
+  templated with answers and render to stderr (suppressed by `quiet=True`). bailiff
   runs with `quiet=False` and **captures `message_after_copy` as a structured
   field** to surface as post-step guidance to the agent/user. Template authors
   should write actionable next-steps there using `{{ _copier_conf.dst_path }}`
@@ -60,16 +60,16 @@ Two tiers, because `_jinja_extensions` are **trust-gated**:
 - **Blessed, but require trust** (`_jinja_extensions` → `unsafe`): the
   `copier-template-extensions` context hook (slug-in-*filename* only, NOT
   metadata — see [[0003-selector-template-and-runtime-injection]]); a slug
-  extension; a markdown extension. clerk's orchestrator must inspect
+  extension; a markdown extension. bailiff's orchestrator must inspect
   `_jinja_extensions` in `copier.yml` before invoking and escalate trust for that
   template accordingly.
-- **FORBIDDEN in clerk-driven templates** (nondeterminism): `jinja2_time`
+- **FORBIDDEN in bailiff-driven templates** (nondeterminism): `jinja2_time`
   (`{% now %}` breaks reproduce byte-stability), and the random filters
   (`random`, `shuffle`, `random_mac`).
 
 ### Date-injection pattern (determinism)
 
-Template authors MUST NOT use `jinja2_time` for the current date. Instead clerk
+Template authors MUST NOT use `jinja2_time` for the current date. Instead bailiff
 injects the date from its own clock as an answer — `data={"today": "2026-07-09"}`
 — and templates reference `{{ today }}`. This keeps the value frozen in the
 answers file so reproduce replays the original date, not today's.

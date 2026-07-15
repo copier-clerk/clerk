@@ -1,12 +1,12 @@
-# Contract — `clerk-mod-apm` (spec 007)
+# Contract — `bailiff-mod-apm` (spec 007)
 
-`clerk-mod-apm` is a copier template that wires an **APM dependency layer** into a
+`bailiff-mod-apm` is a copier template that wires an **APM dependency layer** into a
 generated project. It is ONE layer in a multi-template project, driven by the existing
 spec-003 ordering engine and spec-010 invocation surface. No new tool code; pure
 template + task content.
 
 **Scope (Clarified 2026-07-13, Q1)**: v1 is **APM only**. MCP config, the SpecKit
-bridge, and steering/ADR scaffolding are deferred to their own future `clerk-mod-*`
+bridge, and steering/ADR scaffolding are deferred to their own future `bailiff-mod-*`
 modules with their own specs and contracts — they are NOT part of this module.
 
 **Status**: Reconciled to the clarified APM-only scope. The two T002 facts are now
@@ -19,17 +19,17 @@ inline source. Everything else is a stable invariant.
 
 ## Placement in the multi-template run-spec
 
-`clerk-mod-apm` is a standard entry in the spec-003 multi-template run-spec:
+`bailiff-mod-apm` is a standard entry in the spec-003 multi-template run-spec:
 
 ```yaml
 dest: "./my-project"
 selection:
-  - full_id: "demo/clerk-mod-base"   # example base layer (may be a test stub, Q5)
-    source: "https://github.com/copier-clerk/clerk-mod-base.git"
+  - full_id: "demo/bailiff-mod-base"   # example base layer (may be a test stub, Q5)
+    source: "https://github.com/copier-bailiff/bailiff-mod-base.git"
     ref: "v1.0.0"
     answers: { project_name: myapp, license: MIT }
-  - full_id: "demo/clerk-mod-apm"    # the APM layer
-    source: "https://github.com/copier-clerk/clerk-mod-apm.git"
+  - full_id: "demo/bailiff-mod-apm"    # the APM layer
+    source: "https://github.com/copier-bailiff/bailiff-mod-apm.git"
     ref: "v1.0.0"
     answers:
       # Runtime-injected list (Q2 / ADR-0003): the AGENT populates this from user
@@ -50,7 +50,7 @@ layer) falls back to the template default (SC-006).
 
 ## Dependency edges
 
-`clerk-mod-apm` declares its edge in `copier.yml` as a `when:false` hidden answer
+`bailiff-mod-apm` declares its edge in `copier.yml` as a `when:false` hidden answer
 (statically parsed by `discovery.py`; consumed by the spec-003 ordering engine):
 
 ```yaml
@@ -77,7 +77,7 @@ spec-003 dangling-edge check.
 - **`project_name`**: `default: "{{ project_name }}"` — threaded from a base layer via
   `data=` (ADR-0003); standalone fallback default for isolated use. Accessed as
   `{{ project_name }}` in `apm.yml.jinja`.
-- **`today`**: injected by clerk (`--data today=…`, VI/C-05), frozen into the answers
+- **`today`**: injected by bailiff (`--data today=…`, VI/C-05), frozen into the answers
   file; never `jinja2_time`.
 - **`depends_on`**: `when: false`; never persisted; statically read.
 
@@ -88,7 +88,7 @@ apm_packages:
   type: yaml
   default: []
   validator: >-
-    {% if apm_packages | length == 0 %}clerk-mod-apm requires at least one APM
+    {% if apm_packages | length == 0 %}bailiff-mod-apm requires at least one APM
     package (FR-002b). …drop it from the layer selection, or inject a non-empty
     apm_packages list via --data.{% endif %}
   help: "APM package locators (agent-populated from project requirements; you may override)."
@@ -98,7 +98,7 @@ apm_packages:
 - **`type: yaml`, NOT `multiselect`** — verified in impl: copier passes a `data=` list
   straight through to a yaml-typed question, whereas a `multiselect: true` question
   WITHOUT a frozen `choices:` list does not accept injected values. This matches the
-  proven injected-list convention in `clerk-mod-base` (`gitignore_stack`,
+  proven injected-list convention in `bailiff-mod-base` (`gitignore_stack`,
   `agent_editable_globs`).
 - **Persisted** to the answers file (a real `--data` answer, not a `when:false`
   hidden), so reproduce replays the same set (FR-002, FR-008).
@@ -119,7 +119,7 @@ apm_cli_version:
 
 ### Empty-set refusal (Q4 / FR-002b)
 
-`clerk-mod-apm` presupposes ≥ 1 package. Phase 1 (the skill) MUST NOT include the module
+`bailiff-mod-apm` presupposes ≥ 1 package. Phase 1 (the skill) MUST NOT include the module
 when no packages are selected. If the module is nonetheless reached with an empty set,
 it MUST **refuse** — the `apm_packages` `validator` above fails the render with a message
 telling the user to drop the module (surfaced as `InvalidRunSpecError`, exit 1). It MUST
@@ -141,7 +141,7 @@ The rendered `apm.yml` mirrors the authoring repo's own `/apm.yml` schema (`name
 `version`, `description`, `target`, `dependencies.apm[]`). **≥ 1 catalogue/registry
 source (FR-002a) — confirmed shape:** a consumer `apm.yml` has NO separate
 `sources:`/`registries:`/`marketplaces:` block — each dependency locator carries its
-own source inline (`owner/repo/packages/name#constraint`), exactly like the clerk repo's
+own source inline (`owner/repo/packages/name#constraint`), exactly like the bailiff repo's
 own `/apm.yml`. So each locator IS a source, and ≥ 1 dependency == ≥ 1 source; since the
 empty set is refused, `dependencies.apm[]` is always non-empty (≥ 1 source guaranteed).
 The experimental top-level `registries:` block is feature-gated by APM and would break a
@@ -153,7 +153,7 @@ global CLI config, not project state.
 ## `_tasks` (trust-gated code execution)
 
 `_tasks` run at **both init and reproduce** (Constitution III). The source MUST be
-trusted before they run; clerk refuses at exit 3 otherwise
+trusted before they run; bailiff refuses at exit 3 otherwise
 (`runner._require_trust_if_action_taking`).
 
 ### APM install task (Q3 / FR-004, FR-009)
@@ -163,7 +163,7 @@ _tasks:
   # PREFLIGHT (ordered first): fail with install guidance if uvx is missing.
   - >-
     command -v uvx >/dev/null 2>&1 ||
-    { echo "clerk-mod-apm: required tool 'uvx' (from uv) not found on PATH." >&2; exit 1; }
+    { echo "bailiff-mod-apm: required tool 'uvx' (from uv) not found on PATH." >&2; exit 1; }
   # APM install — confirmed against apm-cli 0.24.1: `apm install` reads apm.yml
   # and writes apm.lock.yaml; it takes no --yes flag and is non-interactive.
   - command: "uvx --from apm-cli=={{ apm_cli_version }} apm install"
@@ -186,7 +186,7 @@ Invariants:
 
 ## Thread-forward answers contract
 
-Answers available to any subsequent layer that declares `depends_on: [clerk-mod-apm]`
+Answers available to any subsequent layer that declares `depends_on: [bailiff-mod-apm]`
 (threaded via the spec-003 `data=` accumulator — no `_external_data` needed):
 
 - `apm_packages` — the installed set (a later layer may key off what was installed).
@@ -201,7 +201,7 @@ Inherited from the spec-010 invocation surface (no new codes):
 | Code | Meaning |
 |---|---|
 | 0 | success (or `--check` clean) |
-| 1 | `ClerkError` (bad run-spec, copier failure, ordering error, empty-set refusal) |
+| 1 | `BailiffError` (bad run-spec, copier failure, ordering error, empty-set refusal) |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` — source has `_tasks`; trust not recorded |
 
@@ -209,7 +209,7 @@ Inherited from the spec-010 invocation surface (no new codes):
 
 ## Discovery contract
 
-`scripts/clerk.py discover <clerk-mod-apm source>` returns:
+`scripts/bailiff.py discover <bailiff-mod-apm source>` returns:
 
 ```json
 {
@@ -232,14 +232,14 @@ Inherited from the spec-010 invocation surface (no new codes):
 
 ## Skill step (SKILL.md addition — FR-010)
 
-`skills/clerk/SKILL.md` gains a section covering:
+`skills/bailiff/SKILL.md` gains a section covering:
 
-1. **When to offer `clerk-mod-apm`**: whenever the user is generating a project and
+1. **When to offer `bailiff-mod-apm`**: whenever the user is generating a project and
    wants an APM dependency layer, AND ≥ 1 package is warranted (the module's
    precondition, Q4). Present it as an optional layer after the base template.
 2. **Building the package list**: the agent determines `apm_packages` from user input +
    project requirements and injects it via `--data`; the user MAY override. It may seed
-   suggestions from clerk's own known set (speckit, dep-audit, secrets-scan, …) but the
+   suggestions from bailiff's own known set (speckit, dep-audit, secrets-scan, …) but the
    list is not a frozen template choice (Q2/Q5).
 3. **Empty-set precondition**: do not add the module when there are no packages; a
    module reached empty refuses (Q4).
@@ -253,17 +253,17 @@ Inherited from the spec-010 invocation surface (no new codes):
 
 ## Copier-only fallback (spec-010 invariant)
 
-A project with `clerk-mod-apm` applied can be reproduced without clerk:
+A project with `bailiff-mod-apm` applied can be reproduced without bailiff:
 
 ```sh
 # For each .copier-answers*.yml, in depends_on order:
-copier recopy --vcs-ref=:current: --defaults --overwrite -a .copier-answers.clerk-mod-base.yml
-copier recopy --vcs-ref=:current: --defaults --overwrite -a .copier-answers.clerk-mod-apm.yml
+copier recopy --vcs-ref=:current: --defaults --overwrite -a .copier-answers.bailiff-mod-base.yml
+copier recopy --vcs-ref=:current: --defaults --overwrite -a .copier-answers.bailiff-mod-apm.yml
 ```
 
 The install `_task` re-runs (trust-gated) at each recopy. Order is derived from
 `depends_on` in the recorded answers files' `_src_path` + `_commit`, or by running
-`scripts/clerk.py reproduce`.
+`scripts/bailiff.py reproduce`.
 
 ---
 
@@ -281,7 +281,7 @@ Both facts were confirmed against `apm-cli` 0.24.1 (installed locally; verified 
 2. **`apm.yml` catalogue/registry-source key** — a consumer `apm.yml` has NO standalone
    catalogue/registry/source block. Each dependency locator under `dependencies.apm[]`
    carries its own inline source (`owner/repo/packages/name#constraint`), matching the
-   clerk repo's own `/apm.yml`. So each locator IS a source; ≥ 1 dependency == ≥ 1
+   bailiff repo's own `/apm.yml`. So each locator IS a source; ≥ 1 dependency == ≥ 1
    source (FR-002a). The experimental top-level `registries:` block is APM
    feature-gated and would break a plain `apm install`, so it is deliberately NOT
    emitted; consumer `marketplaces:` live in global CLI config, not project state.

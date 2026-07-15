@@ -1,4 +1,4 @@
-"""spec 011 T011: clerk-mod-justfile loop tests.
+"""spec 011 T011: bailiff-mod-justfile loop tests.
 
 Verifies the justfile module's seed-once lifecycle and threaded axes:
 - T011-a: python + pre-commit renders idiomatic recipes using the right tool names.
@@ -25,10 +25,10 @@ from textwrap import dedent
 import pytest
 from jinja2.sandbox import SandboxedEnvironment
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
 
-# clerk-mod-justfile has no _tasks so the stub is an empty no-op placeholder.
+# bailiff-mod-justfile has no _tasks so the stub is an empty no-op placeholder.
 _JUSTFILE_STUB_TASKS = dedent(
     """\
     _tasks: []
@@ -38,7 +38,7 @@ _JUSTFILE_STUB_TASKS = dedent(
 # Path to the Jinja template for direct rendering in the matrix test (avoids
 # spawning copier for each of the 15 combos).
 _TEMPLATE_PATH = (
-    Path(__file__).parent.parent.parent / "templates/clerk-mod-justfile/template/justfile.jinja"
+    Path(__file__).parent.parent.parent / "templates/bailiff-mod-justfile/template/justfile.jinja"
 )
 
 _JUST_BIN: str | None = shutil.which("just")
@@ -86,10 +86,10 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def clerk_mod_justfile(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-justfile template as a hermetic repo (no tasks to stub)."""
+def bailiff_mod_justfile(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-justfile template as a hermetic repo (no tasks to stub)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-justfile", tmp_path / "clerk-mod-justfile", _JUSTFILE_STUB_TASKS
+        "bailiff-mod-justfile", tmp_path / "bailiff-mod-justfile", _JUSTFILE_STUB_TASKS
     )
 
 
@@ -113,12 +113,12 @@ def _digest(path: Path) -> str:
 
 
 def test_python_precommit_renders_idiomatic_recipes(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """Python + pre-commit: justfile uses uv and pre-commit."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "python", "js_pkg_manager": "bun", "hook_manager": "pre-commit"},
     )
@@ -140,12 +140,12 @@ def test_python_precommit_renders_idiomatic_recipes(
 
 
 def test_ts_pnpm_lefthook_renders_correct_tools(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """Non-default combo: pnpm + lefthook appear in the rendered recipes."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "ts", "js_pkg_manager": "pnpm", "hook_manager": "lefthook"},
     )
@@ -166,12 +166,12 @@ def test_ts_pnpm_lefthook_renders_correct_tools(
 
 
 def test_ts_bun_no_hook_manager_uses_native_lint(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """hook_manager=none: lint falls back to package-manager-native command."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "ts", "js_pkg_manager": "bun", "hook_manager": "none"},
     )
@@ -192,12 +192,12 @@ def test_ts_bun_no_hook_manager_uses_native_lint(
 
 
 def test_rust_renders_cargo_recipes_with_release_comment(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """Rust: cargo recipes rendered; --release appears as a commented escape hatch."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "rust", "js_pkg_manager": "bun", "hook_manager": "pre-commit"},
     )
@@ -226,12 +226,12 @@ def test_rust_renders_cargo_recipes_with_release_comment(
 
 
 def test_empty_language_renders_fail_loud_stubs(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """language=\"\": every recipe body contains an exit 1 so gaps are obvious."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "", "js_pkg_manager": "bun", "hook_manager": "pre-commit"},
     )
@@ -251,12 +251,12 @@ def test_empty_language_renders_fail_loud_stubs(
 
 
 def test_seed_once_justfile_survives_reproduce(
-    clerk_mod_justfile: TemplateRepo, tmp_path: Path
+    bailiff_mod_justfile: TemplateRepo, tmp_path: Path
 ) -> None:
     """SEED-ONCE: a user-edited justfile is NOT overwritten on reproduce."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_justfile,
+        bailiff_mod_justfile,
         dest,
         {"language": "python", "js_pkg_manager": "bun", "hook_manager": "pre-commit"},
     )

@@ -11,8 +11,8 @@ from textwrap import dedent
 
 import pytest
 
-from clerk import runner, trust
-from clerk.errors import InvalidRunSpecError, SecretInAnswersError
+from bailiff import runner, trust
+from bailiff.errors import InvalidRunSpecError, SecretInAnswersError
 from tests.conftest import TemplateRepo, build_template_repo
 
 # ---------------------------------------------------------------------------
@@ -99,8 +99,8 @@ def test_secret_key_in_run_spec_raises_single_path(tmp_path: Path) -> None:
 
 
 def test_secret_key_rejection_exit_is_nonzero_single_path(tmp_path: Path) -> None:
-    """SecretInAnswersError is a ClerkError subclass so the CLI maps it to exit 1."""
-    from clerk.errors import ClerkError
+    """SecretInAnswersError is a BailiffError subclass so the CLI maps it to exit 1."""
+    from bailiff.errors import BailiffError
 
     repo = _make_secret_template(tmp_path, default="placeholder")
     spec = runner.RunSpec(
@@ -110,7 +110,7 @@ def test_secret_key_rejection_exit_is_nonzero_single_path(tmp_path: Path) -> Non
     )
     with pytest.raises(SecretInAnswersError) as exc_info:
         runner.init(spec)
-    assert isinstance(exc_info.value, ClerkError)
+    assert isinstance(exc_info.value, BailiffError)
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ def test_secret_key_rejection_exit_is_nonzero_single_path(tmp_path: Path) -> Non
 
 def test_secret_key_in_run_spec_raises_multi_path(tmp_path: Path) -> None:
     """runner.init_many rejects a layer answer dict with a secret key."""
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     repo = _make_secret_template(tmp_path, default="placeholder")
     record = TemplateRecord(
@@ -143,7 +143,7 @@ def test_secret_key_in_run_spec_raises_multi_path(tmp_path: Path) -> None:
 
 def test_secret_key_in_preflight_raises_multi_path(tmp_path: Path) -> None:
     """runner.init_many with check=True also rejects a layer with a secret key."""
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     repo = _make_secret_template(tmp_path, default="placeholder")
     record = TemplateRecord(
@@ -183,7 +183,7 @@ def test_list_form_secret_rejected_single_path(tmp_path: Path) -> None:
 
 def test_list_form_secret_rejected_multi_path(tmp_path: Path) -> None:
     """_secret_questions list-form secret is rejected by runner.init_many (FR-003b)."""
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     repo = _make_list_secret_template(tmp_path)
     record = TemplateRecord(
@@ -263,7 +263,7 @@ def test_validator_error_secret_value_redacted(tmp_path: Path) -> None:
 def test_required_secret_no_value_fails_loud(tmp_path: Path) -> None:
     """A required secret (empty/None default) with no value supplied → InvalidRunSpecError.
 
-    Clerk must NOT let copier render the placeholder default silently (decision 4b /
+    Bailiff must NOT let copier render the placeholder default silently (decision 4b /
     Constitution V).
     """
     # No default at all = required secret.
@@ -299,7 +299,7 @@ def test_required_secret_no_value_fails_loud(tmp_path: Path) -> None:
 
 def test_required_secret_no_value_fails_loud_multi_path(tmp_path: Path) -> None:
     """Same fail-loud check on the init_many path (FR-003c, multi-layer)."""
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     copier_yml = dedent(
         """\
@@ -339,7 +339,7 @@ def test_required_secret_no_value_fails_loud_multi_path(tmp_path: Path) -> None:
 def test_secret_with_nonempty_default_does_not_fail_loud(tmp_path: Path) -> None:
     """A secret with a non-empty default is NOT flagged when no value is supplied.
 
-    clerk only fails loud when the secret has a falsy default (i.e. there is no
+    bailiff only fails loud when the secret has a falsy default (i.e. there is no
     real fallback). A real default like "changeme" is still a valid placeholder
     from the template's perspective — though the user should supply the real value.
     """
@@ -354,8 +354,8 @@ def test_secret_with_nonempty_default_does_not_fail_loud(tmp_path: Path) -> None
     # Should NOT raise InvalidRunSpecError — the template has a usable default.
     # It may raise other errors (e.g. trust) but not the fail-loud secret check.
     # We only care that _check_required_secrets_supplied doesn't fire.
-    from clerk import discovery
-    from clerk.runner import _check_required_secrets_supplied
+    from bailiff import discovery
+    from bailiff.runner import _check_required_secrets_supplied
 
     desc = discovery.discover(repo.url, spec.ref)
     _check_required_secrets_supplied(spec.answers, desc)  # must not raise

@@ -1,11 +1,11 @@
-# 0001 — copier is the deterministic engine; clerk is the agentic conductor
+# 0001 — copier is the deterministic engine; bailiff is the agentic conductor
 
 - Status: accepted
 - Date: 2026-07-09
 
 ## Context
 
-`clerk` grew out of `project-setup`, a bespoke, stdlib-only, deterministic
+`bailiff` grew out of `project-setup`, a bespoke, stdlib-only, deterministic
 scaffolding runner (frozen plan, canonical JSON, hand-rolled TOML emitter,
 git-fetched modules, reproduce-from-answers). A formal debate (6 code-grounded
 research angles + adversarial challenge; see
@@ -16,29 +16,29 @@ copier would *relocate* rather than remove the hard problems.
 The owner nonetheless chose to build on copier: effort is explicitly **not** the
 optimization metric, and copier has already solved the deterministic
 render + reproduce + git-ref-pinning problem that the bespoke runner re-invents.
-The value clerk adds is the layer copier structurally lacks — an agentic
+The value bailiff adds is the layer copier structurally lacks — an agentic
 conductor.
 
 ## Decision
 
 - **copier is the engine.** It owns deterministic rendering, the committed
   answers file, git-ref-pinned remote templates, and the reproduce/update cycle.
-- **clerk is a thin agentic conductor on top.** It owns: an init-time agent that
+- **bailiff is a thin agentic conductor on top.** It owns: an init-time agent that
   selects modules and authors answers (the *inputs*); a thin orchestrator for
   multi-module enablement + topological ordering; and the agentic-ecosystem
   wiring copier has no concept of (APM / MCP / SpecKit / ADR).
-- **clerk imports copier as a pinned library dependency and calls its Python
+- **bailiff imports copier as a pinned library dependency and calls its Python
   API in-process** — `run_copy` / `run_recopy` / `run_update`. These three are
   copier's verified stable public surface (`copier/__init__.py` `__all__`; every
   other member emits a DeprecationWarning on access). The API takes answers as a
   plain `data=` dict (no YAML temp file, no shell-quoting; `--data-file` has no
   API equivalent) and raises a typed `CopierError` hierarchy instead of integer
   exit codes. "Never vendored" is re-scoped: **do not inline copier source into
-  clerk's tree; a declared, pinned dependency is the intended composition.** So
-  `uvx clerk` transitively resolves the pinned copier — no separate `uvx copier`
+  bailiff's tree; a declared, pinned dependency is the intended composition.** So
+  `uvx bailiff` transitively resolves the pinned copier — no separate `uvx copier`
   whose version would drift independently. Shelling to the CLI is retained only
   as a fallback escape hatch.
-- **Trust is configured, not blanket-flagged.** clerk does NOT default
+- **Trust is configured, not blanket-flagged.** bailiff does NOT default
   `unsafe=True`. Instead users add a `trust:` list to copier's `settings.yml`
   (verified path via platformdirs on macOS: `~/.config/copier/settings.yml` —
   NOT `~/Library/Application Support/...`; override with `COPIER_SETTINGS_PATH`),
@@ -50,7 +50,7 @@ conductor.
     trusted location **is the sanctioned enabler for tasks/migrations to run** —
     a template under a trusted prefix fires its `_tasks` (and migrations, on
     update) with no `unsafe=True` needed. This is the primary mechanism by which
-    clerk's task-bearing modules (`specify init`, `apm install`, …) execute at
+    bailiff's task-bearing modules (`specify init`, `apm install`, …) execute at
     init AND reproduce. `unsafe=True` is NOT the normal path for tasks.
   - `unsafe=True` is reserved for the one narrow case a trusted location does not
     cover: a template whose `_external_data` paths traverse **outside** the
@@ -60,19 +60,19 @@ conductor.
     Two branches only — entry ending `/` → prefix (`startswith`); else exact
     (`==`). A literal `*` is just a character. Both grains are supported and fine:
     - **Org prefix (one entry, recommended):**
-      `trust: ["https://github.com/copier-clerk/"]` — the trailing slash makes it
-      a prefix that covers every `copier-clerk/clerk-mod-*` repo in a single line.
+      `trust: ["https://github.com/bailiff-io/"]` — the trailing slash makes it
+      a prefix that covers every `bailiff-io/bailiff-mod-*` repo in a single line.
     - **Per-repo exact (also fine):** list each
-      `https://github.com/copier-clerk/clerk-mod-lang-python` (no trailing slash →
+      `https://github.com/bailiff-io/bailiff-mod-lang-python` (no trailing slash →
       exact). More entries, tighter scope; a legitimate choice.
     - If copier ever adds glob/pattern support, revisit to allow a single
-      `.../copier-clerk/clerk-mod-*` style entry. Not available today.
-  - **CONTRACT — trust matches the RAW url clerk passes, before `gh:`→`https`
+      `.../bailiff-io/bailiff-mod-*` style entry. Not available today.
+  - **CONTRACT — trust matches the RAW url bailiff passes, before `gh:`→`https`
     expansion** (the shortcut expands only at clone time; the trust check never
-    sees the expanded form). Therefore **clerk MUST invoke copier with fully
-    expanded `https://github.com/copier-clerk/<repo>.git` URLs**, and its "add
+    sees the expanded form). Therefore **bailiff MUST invoke copier with fully
+    expanded `https://github.com/bailiff-io/<repo>.git` URLs**, and its "add
     source to trust" onboarding MUST write the matching
-    `https://github.com/copier-clerk/` prefix (or the exact per-repo url) derived
+    `https://github.com/bailiff-io/` prefix (or the exact per-repo url) derived
     from that same form. A `gh:` trust entry will NOT match an https invocation
     and vice-versa — mismatched forms make trust silently fail.
   - Trust governs the Python API identically: `run_copy(settings=...)`, or
@@ -83,7 +83,7 @@ conductor.
   which fires `_tasks`. Migrations are **update-only** and out of scope for
   reproduce.
 - **The reproduce invariant is "no AGENT", NOT "no side effects".** Reproduce
-  (`copier recopy` directly, or via the skill's bundled `scripts/clerk.py`
+  (`copier recopy` directly, or via the skill's bundled `scripts/bailiff.py`
   orchestrator for multi-template projects, run by a human or CI — never a
   generated `just reproduce`, dropped by spec 010) replays the committed answers
   and DOES run tasks, but no LLM/agent participates. Reproduce
@@ -93,7 +93,7 @@ conductor.
 - **Reproduce uses `run_recopy` WITH an explicit `vcs_ref`.** VERIFIED against
   source: bare `run_recopy()` (no `vcs_ref`) resolves the LATEST tag and silently
   upgrades — it does NOT auto-replay the recorded `_commit`. To reproduce the
-  original version faithfully clerk MUST pass `vcs_ref=VcsRef.CURRENT` (which
+  original version faithfully bailiff MUST pass `vcs_ref=VcsRef.CURRENT` (which
   reads the `_commit` from the committed answers file) or the literal
   `vcs_ref=answers["_commit"]`. `recopy` fires tasks; `update` does the smart
   3-way merge, which assumes prompt-captured answers — wrong for agent-authored
@@ -108,7 +108,7 @@ conductor.
   copier's living-template model for init/upgrade while keeping reproduce exact.
 - **Secrets are injected per-invocation, never persisted.** Secret questions
   (`secret: true` / `_secret_questions`) are NOT written to `.copier-answers.yml`.
-  clerk inspects `Template.secret_questions` before running, fetches the values
+  bailiff inspects `Template.secret_questions` before running, fetches the values
   from an external store (env var / 1Password / etc.), and passes them via
   `data={...}`. This works identically at init and reproduce and keeps secrets
   off disk.
@@ -131,10 +131,10 @@ make reproduce drift; this is the accepted bargain for supporting `_tasks`.
 - The `recopy`-fires-tasks assumption is CONFIRMED against source (was an open
   verification); reproduce correctly re-runs `_tasks`.
 - copier's own task execution uses **plumbum**, not pyinvoke; pyinvoke is
-  irrelevant to the integration (and unneeded for clerk's orchestrator until a
+  irrelevant to the integration (and unneeded for bailiff's orchestrator until a
   second consumer exists — YAGNI).
 - The agentic layer (APM/MCP/SpecKit) has no off-the-shelf analog and stays
-  bespoke — this is clerk's distinctive value.
+  bespoke — this is bailiff's distinctive value.
 - Rendering-behavior kwargs (`defaults`/`overwrite`/`quiet`/`exclude`/
   `skip_if_exists`) and jinja-extension policy are recorded separately in
   [[0004-rendering-and-extensions]].

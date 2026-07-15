@@ -1,7 +1,7 @@
 {
-  "name": "clerk",
+  "name": "bailiff",
   "version": "0.1.0",
-  "description": "An agentic conductor for copier. The clerk fills in the paperwork (per-module answer files); copier makes the copies. Reproduce is agent-free. This apm.yml declares the project-scoped agentic layer used to BUILD clerk (spec-driven workflow, structure/toolchain steering, dependency + secret scanning). The global layer provides the always-on packages (coder, challenger, verify, sniff, debate, handover, etc.).",
+  "description": "An agentic conductor for copier. The bailiff fills in the paperwork (per-module answer files); copier makes the copies. Reproduce is agent-free. This apm.yml declares the project-scoped agentic layer used to BUILD bailiff (spec-driven workflow, structure/toolchain steering, dependency + secret scanning). The global layer provides the always-on packages (coder, challenger, verify, sniff, debate, handover, etc.).",
   "author": {
     "name": "Sjors Robroek"
   },

@@ -3,12 +3,12 @@
 Extended by spec 005 (T005 / SC-003): assert no secret value leaks to
 stdout/stderr, --pretend output, or copier's argv.
 
-Note on test design: clerk's mechanical enforcement (FR-003a) rejects secret
+Note on test design: bailiff's mechanical enforcement (FR-003a) rejects secret
 keys in the run-spec before any copier call.  To verify copier's own
 non-persistence guarantee (the original FR-013 intent), tests that need to pass
-a secret value to copier call run_copy() directly — bypassing clerk's guard.
+a secret value to copier call run_copy() directly — bypassing bailiff's guard.
 This is intentional: it proves the non-persistence is a copier-level invariant,
-not just a side-effect of clerk's rejection.
+not just a side-effect of bailiff's rejection.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import pytest
 import yaml
 from copier import run_copy
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 
@@ -34,8 +34,8 @@ def test_secret_excluded_from_recorded_answers_copier_level(
 ) -> None:
     """copier itself never persists a secret: true answer to .copier-answers.yml (FR-013).
 
-    Calls run_copy() directly (bypassing clerk's guardrail) to confirm the
-    non-persistence is copier's own invariant, not only clerk's rejection.
+    Calls run_copy() directly (bypassing bailiff's guardrail) to confirm the
+    non-persistence is copier's own invariant, not only bailiff's rejection.
     """
     trust.add_trust(secret_edge_template.url)
     dest = tmp_path / "proj"
@@ -62,14 +62,14 @@ def test_secret_excluded_from_recorded_answers_copier_level(
     assert answers["project_name"] == "demo"
 
 
-def test_clerk_init_rejects_secret_key_in_answers(
+def test_bailiff_init_rejects_secret_key_in_answers(
     secret_edge_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """clerk rejects a run-spec that supplies a secret key value (FR-003a / SC-003a).
+    """bailiff rejects a run-spec that supplies a secret key value (FR-003a / SC-003a).
 
-    This is clerk's enforcement layer on top of copier's own non-persistence.
+    This is bailiff's enforcement layer on top of copier's own non-persistence.
     """
-    from clerk.errors import SecretInAnswersError
+    from bailiff.errors import SecretInAnswersError
 
     trust.add_trust(secret_edge_template.url)
     dest = tmp_path / "proj"
@@ -108,13 +108,13 @@ def test_edge_excluded_from_recorded_answers(
           default: "placeholder"
         depends_on:
           type: yaml
-          default: ["clerk-mod-base"]
+          default: ["bailiff-mod-base"]
           when: false
         _subdirectory: template
         """
     )
     repo = build_template_repo(
-        tmp_path / "clerk-mod-edge",
+        tmp_path / "bailiff-mod-edge",
         files={
             "copier.yml": copier_yml,
             "template/out.txt.jinja": "name={{ project_name }}\n",
@@ -190,12 +190,12 @@ def test_secret_value_absent_from_pretend_output_copier_level(
 
 
 def test_no_secret_on_argv() -> None:
-    """clerk never builds a 'copier --data key=value' argv — always uses run_copy(data=…).
+    """bailiff never builds a 'copier --data key=value' argv — always uses run_copy(data=…).
 
     This is a structural invariant of runner.py: no subprocess call with copier args
     exists, so secret values can never leak into process listings (FR-004).
     """
-    import clerk.runner as runner_mod
+    import bailiff.runner as runner_mod
 
     src = inspect.getsource(runner_mod)
     assert "subprocess" not in src, (

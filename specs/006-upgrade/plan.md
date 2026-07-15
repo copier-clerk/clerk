@@ -1,4 +1,4 @@
-# Implementation Plan: clerk upgrade — explicit version upgrade + copier migrations
+# Implementation Plan: bailiff upgrade — explicit version upgrade + copier migrations
 
 **Branch**: `006-upgrade` | **Date**: 2026-07-10 | **Spec**: [spec.md](./spec.md)
 
@@ -7,16 +7,16 @@
 ## Summary
 
 Add a `run_update` wrapper to `runner.py` and an `update` verb to
-`scripts/clerk.py`. For multi-layer projects, reuse spec 003's DAG — re-solved
-against target versions — from `src/clerk/ordering.py`. Surface migrations
+`scripts/bailiff.py`. For multi-layer projects, reuse spec 003's DAG — re-solved
+against target versions — from `src/bailiff/ordering.py`. Surface migrations
 (trust-gated, new format enforced at discovery), announce per-layer from→to
 versions, and detect/report merge conflicts. copier owns the 3-way merge and
-migration execution; clerk adds only the DAG re-solution and the multi-layer loop
+migration execution; bailiff adds only the DAG re-solution and the multi-layer loop
 that copier cannot supply across templates.
 
 No new module is added. The additions are: `runner.update` + `runner.update_many`
 functions (analogous to `runner.init` / `runner.init_many`); a migration-format
-check in `discovery.py`; and a new `update` verb in `scripts/clerk.py`. The
+check in `discovery.py`; and a new `update` verb in `scripts/bailiff.py`. The
 conflict-detection helper (post-update tree scan) is the single novel piece not
 already anticipated by prior specs.
 
@@ -37,7 +37,7 @@ Resolved planning decisions flagged for review:
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (`src/clerk/` + `scripts/clerk.py`).
+**Language/Version**: Python 3.11+ (`src/bailiff/` + `scripts/bailiff.py`).
 
 **Primary Dependencies**: existing only — `copier>=9.16,<10` (`run_update` is in
 the verified public surface, ADR-0001), `packaging`, `pyyaml`. No new dependency.
@@ -59,17 +59,17 @@ run_update(
     context_lines: PositiveInt = 3,
     unsafe: bool = False,
     skip_tasks: bool = False,
-    # … (other kwargs clerk does not set)
+    # … (other kwargs bailiff does not set)
 ) -> Worker
 ```
 
-clerk's canonical call: `run_update(dest, data=answers, answers_file=rel_answers,
+bailiff's canonical call: `run_update(dest, data=answers, answers_file=rel_answers,
 vcs_ref=vcs_ref_or_none, defaults=True, overwrite=True, quiet=True,
 conflict=conflict, pretend=pretend)`. Trust via `settings=` (not `unsafe=True`).
 
 **Storage**: committed `.copier-answers*.yml` files are the upgrade state. After
 upgrade, copier rewrites each layer's answers file with the new `_commit`. No
-clerk-authored artifact is written.
+bailiff-authored artifact is written.
 
 **Testing**: `pytest`, hermetic/offline via local git template fixtures. Reuse
 and extend `tests/conftest.py` (multi-template fixtures from spec 003). New
@@ -130,7 +130,7 @@ specs/006-upgrade/
 ### Source Code (repository root)
 
 ```text
-src/clerk/
+src/bailiff/
 ├── runner.py            # EXTEND: update(dest, *, vcs_ref, answers_file, today,
 │                        #   pretend, conflict) — single-layer run_update wrapper
 │                        #   (mirrors init; same trust + format pre-checks; translate
@@ -147,23 +147,23 @@ src/clerk/
 │                        #   don't run); raises DeprecatedMigrationFormatError.
 ├── ordering.py          # REUSED unchanged — layer_plan / build_dag / topo_sort
 │                        #   called from update_many with target-version discoveries.
-└── errors.py            # EXTEND: DeprecatedMigrationFormatError(ClerkError) —
+└── errors.py            # EXTEND: DeprecatedMigrationFormatError(BailiffError) —
 │                        #   deprecated _migrations format detected; MergeConflictError
-│                        #   (ClerkError, exit 4) — lists conflicted paths;
-│                        #   DowngradeError(ClerkError) — target < current version.
+│                        #   (BailiffError, exit 4) — lists conflicted paths;
+│                        #   DowngradeError(BailiffError) — target < current version.
 
-scripts/clerk.py         # EXTEND: add 'update' verb — parses dest (required),
+scripts/bailiff.py         # EXTEND: add 'update' verb — parses dest (required),
                          #   optional --vcs-ref, --pretend, --conflict inline|rej,
                          #   --skip-tasks; maps to runner.update / runner.update_many
                          #   based on how many answers files are present. Exit-code
-                         #   map: 0 ok; 1 ClerkError/OrderingError; 2 argparse; 3
+                         #   map: 0 ok; 1 BailiffError/OrderingError; 2 argparse; 3
                          #   UntrustedSourceError; 4 MergeConflictError.
 
-skills/clerk/SKILL.md    # EXTEND: upgrade/migration sub-procedure (end-state
+skills/bailiff/SKILL.md    # EXTEND: upgrade/migration sub-procedure (end-state
                          #   component table, end-state-components.md row for spec
                          #   006): inspect current _commit vs available versions;
                          #   announce from→to; obtain trust consent if needed;
-                         #   run scripts/clerk.py update. Document migration
+                         #   run scripts/bailiff.py update. Document migration
                          #   awareness (migrations are copier-run, trust-gated).
 
 tests/
@@ -197,7 +197,7 @@ tests/
 
 **Structure Decision**: no new module; extend existing `runner.py` (two new
 functions), `discovery.py` (one format-check helper), `errors.py` (two new error
-types), and `scripts/clerk.py` (one new verb). All analogous to existing patterns.
+types), and `scripts/bailiff.py` (one new verb). All analogous to existing patterns.
 The `_check_migrations_format` helper in discovery is ~10 lines; justified because
 discovery is already the static parse layer and the format check is a static
 `copier.yml` parse (no copier runtime call needed).

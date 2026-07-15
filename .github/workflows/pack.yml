@@ -2,7 +2,7 @@
 # NOT the fan-out pipeline (that is deferred to spec 008b/009).
 #
 # Runs on every PR. Guards against:
-#  - vendored copy drifting from src/clerk/ (check-vendor)
+#  - vendored copy drifting from src/bailiff/ (check-vendor)
 #  - apm.yml marketplace block producing invalid manifests (apm pack --dry-run)
 #  - manifest content drifting from committed output (apm pack --check-clean)
 #
@@ -37,13 +37,13 @@ jobs:
           uv run ruff format --check src/ tests/ scripts/
           uv run mypy
 
-      # Vendor BEFORE the test suite: the vendored clerk/ dir is gitignored
+      # Vendor BEFORE the test suite: the vendored bailiff/ dir is gitignored
       # (generate-at-pack), and tests/loop/test_packaging.py's drift check reads it.
       # Running vendor first means pytest validates a fresh vendored copy against src/.
-      - name: Vendor clerk modules
+      - name: Vendor bailiff modules
         run: just vendor
 
-      - name: Check vendor drift (vendored copy must match src/clerk/)
+      - name: Check vendor drift (vendored copy must match src/bailiff/)
         run: just check-vendor
 
       - name: Test suite

@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 
@@ -38,20 +38,24 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
 
 
 def test_seed_once_files_preserved_managed_rerendered(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """AGENTS.md + pyproject.toml preserved on re-run; a scaffold .gitkeep re-rendered."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {"project_name": "myapp", "license": "mit", "layout": "single"},
         ),
         (
-            _record("demo/clerk-mod-python", clerk_mod_python, ["project_name", "python_version"]),
+            _record(
+                "demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]
+            ),
             {"python_version": "3.12"},
         ),
     ]

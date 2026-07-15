@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -85,39 +85,39 @@ def test_reproduce_overwrites_local_edits_in_place(
 
 
 def test_reproduce_requires_answers_file(tmp_path: Path) -> None:
-    from clerk.errors import ClerkError
+    from bailiff.errors import BailiffError
 
     empty = tmp_path / "empty"
     empty.mkdir()
-    with pytest.raises(ClerkError, match="nothing to reproduce"):
+    with pytest.raises(BailiffError, match="nothing to reproduce"):
         runner.reproduce(str(empty))
 
 
 # ---------------------------------------------------------------------------
-# SC-002: no clerk artifact in the generated project
+# SC-002: no bailiff artifact in the generated project
 # ---------------------------------------------------------------------------
 
 
-def test_init_writes_no_clerk_file(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """init must not write a justfile or any clerk-managed file (FR-002 / SC-002)."""
+def test_init_writes_no_bailiff_file(base_template: TemplateRepo, tmp_path: Path) -> None:
+    """init must not write a justfile or any bailiff-managed file (FR-002 / SC-002)."""
     dest = tmp_path / "proj"
     _init(base_template, dest)
     assert not (dest / "justfile").exists(), "init must not write a justfile"
     assert not (dest / "Justfile").exists()
-    # no clerk.py artifact in the project either
-    clerk_artifacts = list(dest.rglob("clerk.py"))
-    assert not clerk_artifacts, f"unexpected clerk files in project: {clerk_artifacts}"
+    # no bailiff.py artifact in the project either
+    bailiff_artifacts = list(dest.rglob("bailiff.py"))
+    assert not bailiff_artifacts, f"unexpected bailiff files in project: {bailiff_artifacts}"
 
 
 # ---------------------------------------------------------------------------
-# T011 (a): reproduce via scripts/clerk.py (subprocess)
+# T011 (a): reproduce via scripts/bailiff.py (subprocess)
 # ---------------------------------------------------------------------------
 
 
-def test_reproduce_via_clerk_script(
+def test_reproduce_via_bailiff_script(
     base_template: TemplateRepo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """scripts/clerk.py reproduce is byte-identical to a direct runner.reproduce call."""
+    """scripts/bailiff.py reproduce is byte-identical to a direct runner.reproduce call."""
     dest = tmp_path / "proj"
     _init(base_template, dest)
     before = _tree_digest(dest)
@@ -133,7 +133,7 @@ def test_reproduce_via_clerk_script(
         env={**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)},
     )
     assert result.returncode == 0, (
-        f"clerk.py reproduce failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        f"bailiff.py reproduce failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
 
     after = _tree_digest(dest)
@@ -141,15 +141,15 @@ def test_reproduce_via_clerk_script(
 
 
 # ---------------------------------------------------------------------------
-# T011 (b) / T012: copier-only-by-hand reproduce (no clerk, no just)
+# T011 (b) / T012: copier-only-by-hand reproduce (no bailiff, no just)
 # ---------------------------------------------------------------------------
 
 
 def test_copier_only_reproduce_byte_identical(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """The copier-only fallback produces the same output as clerk.py reproduce (SC-001).
+    """The copier-only fallback produces the same output as bailiff.py reproduce (SC-001).
 
     Uses `copier recopy --vcs-ref=:current: --defaults --overwrite` directly —
-    no clerk import, no just — proving reproduce needs neither clerk nor just installed.
+    no bailiff import, no just — proving reproduce needs neither bailiff nor just installed.
     The assertion is on byte-identical digests vs the recorded commit state.
     """
     # init via the library to get a well-known starting state
@@ -157,12 +157,12 @@ def test_copier_only_reproduce_byte_identical(base_template: TemplateRepo, tmp_p
     _init(base_template, dest_a)
     before = _tree_digest(dest_a)
 
-    # Produce a second independent clone via clerk.py, then compare
+    # Produce a second independent clone via bailiff.py, then compare
     # the copier-only recopy path against it.
     dest_b = tmp_path / "proj_b"
     _init(base_template, dest_b)
 
-    # corrupt proj_b; restore via copier-only path (no clerk module involved)
+    # corrupt proj_b; restore via copier-only path (no bailiff module involved)
     (dest_b / "out.txt").write_text("HAND EDITED\n")
 
     settings_path = tmp_path / "settings.yml"
@@ -181,13 +181,13 @@ def test_copier_only_reproduce_byte_identical(base_template: TemplateRepo, tmp_p
 
     # Both trees must be byte-identical (SC-001)
     assert before == after_b, (
-        "copier-only reproduce diverges from clerk.py reproduce:\n"
+        "copier-only reproduce diverges from bailiff.py reproduce:\n"
         f"  missing in copier-only: {set(before) - set(after_b)}\n"
         f"  extra in copier-only: {set(after_b) - set(before)}\n"
         f"  changed: {[k for k in before if k in after_b and before[k] != after_b[k]]}"
     )
 
-    # SC-002: no justfile / no clerk artifact in the project
+    # SC-002: no justfile / no bailiff artifact in the project
     assert not (dest_b / "justfile").exists()
     assert not (dest_b / "Justfile").exists()
 
@@ -214,12 +214,12 @@ def test_enumerate_answers_files_empty_dir(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# T011: clerk.py reproduce exit code when no answers file
+# T011: bailiff.py reproduce exit code when no answers file
 # ---------------------------------------------------------------------------
 
 
-def test_clerk_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
-    """scripts/clerk.py reproduce exits 1 when there is nothing to reproduce."""
+def test_bailiff_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
+    """scripts/bailiff.py reproduce exits 1 when there is nothing to reproduce."""
     empty = tmp_path / "empty"
     empty.mkdir()
     import os
@@ -239,10 +239,10 @@ def test_clerk_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_reproduce_via_clerk_script_run_spec_json(
+def test_reproduce_via_bailiff_script_run_spec_json(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init --run-spec then reproduce round-trips byte-identically."""
+    """scripts/bailiff.py init --run-spec then reproduce round-trips byte-identically."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -258,7 +258,7 @@ def test_reproduce_via_clerk_script_run_spec_json(
         )
     )
 
-    # init via clerk.py script
+    # init via bailiff.py script
     r_init = subprocess.run(
         [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
         capture_output=True,

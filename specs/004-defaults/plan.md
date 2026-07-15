@@ -1,4 +1,4 @@
-# Implementation Plan: clerk global per-template defaults
+# Implementation Plan: bailiff global per-template defaults
 
 **Branch**: `004-defaults` | **Date**: 2026-07-10 | **Spec**: [spec.md](./spec.md)
 
@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add a `src/clerk/defaults.py` module (mirroring `catalog.py` in structure:
+Add a `src/bailiff/defaults.py` module (mirroring `catalog.py` in structure:
 platformdirs path resolution, env override) and extend `runner.init` + `runner.init_many`
 to load, filter, and pass `user_defaults=` to each `copier run_copy` call. The entire
 feature is approximately one new module + small additions to two existing functions.
@@ -18,9 +18,9 @@ already part of the public `run_copy` API in copier ≥9.16 (C-04, verified). Th
 gracefully).
 
 Resolved planning decisions (flagged for review):
-- **File format** = YAML at `~/.config/clerk/defaults.yml` — aligned with ADR-0005
-  and clerk's other YAML configs (Q-004a: no deviation from ADR).
-- **`CLERK_DEFAULTS_PATH` on nonexistent file** = `DefaultsError` (explicit override
+- **File format** = YAML at `~/.config/bailiff/defaults.yml` — aligned with ADR-0005
+  and bailiff's other YAML configs (Q-004a: no deviation from ADR).
+- **`BAILIFF_DEFAULTS_PATH` on nonexistent file** = `DefaultsError` (explicit override
   silently no-oping is surprising) — Q-004c.
 - **`settings.yml` fallback** = best-effort (graceful degradation on `load_settings`
   failure) — Q-004b.
@@ -29,12 +29,12 @@ Resolved planning decisions (flagged for review):
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (`src/clerk/` + `scripts/clerk.py`).
+**Language/Version**: Python 3.11+ (`src/bailiff/` + `scripts/bailiff.py`).
 
 **Primary Dependencies**: no new dependencies. `pyyaml` (already a project dependency),
 `platformdirs` (already used by `catalog.py`), `copier>=9.16` (`user_defaults=` in `run_copy`).
 
-**Storage**: `~/.config/clerk/defaults.yml` (user-side config; NEVER written into
+**Storage**: `~/.config/bailiff/defaults.yml` (user-side config; NEVER written into
 the generated project — spec 010 invariant). The `discovery.Discovery.questions` list
 already carries `secret` and `when`-condition metadata for key filtering.
 
@@ -44,12 +44,12 @@ already carries `secret` and `when`-condition metadata for key filtering.
 
 **Target Platform**: developer workstations + CI (macOS/Linux).
 
-**Project Type**: bundled script + `src/clerk/` package. No published app.
+**Project Type**: bundled script + `src/bailiff/` package. No published app.
 
 **Performance**: none; the defaults file is tiny; the load + filter is <1 ms.
 
 **Constraints**: no break to the precedence ladder (`user_defaults=` not `data=`);
-never pre-fill secret questions; no clerk file committed to the project; YAML format;
+never pre-fill secret questions; no bailiff file committed to the project; YAML format;
 env override; best-effort `settings.yml` fold; per-layer independence in multi path.
 
 **Scale/Scope**: one new module + two function extensions + tests. The multi-template
@@ -64,7 +64,7 @@ Evaluated against constitution **v2.1.0**. Initial gate: **PASS**.
 
 | Principle | Gate | How this plan satisfies it |
 |---|---|---|
-| I — Skills + templates + minimal glue | PASS | One new `defaults.py` (≈50 LOC: load, filter, merge). No new copier surface — `user_defaults=` is part of `run_copy`'s existing public API. No template change, no adapter, no new CLI verb. Justified by C-11: copier's `settings.yml defaults:` is flat/global with no per-template scoping — the filtering step is a genuine gap clerk fills. |
+| I — Skills + templates + minimal glue | PASS | One new `defaults.py` (≈50 LOC: load, filter, merge). No new copier surface — `user_defaults=` is part of `run_copy`'s existing public API. No template change, no adapter, no new CLI verb. Justified by C-11: copier's `settings.yml defaults:` is flat/global with no per-template scoping — the filtering step is a genuine gap bailiff fills. |
 | II — Two-phase; agent judges, helpers execute | PASS | Defaults loading + key selection is deterministic, LLM-free, fully hermetic-testable. The agent's only role is collecting the explicit answers to place in `data=`; the defaults selection is a pure function of the template's question list and the user's config file. |
 | III — Faithful, agent-free, recomputed reproduce | PASS | User defaults flow into the answers file as normal copier answers and are replayed faithfully at reproduce via `recopy --vcs-ref=:current:`. No new reproduce mechanic. The defaults file is user-side config; the project's committed answers file is the single source of reproduce truth (unchanged). |
 | IV — Prefer CLI + static config; contain deprecated surface | PASS | `user_defaults=` is a documented parameter of `run_copy` (public API, not deprecated). Key selection reuses the `discovery.Discovery.questions` list already parsed statically. No `Template`/`Worker` adapter needed. |
@@ -101,25 +101,25 @@ specs/004-defaults/
 ### Source Code (repository root)
 
 ```text
-src/clerk/
+src/bailiff/
 ├── defaults.py          # NEW: load(path) → dict; select_keys(defaults, questions) → dict;
-│                        #   defaults_path() via platformdirs + CLERK_DEFAULTS_PATH env;
+│                        #   defaults_path() via platformdirs + BAILIFF_DEFAULTS_PATH env;
 │                        #   fold_settings_defaults(user_defaults) → merged dict (best-effort).
-│                        #   DefaultsError(ClerkError) lives here or in errors.py (task decides).
+│                        #   DefaultsError(BailiffError) lives here or in errors.py (task decides).
 ├── runner.py            # EXTEND: init() and init_many() each call
 │                        #   defaults.select_keys(loaded_defaults, disc.questions) per template
 │                        #   and pass the result as user_defaults= to run_copy. The load step
 │                        #   is once per init call; the select step is once per template layer.
-├── errors.py            # EXTEND: add DefaultsError(ClerkError) — malformed YAML or
+├── errors.py            # EXTEND: add DefaultsError(BailiffError) — malformed YAML or
 │                        #   nonexistent explicit-override path.
 └── discovery.py         # UNCHANGED — Question.secret already present; questions list reused.
 
-scripts/clerk.py         # NO change needed at the CLI surface: defaults injection is transparent
+scripts/bailiff.py         # NO change needed at the CLI surface: defaults injection is transparent
                          #   to the caller (happens inside runner.init/init_many). A future
-                         #   `clerk defaults` verb (manage the file) is out of scope (YAGNI).
+                         #   `bailiff defaults` verb (manage the file) is out of scope (YAGNI).
 
-skills/clerk/SKILL.md    # EXTEND: document that clerk pre-fills soft defaults from
-                         #   ~/.config/clerk/defaults.yml; note that secret questions are
+skills/bailiff/SKILL.md    # EXTEND: document that bailiff pre-fills soft defaults from
+                         #   ~/.config/bailiff/defaults.yml; note that secret questions are
                          #   never defaulted; point at specs/004-defaults/contracts/defaults.md.
 
 tests/
@@ -127,7 +127,7 @@ tests/
 │                        #   add a helper to write a temp defaults.yml at a path and return it.
 ├── unit/
 │   └── test_defaults.py # NEW: load() missing file → empty dict; malformed YAML → DefaultsError;
-│                        #   CLERK_DEFAULTS_PATH pointing at nonexistent file → DefaultsError;
+│                        #   BAILIFF_DEFAULTS_PATH pointing at nonexistent file → DefaultsError;
 │                        #   select_keys() excludes secrets; select_keys() excludes keys not in
 │                        #   questions; select_keys() includes non-secret matching keys;
 │                        #   fold_settings_defaults() merges correctly (yaml wins on collision);

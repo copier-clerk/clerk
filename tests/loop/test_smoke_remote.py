@@ -10,8 +10,8 @@ It is marked ``network`` and DESELECTED by default (see ``pyproject.toml``
 
     uv run pytest -m network
 
-Target repo: the hand-published ``clerk-template-example``. Override with
-``CLERK_SMOKE_TEMPLATE_URL`` to point at any published clerk-shaped template
+Target repo: the hand-published ``bailiff-template-example``. Override with
+``BAILIFF_SMOKE_TEMPLATE_URL`` to point at any published bailiff-shaped template
 (e.g. a fork, or the monorepo-fanned-out mirror). If the URL is unreachable
 (e.g. the repo is not published yet), the test SKIPS rather than fails, so it is
 safe to keep in the tree before first publish and starts exercising the moment
@@ -30,16 +30,16 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import discovery, runner, trust
+from bailiff import discovery, runner, trust
 
 pytestmark = pytest.mark.network
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 # The intended first-party published exemplar. A public repo, so no auth needed
 # for a read-only clone. Overridable for forks / mirrors.
-DEFAULT_TEMPLATE_URL = "https://github.com/copier-clerk/clerk-template-example.git"
-TEMPLATE_URL = os.environ.get("CLERK_SMOKE_TEMPLATE_URL", DEFAULT_TEMPLATE_URL)
+DEFAULT_TEMPLATE_URL = "https://github.com/bailiff-io/bailiff-template-example.git"
+TEMPLATE_URL = os.environ.get("BAILIFF_SMOKE_TEMPLATE_URL", DEFAULT_TEMPLATE_URL)
 
 
 def _remote_reachable(url: str) -> bool:
@@ -67,7 +67,7 @@ def _require_remote() -> str:
     if not _remote_reachable(TEMPLATE_URL):
         pytest.skip(
             f"live template {TEMPLATE_URL!r} not reachable "
-            "(unpublished, offline, or private); set CLERK_SMOKE_TEMPLATE_URL to override"
+            "(unpublished, offline, or private); set BAILIFF_SMOKE_TEMPLATE_URL to override"
         )
     return TEMPLATE_URL
 
@@ -103,8 +103,8 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
         source=url,
         dest=str(dest),
         answers={
-            "project_name": "clerk-smoke",
-            "org": "copier-clerk",
+            "project_name": "bailiff-smoke",
+            "org": "bailiff-io",
             "license": "MIT",
             "description": "live-network smoke test project",
         },
@@ -115,7 +115,7 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
     answers = yaml.safe_load((dest / ".copier-answers.yml").read_text())
     assert answers["_src_path"] == url
     assert answers["_commit"] in desc.versions
-    assert answers["project_name"] == "clerk-smoke"
+    assert answers["project_name"] == "bailiff-smoke"
 
     # 3) reproduce — corrupt, then replay; must come back byte-identical.
     before = _tree_digest(dest)
@@ -125,8 +125,8 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
     assert before == after
 
 
-def test_live_reproduce_via_clerk_script(_require_remote: str, tmp_path: Path) -> None:
-    """scripts/clerk.py discover/trust/init/reproduce against the live remote."""
+def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path) -> None:
+    """scripts/bailiff.py discover/trust/init/reproduce against the live remote."""
     url = _require_remote
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
@@ -161,8 +161,8 @@ def test_live_reproduce_via_clerk_script(_require_remote: str, tmp_path: Path) -
                 "source": url,
                 "dest": str(dest),
                 "answers": {
-                    "project_name": "clerk-smoke",
-                    "org": "copier-clerk",
+                    "project_name": "bailiff-smoke",
+                    "org": "bailiff-io",
                     "license": "MIT",
                     "description": "live-network smoke via script",
                 },
@@ -179,7 +179,7 @@ def test_live_reproduce_via_clerk_script(_require_remote: str, tmp_path: Path) -
 
     before = _tree_digest(dest)
 
-    # SC-002: no clerk artifact
+    # SC-002: no bailiff artifact
     assert not (dest / "justfile").exists()
     assert not (dest / "Justfile").exists()
 
@@ -199,10 +199,10 @@ def test_live_reproduce_via_clerk_script(_require_remote: str, tmp_path: Path) -
 
 
 def test_live_copier_only_reproduce_byte_identical(_require_remote: str, tmp_path: Path) -> None:
-    """copier-only-by-hand reproduce matches clerk.py reproduce against the live remote.
+    """copier-only-by-hand reproduce matches bailiff.py reproduce against the live remote.
 
     Proves the US1 fallback: `copier recopy --vcs-ref=:current: --defaults --overwrite`
-    in the project dir needs no clerk on PATH (FR-003 / SC-001).
+    in the project dir needs no bailiff on PATH (FR-003 / SC-001).
     """
     url = _require_remote
     settings_path = tmp_path / "settings.yml"
@@ -215,8 +215,8 @@ def test_live_copier_only_reproduce_byte_identical(_require_remote: str, tmp_pat
         source=url,
         dest=str(dest),
         answers={
-            "project_name": "clerk-smoke",
-            "org": "copier-clerk",
+            "project_name": "bailiff-smoke",
+            "org": "bailiff-io",
             "license": "MIT",
             "description": "copier-only fallback test",
         },
@@ -224,7 +224,7 @@ def test_live_copier_only_reproduce_byte_identical(_require_remote: str, tmp_pat
     runner.init(spec, today="2026-07-10")
     before = _tree_digest(dest)
 
-    # corrupt and restore via the copier-only path (no clerk module used here)
+    # corrupt and restore via the copier-only path (no bailiff module used here)
     (dest / "README.md").write_text("CORRUPTED\n")
     result = subprocess.run(
         ["copier", "recopy", "--vcs-ref=:current:", "--defaults", "--overwrite"],

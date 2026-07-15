@@ -9,7 +9,7 @@ Generate [base, python], then reproduce onto the same tree and assert:
   LICENSE) RE-RUN under trust at reproduce and are idempotent (their guards
   hold); task outputs are process-deterministic, not asserted byte-identical.
 
-Tasks are the hermetic offline stubs (clerk_mod_base / clerk_mod_python
+Tasks are the hermetic offline stubs (bailiff_mod_base / bailiff_mod_python
 fixtures); the real gitnr/gh tasks re-run identically under the same guards.
 """
 
@@ -21,8 +21,8 @@ from typing import Any
 
 import pytest
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 # Managed files whose bytes must be stable across reproduce (fresh render of
@@ -35,8 +35,8 @@ _MANAGED_PATHS = [
     "tests/.gitkeep",
     "AGENTS.md",
     "pyproject.toml",
-    ".copier-answers.clerk-mod-base.yml",
-    ".copier-answers.clerk-mod-python.yml",
+    ".copier-answers.bailiff-mod-base.yml",
+    ".copier-answers.bailiff-mod-python.yml",
 ]
 
 
@@ -66,7 +66,7 @@ def _init_base_python(base: TemplateRepo, python: TemplateRepo, dest: Path) -> N
     trust.add_trust(python.url)
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", base, ["project_name", "license", "layout"]),
+            _record("demo/bailiff-mod-base", base, ["project_name", "license", "layout"]),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -76,7 +76,7 @@ def _init_base_python(base: TemplateRepo, python: TemplateRepo, dest: Path) -> N
             },
         ),
         (
-            _record("demo/clerk-mod-python", python, ["project_name", "python_version"]),
+            _record("demo/bailiff-mod-python", python, ["project_name", "python_version"]),
             {"python_version": "3.12"},
         ),
     ]
@@ -84,11 +84,11 @@ def _init_base_python(base: TemplateRepo, python: TemplateRepo, dest: Path) -> N
 
 
 def test_managed_files_byte_identical_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """T026: managed files are byte-identical after reproduce; order recomputed."""
     dest = tmp_path / "proj"
-    _init_base_python(clerk_mod_base, clerk_mod_python, dest)
+    _init_base_python(bailiff_mod_base, bailiff_mod_python, dest)
 
     before = {p: _digest(dest / p) for p in _MANAGED_PATHS if (dest / p).is_file()}
     # Sanity: all managed paths actually rendered.
@@ -99,11 +99,11 @@ def test_managed_files_byte_identical_on_reproduce(
     # frozen recipe: rebuild the plan from the committed answers files and assert
     # base sorts before python (the run_after edge). reproduce() itself does not
     # leak the recorded source in its RunResult, so we verify order at the planner.
-    from clerk import discovery, ordering
+    from bailiff import discovery, ordering
 
     edges_by_basename: dict[str, dict[str, Any]] = {}
     recs: list[TemplateRecord] = []
-    for af in ("clerk-mod-base", "clerk-mod-python"):
+    for af in ("bailiff-mod-base", "bailiff-mod-python"):
         import yaml
 
         raw = yaml.safe_load((dest / f".copier-answers.{af}.yml").read_text())
@@ -122,7 +122,7 @@ def test_managed_files_byte_identical_on_reproduce(
         )
     plan = ordering.layer_plan_from_edges(recs, edges_by_basename)
     order = [r.full_id.rsplit("/", 1)[-1] for r, _ in plan]
-    assert order == ["clerk-mod-base", "clerk-mod-python"], f"recomputed order wrong: {order}"
+    assert order == ["bailiff-mod-base", "bailiff-mod-python"], f"recomputed order wrong: {order}"
 
     runner.reproduce_many(str(dest))
 
@@ -134,11 +134,11 @@ def test_managed_files_byte_identical_on_reproduce(
 
 
 def test_tasks_rerun_idempotently_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """T027: trust-gated tasks re-run under trust and are idempotent (guards hold)."""
     dest = tmp_path / "proj"
-    _init_base_python(clerk_mod_base, clerk_mod_python, dest)
+    _init_base_python(bailiff_mod_base, bailiff_mod_python, dest)
 
     # Task outputs present after init.
     assert (dest / ".gitignore").is_file()

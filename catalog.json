@@ -3,27 +3,27 @@
   "generated_at": "2026-07-13T11:15:48Z",
   "modules": [
     {
-      "name": "clerk-mod-apm",
+      "name": "bailiff-mod-apm",
       "description": "",
-      "source": "https://github.com/copier-clerk/clerk-mod-apm.git",
+      "source": "https://github.com/bailiff-io/bailiff-mod-apm.git",
       "latest_version": "v0.1.0",
       "tags": [
         "v0.1.0"
       ]
     },
     {
-      "name": "clerk-mod-base",
+      "name": "bailiff-mod-base",
       "description": "",
-      "source": "https://github.com/copier-clerk/clerk-mod-base.git",
+      "source": "https://github.com/bailiff-io/bailiff-mod-base.git",
       "latest_version": "v0.1.0",
       "tags": [
         "v0.1.0"
       ]
     },
     {
-      "name": "clerk-mod-python",
+      "name": "bailiff-mod-python",
       "description": "",
-      "source": "https://github.com/copier-clerk/clerk-mod-python.git",
+      "source": "https://github.com/bailiff-io/bailiff-mod-python.git",
       "latest_version": "v0.1.0",
       "tags": [
         "v0.1.0"

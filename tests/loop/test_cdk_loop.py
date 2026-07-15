@@ -1,4 +1,4 @@
-"""spec 011 T021: clerk-mod-cdk loop test.
+"""spec 011 T021: bailiff-mod-cdk loop test.
 
 Init and reproduce cycles for the CDK overlay. cdk init is stubbed offline via the
 _CDK_STUB_TASKS fixture so the suite stays hermetic (Constitution VII / SC-007).
@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import _MODULES_DIR, TemplateRepo
 
 
@@ -64,26 +64,26 @@ def _init_cdk(
 # --------------------------------------------------------------------------- #
 
 
-def test_cdk_init_produces_preflight_marker(clerk_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
+def test_cdk_init_produces_preflight_marker(bailiff_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
     """Stub task runs on init and writes the offline marker (task-output presence)."""
     dest = tmp_path / "proj"
-    _init_cdk(clerk_mod_cdk, dest)
+    _init_cdk(bailiff_mod_cdk, dest)
 
-    # The CDK stub writes .clerk-cdk-preflight as a task-output marker.
-    assert (dest / ".clerk-cdk-preflight").is_file(), (
+    # The CDK stub writes .bailiff-cdk-preflight as a task-output marker.
+    assert (dest / ".bailiff-cdk-preflight").is_file(), (
         "cdk preflight stub marker must be present after init"
     )
 
 
-def test_cdk_answers_file_written(clerk_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
+def test_cdk_answers_file_written(bailiff_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
     """copier writes the answers file so the layer is reproducible (FR-016).
 
     Standalone init writes .copier-answers.yml (default copier name); the
-    layer-specific .copier-answers.clerk-mod-cdk.yml is written by init_many
+    layer-specific .copier-answers.bailiff-mod-cdk.yml is written by init_many
     when combined with other layers. Both are valid; we check the default here.
     """
     dest = tmp_path / "proj"
-    _init_cdk(clerk_mod_cdk, dest)
+    _init_cdk(bailiff_mod_cdk, dest)
 
     # Single-template init → copier default answers file name.
     af = dest / ".copier-answers.yml"
@@ -93,10 +93,10 @@ def test_cdk_answers_file_written(clerk_mod_cdk: TemplateRepo, tmp_path: Path) -
     assert data.get("placement_dir") == "infrastructure"
 
 
-def test_cdk_reproduce_is_no_op(clerk_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
+def test_cdk_reproduce_is_no_op(bailiff_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
     """Reproduce with stub tasks is a no-op: answers file unchanged (T026 analogue)."""
     dest = tmp_path / "proj"
-    _init_cdk(clerk_mod_cdk, dest)
+    _init_cdk(bailiff_mod_cdk, dest)
 
     # Single-template init → default answers file name.
     af = dest / ".copier-answers.yml"
@@ -117,7 +117,7 @@ def test_cdk_context_json_not_gitignored(tmp_path: Path) -> None:
     This test inspects the real authored copier.yml and template/ for any
     pattern that would inadvertently gitignore cdk.context.json.
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     copier_yml = (module_dir / "copier.yml").read_text()
 
     # No gitignore template should mention cdk.context.json.
@@ -137,7 +137,7 @@ def test_cdk_no_bootstrap_or_deploy_in_tasks() -> None:
     The contract (cross-cutting §3) explicitly forbids irreversible actions at scaffold.
     Loop tests cannot stub what is not there; we inspect the real copier.yml directly.
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     copier_yml_text = (module_dir / "copier.yml").read_text()
 
     # Parse just the _tasks block to avoid false positives in comments.
@@ -157,7 +157,7 @@ def test_cdk_no_bootstrap_or_deploy_in_tasks() -> None:
 
 def test_cdk_no_secret_questions() -> None:
     """No secret: questions may appear in copier.yml (Constitution VI / C-07)."""
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     copier_yml_text = (module_dir / "copier.yml").read_text()
 
     # A YAML-level check: no question block should have secret: true/yes.
@@ -171,7 +171,7 @@ def test_cdk_no_secret_questions() -> None:
 
 def test_cdk_language_choices_present() -> None:
     """cdk_language offers the full contract-mandated choice set."""
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     choices = data.get("cdk_language", {}).get("choices", [])
     expected = {"typescript", "python", "go", "java", "csharp"}
@@ -179,12 +179,12 @@ def test_cdk_language_choices_present() -> None:
     assert data["cdk_language"]["default"] == "typescript"
 
 
-def test_cdk_reproduce_task_output_present(clerk_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
+def test_cdk_reproduce_task_output_present(bailiff_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
     """Task-output (stub marker) is present after reproduce (presence, not regeneration)."""
     dest = tmp_path / "proj"
-    _init_cdk(clerk_mod_cdk, dest)
+    _init_cdk(bailiff_mod_cdk, dest)
 
-    marker = dest / ".clerk-cdk-preflight"
+    marker = dest / ".bailiff-cdk-preflight"
     assert marker.is_file()
 
     # Reproduce must not remove or break the marker.
@@ -194,7 +194,7 @@ def test_cdk_reproduce_task_output_present(clerk_mod_cdk: TemplateRepo, tmp_path
 
 def test_cdk_subdirectory_is_template() -> None:
     """_subdirectory must be 'template' per contract FR-016."""
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     assert data.get("_subdirectory") == "template", "_subdirectory must be 'template' (FR-016)"
 
@@ -205,7 +205,7 @@ def test_cdk_no_stale_version_pin() -> None:
     Verify no task still references cdk_version (would be dead code referencing
     a removed question).
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     tasks = data.get("_tasks", [])
 
@@ -223,30 +223,30 @@ def test_cdk_no_stale_version_pin() -> None:
 
 
 def test_cdk_nag_task_uses_when_include_cdk_nag() -> None:
-    """include_cdk_nag must gate at least one task via when: (contract iac.md §clerk-mod-cdk).
+    """include_cdk_nag must gate at least one task via when: (contract iac.md §bailiff-mod-cdk).
 
     The contract requires 'cdk-nag import spliced when include_cdk_nag'; the question
     is useless if no task is conditioned on it.
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     tasks = data.get("_tasks", [])
 
     nag_tasks = [t for t in tasks if isinstance(t, dict) and "include_cdk_nag" in t.get("when", "")]
     assert nag_tasks, (
         "At least one task must have when: ... include_cdk_nag ... to splice the cdk-nag import "
-        "(contract iac.md §clerk-mod-cdk)"
+        "(contract iac.md §bailiff-mod-cdk)"
     )
 
 
 def test_cdk_preflight_has_language_runtime_checks() -> None:
     """Preflight must contain language-runtime-conditional tasks for non-TS languages.
 
-    Contract (iac.md §clerk-mod-cdk) specifies 'language runtime conditional on
+    Contract (iac.md §bailiff-mod-cdk) specifies 'language runtime conditional on
     cdk_language' in preflight. At minimum python/go/java/csharp each need a
     when-gated command-v check.
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     tasks = data.get("_tasks", [])
 
@@ -255,7 +255,7 @@ def test_cdk_preflight_has_language_runtime_checks() -> None:
 
     assert "cdk_language" in when_bodies, (
         "Preflight must include tasks conditioned on cdk_language for runtime checks "
-        "(contract iac.md §clerk-mod-cdk)"
+        "(contract iac.md §bailiff-mod-cdk)"
     )
     # Each non-TS language must have at least a command-v check.
     lang_binaries = [("python", "python3"), ("go", "go"), ("java", "java"), ("csharp", "dotnet")]
@@ -274,10 +274,10 @@ def test_cdk_preflight_has_language_runtime_checks() -> None:
 def test_cdk_no_pin_tasks_remain() -> None:
     """Version pin tasks were removed — cdk init determines the installed version.
 
-    Verify no .clerk-cdk-pinned sentinel or npm/pip install of aws-cdk-lib remains
+    Verify no .bailiff-cdk-pinned sentinel or npm/pip install of aws-cdk-lib remains
     in the task chain (would be dead code after cdk_version removal).
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     tasks = data.get("_tasks", [])
 
@@ -289,8 +289,8 @@ def test_cdk_no_pin_tasks_remain() -> None:
             cmds.append(task.get("command", ""))
 
     joined = "\n".join(cmds)
-    assert ".clerk-cdk-pinned" not in joined, (
-        ".clerk-cdk-pinned sentinel is stale — cdk_version pin was removed"
+    assert ".bailiff-cdk-pinned" not in joined, (
+        ".bailiff-cdk-pinned sentinel is stale — cdk_version pin was removed"
     )
 
 
@@ -300,7 +300,7 @@ def test_cdk_synth_task_is_init_only_guarded() -> None:
     The comment 'Never runs on reproduce' is not sufficient — the guard must be
     structural so it cannot be accidentally removed.
     """
-    module_dir = _MODULES_DIR / "clerk-mod-cdk"
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
     data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
     tasks = data.get("_tasks", [])
 
@@ -315,20 +315,20 @@ def test_cdk_synth_task_is_init_only_guarded() -> None:
 
     for t in synth_tasks:
         cmd = t.get("command", "")
-        assert ".clerk-cdk-synth-done" in cmd, (
-            f"cdk synth task must guard on its OWN sentinel (.clerk-cdk-synth-done), got: {cmd!r}"
+        assert ".bailiff-cdk-synth-done" in cmd, (
+            f"cdk synth task must guard on its OWN sentinel (.bailiff-cdk-synth-done), got: {cmd!r}"
         )
         assert "test -f" in cmd and "||" in cmd, (
-            f"cdk synth task must use 'test -f .clerk-cdk-synth-done ||'"
+            f"cdk synth task must use 'test -f .bailiff-cdk-synth-done ||'"
             f" to be init-only, got: {cmd!r}"
         )
-        assert "touch .clerk-cdk-synth-done" in cmd, (
+        assert "touch .bailiff-cdk-synth-done" in cmd, (
             f"cdk synth task must write its sentinel after success, got: {cmd!r}"
         )
         # Regression guard: synth must NOT share the pin task's sentinel — step 3
-        # writes .clerk-cdk-pinned earlier in the SAME init run, so guarding synth
+        # writes .bailiff-cdk-pinned earlier in the SAME init run, so guarding synth
         # on it makes synth dead code (never runs, not even on init).
-        assert ".clerk-cdk-pinned" not in cmd, (
-            f"cdk synth task must not reuse the pin sentinel (.clerk-cdk-pinned) — "
+        assert ".bailiff-cdk-pinned" not in cmd, (
+            f"cdk synth task must not reuse the pin sentinel (.bailiff-cdk-pinned) — "
             f"it is already written by the pin task in the same init run: {cmd!r}"
         )

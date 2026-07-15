@@ -4,7 +4,7 @@ How to prove the de-opinionated family works end to end. Not implementation — 
 guide. Detail lives in [contracts/](./contracts/) and [data-model.md](./data-model.md).
 
 ## Prerequisites
-- The clerk repo on the `009-phase-1-3-module-port` branch (spec dir `011-deopinionated-module-family`).
+- The bailiff repo on the `009-phase-1-3-module-port` branch (spec dir `011-deopinionated-module-family`).
 - `uv` (test runner), `copier>=9.16,<10`, `just`, `mise` available.
 - **Governance gate (FR-019) landed**: Constitution III at v2.3.0 + `docs/decisions/0007-native-command-scaffolding.md` present. No module release before this. Verify: `grep 'Version.*2.3.0' .specify/memory/constitution.md && test -f docs/decisions/0007-native-command-scaffolding.md`.
 
@@ -25,7 +25,7 @@ Expected: green — no module declares a `secret:` question.
 For any authored module, confirm its consequential tooling axes are `choices:` with the ratified
 defaults and NO dead options:
 ```
-uv run python -c "import yaml,sys; d=yaml.safe_load(open('templates/clerk-mod-ts/copier.yml')); \
+uv run python -c "import yaml,sys; d=yaml.safe_load(open('templates/bailiff-mod-ts/copier.yml')); \
 print(d['js_pkg_manager']['choices'], d['js_pkg_manager']['default'])"
 # expect ['bun','pnpm','npm'] bun ; and no 'yarn'
 ```
@@ -54,7 +54,7 @@ path; MCP env values render as `${VAR}` refs (no secret question).
 ```
 uv run pytest tests/loop/test_ci_github_*.py tests/loop/test_ci_gitlab_*.py -q
 ```
-Expected: for EACH of `clerk-mod-ci-github` and `clerk-mod-ci-gitlab`, all 5 models render valid,
+Expected: for EACH of `bailiff-mod-ci-github` and `bailiff-mod-ci-gitlab`, all 5 models render valid,
 host-lint-clean (actionlint / gitlab-ci lint — valid YAML ≠ valid workflow) CI sized to a 2-language
 `ci_languages` fact — minimal no gate, standard gate, optimized change-filters; no `:latest`/unpinned
 refs; GitHub artifact majors match; GitLab change-gated `needs:` use `optional: true`; `merge-queue` +

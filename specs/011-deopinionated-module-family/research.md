@@ -14,7 +14,7 @@ There are **no open NEEDS CLARIFICATION** items.
 
 ### R2 — Scaffolding: native tool commands
 - **Decision**: scaffold via `uv init`/`bun init`/`cargo new`/`go mod init`/`cdk init` as trust-gated tasks; manifests are process-deterministic task-output; deps added via native `add`.
-- **Rationale**: authentic idiomatic output owned by the tool author; far less Jinja branching for de-opinionation; correctness (e.g. pnpm workspace format) is the tool's job. clerk targets new-project setup so tool presence at scaffold is acceptable.
+- **Rationale**: authentic idiomatic output owned by the tool author; far less Jinja branching for de-opinionation; correctness (e.g. pnpm workspace format) is the tool's job. bailiff targets new-project setup so tool presence at scaffold is acceptable.
 - **Alternatives**: render manifests byte-identically (Phase-0 model — reimplements each PM's format, drifts, fights de-opinionation); native-init-then-freeze-bytes (goes stale). Recorded in ADR-0007. Requires the Constitution III amendment (FR-019).
 
 ### R3 — Cross-cutting choice axes (de-opinionation)
@@ -23,7 +23,7 @@ There are **no open NEEDS CLARIFICATION** items.
 - **Alternatives**: keep upstream single opinions (rejected — the whole point of 011); offer dead options like pip/yarn/jest/husky (rejected — noise).
 
 ### R4 — Agentic module boundary (resolves spec 007 OQ-007-b/f)
-- **Decision**: one `clerk-mod-agentic` rollup for coding-agent config (Claude/Codex/OpenCode/Kiro) + MCP + native marketplace + APM install folded in; `clerk-mod-speckit` stays separate; apm module retired.
+- **Decision**: one `bailiff-mod-agentic` rollup for coding-agent config (Claude/Codex/OpenCode/Kiro) + MCP + native marketplace + APM install folded in; `bailiff-mod-speckit` stays separate; apm module retired.
 - **Rationale**: agentic config is one cohesive concern; matches the "rolls up unless large enough" rule; apm is *another install mechanism* for the same job. Verified against microsoft/apm targets-matrix: APM installs to kiro/opencode/cursor/etc. (which have NO marketplace); marketplace-native only for claude/codex.
 - **Alternatives**: keep apm separate (re-splits the install-mechanism concern; rejected by maintainer); separate per-target modules (fragmentation).
 
@@ -38,9 +38,9 @@ There are **no open NEEDS CLARIFICATION** items.
 - **Alternatives**: 6 models with matrix (split decision surface); default standard (over-engineered for solo standalone); ci_harden_runner (new supply-chain capability — dropped, FR-011).
 
 ### R7 — IaC: three separate modules
-- **Decision**: `clerk-mod-terraform` (`tf_flavor [terraform,opentofu]=terraform`), `clerk-mod-cdk` (AWS CDK, `cdk_language` choice), `clerk-mod-cloudformation` (`mode [raw,sam]=raw`). Pulumi/CDKTF/Ansible out of scope.
+- **Decision**: `bailiff-mod-terraform` (`tf_flavor [terraform,opentofu]=terraform`), `bailiff-mod-cdk` (AWS CDK, `cdk_language` choice), `bailiff-mod-cloudformation` (`mode [raw,sam]=raw`). Pulumi/CDKTF/Ansible out of scope.
 - **Rationale**: three different paradigms sharing no template content — separate modules per the "warrants its own module" rule. Terraform+OpenTofu share HCL → one module with a flavor choice. CDK is imperative code; CFN is declarative YAML.
-- **Alternatives**: one clerk-mod-iac branching all paradigms (conditional explosion); include Pulumi (diverges on every axis — future module).
+- **Alternatives**: one bailiff-mod-iac branching all paradigms (conditional explosion); include Pulumi (diverges on every axis — future module).
 
 ### R8 — Thin base
 - **Decision**: base always-on = `docs/` (+ lean `docs_subdirs`: architecture/decisions/runbooks) + `scripts/` + `tests/` + minimal `.github/` (gated on `github_host`). Move out `.agents/`+`.codex/`→agentic, `infrastructure/`→IaC, `.github/workflows/`→ci, `specs/`→speckit. Drop archive/assets. Add extra_dirs/branch_strategy/copyright_name/run_git_init.
@@ -53,7 +53,7 @@ There are **no open NEEDS CLARIFICATION** items.
 - **Alternatives**: don't formalize (leaves constitution/behavior gap); keep byte-identical renders (reverses R2).
 
 ## Cross-cutting facts consumed unchanged (no research needed)
-- spec-003 `init_many` threads all prior-layer answers via its accumulator (`data = {**accumulated, **layer_answers}` then `_merge_layer_answers`) — verified at `src/clerk/runner.py:307–352`; cross-module answer forwarding needs no new engine code.
+- spec-003 `init_many` threads all prior-layer answers via its accumulator (`data = {**accumulated, **layer_answers}` then `_merge_layer_answers`) — verified at `src/bailiff/runner.py:307–352`; cross-module answer forwarding needs no new engine code.
 - CI/stack-adr sort before language layers (alphabetical basename tie-break, ordering.md) → they cannot read run-order answers → must consume agent-frozen `--data` facts (FR-010).
 - 008b pipeline (`just new-module`, `check_modules.py`, cog.toml, catalog-sources.toml) is the authoring/lint/fan-out surface; each new module's mirror is pre-created by hand (App token can't create org repos).
 

@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
-from clerk.errors import UntrustedSourceError
+from bailiff import runner, trust
+from bailiff.errors import UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -60,12 +60,12 @@ def test_core_never_writes_trust(base_template: TemplateRepo, tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
-# T016: scripts/clerk.py trust / init invocation
+# T016: scripts/bailiff.py trust / init invocation
 # ---------------------------------------------------------------------------
 
 
-def test_clerk_script_untrusted_exits_3(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """scripts/clerk.py init exits 3 for an untrusted action-taking source."""
+def test_bailiff_script_untrusted_exits_3(base_template: TemplateRepo, tmp_path: Path) -> None:
+    """scripts/bailiff.py init exits 3 for an untrusted action-taking source."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -89,7 +89,7 @@ def test_clerk_script_untrusted_exits_3(base_template: TemplateRepo, tmp_path: P
     assert not (dest / "out.txt").exists() if dest.exists() else True
 
 
-def test_clerk_script_trust_add_from_source_then_init_succeeds(
+def test_bailiff_script_trust_add_from_source_then_init_succeeds(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
     """trust add --from-source records consent; subsequent init exits 0 (FR-019/FR-020)."""
@@ -127,12 +127,12 @@ def test_clerk_script_trust_add_from_source_then_init_succeeds(
     assert (dest / "out.txt").exists()
 
 
-def test_clerk_script_trust_add_explicit_prefix(tmp_path: Path) -> None:
+def test_bailiff_script_trust_add_explicit_prefix(tmp_path: Path) -> None:
     """trust add <prefix> records the given prefix; trust list shows it."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
-    prefix = "https://github.com/copier-clerk/"
+    prefix = "https://github.com/bailiff-io/"
 
     r_add = subprocess.run(
         [sys.executable, str(_SCRIPT), "trust", "add", prefix],
@@ -153,12 +153,12 @@ def test_clerk_script_trust_add_explicit_prefix(tmp_path: Path) -> None:
     assert prefix in r_list.stdout
 
 
-def test_clerk_script_trust_add_idempotent(tmp_path: Path) -> None:
+def test_bailiff_script_trust_add_idempotent(tmp_path: Path) -> None:
     """trust add a second time prints 'already trusted' and exits 0."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
-    prefix = "https://github.com/copier-clerk/"
+    prefix = "https://github.com/bailiff-io/"
 
     subprocess.run(
         [sys.executable, str(_SCRIPT), "trust", "add", prefix],

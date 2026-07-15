@@ -5,7 +5,7 @@ Marked ``network`` and deselected by default (``pyproject.toml`` addopts =
 
     uv run pytest -m network
 
-Points a ``--catalog`` file at ``copier-clerk/clerk-template-example`` and
+Points a ``--catalog`` file at ``bailiff-io/bailiff-template-example`` and
 asserts ``catalog list`` shows it as usable at ``v1.0.0``.
 """
 
@@ -22,11 +22,11 @@ import tomli_w
 
 pytestmark = pytest.mark.network
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 # The hand-published exemplar; matches what the other smoke test uses.
-DEFAULT_TEMPLATE_URL = "https://github.com/copier-clerk/clerk-template-example.git"
-TEMPLATE_URL = os.environ.get("CLERK_SMOKE_TEMPLATE_URL", DEFAULT_TEMPLATE_URL)
+DEFAULT_TEMPLATE_URL = "https://github.com/bailiff-io/bailiff-template-example.git"
+TEMPLATE_URL = os.environ.get("BAILIFF_SMOKE_TEMPLATE_URL", DEFAULT_TEMPLATE_URL)
 
 
 def _remote_reachable(url: str) -> bool:
@@ -47,19 +47,19 @@ def _require_remote() -> str:
     if not _remote_reachable(TEMPLATE_URL):
         pytest.skip(
             f"live template {TEMPLATE_URL!r} not reachable "
-            "(unpublished, offline, or private); set CLERK_SMOKE_TEMPLATE_URL to override"
+            "(unpublished, offline, or private); set BAILIFF_SMOKE_TEMPLATE_URL to override"
         )
     return TEMPLATE_URL
 
 
 def test_catalog_list_shows_remote_template_usable(_require_remote: str, tmp_path: Path) -> None:
-    """catalog list --json reports clerk-template-example as usable at v1.0.0."""
+    """catalog list --json reports bailiff-template-example as usable at v1.0.0."""
     url = _require_remote
     cat_path = tmp_path / "catalog.toml"
     data = {"catalog": [{"name": "smoke", "sources": [url]}]}
     cat_path.write_bytes(tomli_w.dumps(data).encode())
 
-    env = {**os.environ, "CLERK_CATALOG_PATH": str(cat_path)}
+    env = {**os.environ, "BAILIFF_CATALOG_PATH": str(cat_path)}
     r = subprocess.run(
         [
             sys.executable,
@@ -84,6 +84,6 @@ def test_catalog_list_shows_remote_template_usable(_require_remote: str, tmp_pat
     templates = cl["templates"]
     assert len(templates) == 1
     tmpl = templates[0]
-    assert tmpl["full_id"] == "smoke/clerk-template-example"
+    assert tmpl["full_id"] == "smoke/bailiff-template-example"
     assert tmpl["reproducible"] is True
     assert "v1.0.0" in tmpl["versions"]

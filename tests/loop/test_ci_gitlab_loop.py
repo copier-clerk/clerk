@@ -1,4 +1,4 @@
-"""spec 011 T017 (loop test): clerk-mod-ci-gitlab renders all 5 models.
+"""spec 011 T017 (loop test): bailiff-mod-ci-gitlab renders all 5 models.
 
 Assertions per model:
 - valid YAML structure (not just rendered text);
@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
 
 # ---------------------------------------------------------------------------
@@ -34,10 +34,10 @@ _NO_TASKS_STUB = ""  # no _tasks block to replace
 
 
 @pytest.fixture
-def clerk_mod_ci_gitlab(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-ci-gitlab template as a hermetic repo (no tasks to stub)."""
+def bailiff_mod_ci_gitlab(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-ci-gitlab template as a hermetic repo (no tasks to stub)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-ci-gitlab", tmp_path / "clerk-mod-ci-gitlab", _NO_TASKS_STUB
+        "bailiff-mod-ci-gitlab", tmp_path / "bailiff-mod-ci-gitlab", _NO_TASKS_STUB
     )
 
 
@@ -98,10 +98,10 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_minimal_renders_single_job(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_minimal_renders_single_job(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
     """minimal: one 'ci' job, no gate, multi-command script."""
     answers = {**_BASE_ANSWERS, "ci_model": "minimal"}
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # canonical workflow:rules guard present
     assert "workflow" in parsed, "workflow:rules guard missing"
@@ -125,13 +125,13 @@ def test_minimal_renders_single_job(clerk_mod_ci_gitlab: TemplateRepo, tmp_path:
 
 
 def test_minimal_reproduce_byte_identical(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """minimal MANAGED: reproduce byte-identical (pure render)."""
     dest = tmp_path / "proj"
     answers = {**_BASE_ANSWERS, "ci_model": "minimal"}
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     before = _digest(dest / ".gitlab-ci.yml")
@@ -144,10 +144,12 @@ def test_minimal_reproduce_byte_identical(
 # ---------------------------------------------------------------------------
 
 
-def test_standard_parallel_jobs_no_gate(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_standard_parallel_jobs_no_gate(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
     """standard: parallel per-language jobs, no explicit gate job, no deploy job."""
     answers = {**_BASE_ANSWERS, "ci_model": "standard"}
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # canonical workflow:rules guard present
     assert "workflow" in parsed
@@ -169,13 +171,13 @@ def test_standard_parallel_jobs_no_gate(clerk_mod_ci_gitlab: TemplateRepo, tmp_p
 
 
 def test_standard_reproduce_byte_identical(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """standard MANAGED: reproduce byte-identical."""
     dest = tmp_path / "proj"
     answers = {**_BASE_ANSWERS, "ci_model": "standard"}
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     before = _digest(dest / ".gitlab-ci.yml")
@@ -189,11 +191,11 @@ def test_standard_reproduce_byte_identical(
 
 
 def test_optimized_rules_changes_and_cache(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """optimized: rules:changes on branch arm; compare_to present on branch arm only."""
     answers = {**_BASE_ANSWERS, "ci_model": "optimized", "ci_cache": True}
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     assert "workflow" in parsed
 
@@ -245,7 +247,7 @@ def test_optimized_rules_changes_and_cache(
 
 
 def test_optimized_interruptible_and_auto_cancel(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """optimized: interruptible + workflow:auto_cancel coupled as one unit (grill fix)."""
     answers = {
@@ -253,7 +255,7 @@ def test_optimized_interruptible_and_auto_cancel(
         "ci_model": "optimized",
         "ci_concurrency_cancel": True,
     }
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # Both coupled: workflow.auto_cancel.on_new_commit: interruptible
     wf = parsed.get("workflow", {})
@@ -268,7 +270,7 @@ def test_optimized_interruptible_and_auto_cancel(
 
 
 def test_optimized_no_interruptible_when_disabled(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """When ci_concurrency_cancel=false, interruptible and auto_cancel are absent."""
     answers = {
@@ -276,7 +278,7 @@ def test_optimized_no_interruptible_when_disabled(
         "ci_model": "optimized",
         "ci_concurrency_cancel": False,
     }
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     wf = parsed.get("workflow", {})
     assert "auto_cancel" not in wf, "auto_cancel must be absent when concurrency_cancel=false"
@@ -288,13 +290,13 @@ def test_optimized_no_interruptible_when_disabled(
 
 
 def test_optimized_reproduce_byte_identical(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """optimized MANAGED: reproduce byte-identical."""
     dest = tmp_path / "proj"
     answers = {**_BASE_ANSWERS, "ci_model": "optimized"}
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     before = _digest(dest / ".gitlab-ci.yml")
@@ -307,7 +309,9 @@ def test_optimized_reproduce_byte_identical(
 # ---------------------------------------------------------------------------
 
 
-def test_monorepo_affected_parent_child(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_monorepo_affected_parent_child(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
     """monorepo-affected: renders parent trigger jobs with strategy:depend."""
     answers = {
         **_BASE_ANSWERS,
@@ -315,7 +319,7 @@ def test_monorepo_affected_parent_child(clerk_mod_ci_gitlab: TemplateRepo, tmp_p
         "monorepo_tool": "turborepo",
         "monorepo_packages": ["packages/api", "packages/web"],
     }
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     assert "workflow" in parsed
 
@@ -330,7 +334,7 @@ def test_monorepo_affected_parent_child(clerk_mod_ci_gitlab: TemplateRepo, tmp_p
 
 
 def test_monorepo_affected_reproduce_byte_identical(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """monorepo-affected MANAGED: reproduce byte-identical."""
     dest = tmp_path / "proj"
@@ -340,8 +344,8 @@ def test_monorepo_affected_reproduce_byte_identical(
         "monorepo_tool": "nx",
         "monorepo_packages": ["apps/backend", "apps/frontend"],
     }
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     before = _digest(dest / ".gitlab-ci.yml")
@@ -354,14 +358,14 @@ def test_monorepo_affected_reproduce_byte_identical(
 # ---------------------------------------------------------------------------
 
 
-def test_merge_queue_premium_tier(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_merge_queue_premium_tier(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
     """merge-queue + premium_ultimate: merge train rules rendered."""
     answers = {
         **_BASE_ANSWERS,
         "ci_model": "merge-queue",
         "gitlab_tier": "premium_ultimate",
     }
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # merge train rule present
     py_rules = parsed.get("python", {}).get("rules", [])
@@ -376,7 +380,7 @@ def test_merge_queue_premium_tier(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: P
 
 
 def test_merge_queue_free_tier_fallback_and_warning(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """merge-queue + free tier: fallback job + header warning rendered (NOT hard error)."""
     answers = {
@@ -385,7 +389,7 @@ def test_merge_queue_free_tier_fallback_and_warning(
         "gitlab_tier": "free",
     }
     # Must NOT raise — free tier is a fallback, not a hard error
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # header warning in rendered text
     text = (tmp_path / "proj" / ".gitlab-ci.yml").read_text()
@@ -404,13 +408,13 @@ def test_merge_queue_free_tier_fallback_and_warning(
 
 
 def test_merge_queue_reproduce_byte_identical(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """merge-queue MANAGED: reproduce byte-identical."""
     dest = tmp_path / "proj"
     answers = {**_BASE_ANSWERS, "ci_model": "merge-queue", "gitlab_tier": "free"}
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     before = _digest(dest / ".gitlab-ci.yml")
@@ -424,7 +428,7 @@ def test_merge_queue_reproduce_byte_identical(
 
 
 def test_guard_empty_languages_no_monorepo(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """R4: empty ci_languages + monorepo_tool=none → warning no-op job, not silent."""
     answers = {
@@ -435,7 +439,7 @@ def test_guard_empty_languages_no_monorepo(
         "ci_lang_facts": {},
         "monorepo_tool": "none",
     }
-    parsed = _init(clerk_mod_ci_gitlab, tmp_path / "proj", answers)
+    parsed = _init(bailiff_mod_ci_gitlab, tmp_path / "proj", answers)
 
     # Must not be empty — a warning/no-op job must be present
     _excluded = {"workflow", "stages", "default"}
@@ -454,14 +458,14 @@ def test_guard_empty_languages_no_monorepo(
 # ---------------------------------------------------------------------------
 
 
-def test_no_secret_questions(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
+def test_no_secret_questions(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
     """Rendered copier.yml must not contain secret: questions."""
     import re
 
     copier_yml = (
         Path(__file__).resolve().parent.parent.parent
         / "templates"
-        / "clerk-mod-ci-gitlab"
+        / "bailiff-mod-ci-gitlab"
         / "copier.yml"
     )
     text = copier_yml.read_text()
@@ -476,13 +480,13 @@ def test_no_secret_questions(clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path) 
 
 
 def test_answers_file_written_no_hidden_edges(
-    clerk_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
     """Answers file is written; hidden edges (run_after, depends_on) are not persisted."""
     answers = {**_BASE_ANSWERS, "ci_model": "standard"}
     dest = tmp_path / "proj"
-    trust.add_trust(clerk_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=clerk_mod_ci_gitlab.url, dest=str(dest), answers=answers)
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-13")
 
     af_path = dest / ".copier-answers.yml"

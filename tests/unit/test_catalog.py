@@ -1,4 +1,4 @@
-"""Unit tests for clerk.catalog — CRUD, listing, and validation gate (T007, T010, T012)."""
+"""Unit tests for bailiff.catalog — CRUD, listing, and validation gate (T007, T010, T012)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 
-from clerk.catalog import (
+from bailiff.catalog import (
     CatalogModel,
     CatalogPointer,
     CatalogSource,
@@ -21,7 +21,7 @@ from clerk.catalog import (
     save,
     validate_selection,
 )
-from clerk.errors import CatalogError
+from bailiff.errors import CatalogError
 from tests.conftest import _SIMPLE_COPIER_YML, MultiSourceCatalog, build_template_repo
 
 # ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ def test_pointer_name_explicit_wins() -> None:
 
 def test_pointer_name_sanitized_basename() -> None:
     assert pointer_name(None, "user/My Template Repo") == "my-template-repo"
-    assert pointer_name(None, "user/clerk-mod-base") == "clerk-mod-base"
+    assert pointer_name(None, "user/bailiff-mod-base") == "bailiff-mod-base"
 
 
 def test_init_catalog_creates_file(tmp_path: Path) -> None:

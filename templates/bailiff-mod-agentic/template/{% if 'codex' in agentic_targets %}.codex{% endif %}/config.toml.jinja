@@ -1,0 +1,29 @@
+{#-
+  .codex/config.toml — MANAGED (when 'codex' in agentic_targets).
+
+  Re-rendered byte-identically at reproduce.
+  MCP servers section rendered when mcp_config=true.
+  Plugins section rendered when native_marketplace=true.
+-#}
+# Codex project configuration — managed by bailiff-mod-agentic
+# Re-generated from .copier-answers.yml; do not edit MCP/plugin sections by hand.
+{% if mcp_config and mcp_servers | length > 0 %}
+{% for server in mcp_servers %}
+[mcp_servers.{{ server.name }}]
+command = "{{ server.command }}"
+{% if server.args is defined and server.args -%}
+args = {{ server.args | tojson }}
+{% endif -%}
+{% if server.env is defined and server.env -%}
+{% for key, val in server.env.items() -%}
+env.{{ key }} = "{{ val }}"
+{% endfor -%}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if native_marketplace and agentic_plugins | length > 0 %}
+[plugins]
+{% for plugin in agentic_plugins -%}
+"{{ plugin.name }}" = { owner_repo = "{{ plugin.owner_repo }}" }
+{% endfor %}
+{% endif %}

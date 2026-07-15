@@ -1,4 +1,4 @@
-"""spec 011 T014: clerk-mod-agentic loop tests.
+"""spec 011 T014: bailiff-mod-agentic loop tests.
 
 Covers:
 - Each target subset renders disjoint config files (no collision).
@@ -11,7 +11,7 @@ Covers:
 - seed-once: .kiro/steering/project.md NOT overwritten on reproduce.
 - AGENTIC.md always present (managed).
 
-All tasks are stubbed offline via the clerk_mod_agentic fixture.
+All tasks are stubbed offline via the bailiff_mod_agentic fixture.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.errors import InvalidRunSpecError
+from bailiff import runner, trust
+from bailiff.errors import InvalidRunSpecError
 from tests.conftest import TemplateRepo
 
 
@@ -51,10 +51,10 @@ def _digest(path: Path) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_empty_targets_clean_noop(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_empty_targets_clean_noop(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Empty agentic_targets = only .copier-answers.yml written (no refusal, no error)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": []})
+    _init(bailiff_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": []})
 
     assert dest.is_dir(), "dest not created"
     # Answers file always written.
@@ -75,12 +75,12 @@ def test_empty_targets_clean_noop(clerk_mod_agentic: TemplateRepo, tmp_path: Pat
 # --------------------------------------------------------------------------- #
 
 
-def test_r2_apm_empty_packages_refused(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_r2_apm_empty_packages_refused(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """R2: install_via_apm=true + apm_packages==[] is refused; no files written."""
     dest = tmp_path / "proj"
-    trust.add_trust(clerk_mod_agentic.url)
+    trust.add_trust(bailiff_mod_agentic.url)
     spec = runner.RunSpec(
-        source=clerk_mod_agentic.url,
+        source=bailiff_mod_agentic.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -98,11 +98,11 @@ def test_r2_apm_empty_packages_refused(clerk_mod_agentic: TemplateRepo, tmp_path
     )
 
 
-def test_r2_empty_targets_no_apm_is_ok(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_r2_empty_targets_no_apm_is_ok(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Empty targets + install_via_apm=false (default) is fine; NOT an R2 violation."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {"project_name": "myapp", "agentic_targets": [], "install_via_apm": False},
     )
@@ -114,10 +114,10 @@ def test_r2_empty_targets_no_apm_is_ok(clerk_mod_agentic: TemplateRepo, tmp_path
 # --------------------------------------------------------------------------- #
 
 
-def test_claude_target_renders_settings(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_claude_target_renders_settings(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Claude target renders .claude/settings.json (managed)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["claude"]})
+    _init(bailiff_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["claude"]})
 
     settings_path = dest / ".claude" / "settings.json"
     assert settings_path.is_file(), ".claude/settings.json not rendered for claude target"
@@ -132,7 +132,7 @@ def test_claude_target_renders_settings(clerk_mod_agentic: TemplateRepo, tmp_pat
 
 
 def test_claude_mcp_config_renders_mcp_json(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """Claude + mcp_config renders .mcp.json with ${VAR} refs in env (no secret question)."""
     dest = tmp_path / "proj"
@@ -145,7 +145,7 @@ def test_claude_mcp_config_renders_mcp_json(
         }
     ]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -165,13 +165,13 @@ def test_claude_mcp_config_renders_mcp_json(
 
 
 def test_claude_marketplace_renders_settings_with_plugins(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """Claude + native_marketplace renders settings.json with extraKnownMarketplaces."""
     dest = tmp_path / "proj"
     plugins = [{"name": "my-plugin", "owner_repo": "myorg/my-plugin"}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -189,7 +189,7 @@ def test_claude_marketplace_renders_settings_with_plugins(
     assert "enabledPlugins" in text, "enabledPlugins missing from settings"
 
     # Stub plugin install task ran.
-    assert (dest / ".clerk-claude-plugin-install").is_file(), (
+    assert (dest / ".bailiff-claude-plugin-install").is_file(), (
         "claude plugin install stub did not run"
     )
 
@@ -199,10 +199,10 @@ def test_claude_marketplace_renders_settings_with_plugins(
 # --------------------------------------------------------------------------- #
 
 
-def test_codex_target_renders_config(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_codex_target_renders_config(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Codex target renders .codex/config.toml (managed)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["codex"]})
+    _init(bailiff_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["codex"]})
 
     config_path = dest / ".codex" / "config.toml"
     assert config_path.is_file(), ".codex/config.toml not rendered for codex target"
@@ -213,13 +213,13 @@ def test_codex_target_renders_config(clerk_mod_agentic: TemplateRepo, tmp_path: 
 
 
 def test_codex_marketplace_renders_manifest(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """Codex + native_marketplace renders .agents/plugins/marketplace.json."""
     dest = tmp_path / "proj"
     plugins = [{"name": "my-plugin", "owner_repo": "myorg/my-plugin"}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -243,12 +243,12 @@ def test_codex_marketplace_renders_manifest(
 # --------------------------------------------------------------------------- #
 
 
-def test_opencode_target_renders_config(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_opencode_target_renders_config(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """OpenCode target renders opencode.json (managed)."""
     dest = tmp_path / "proj"
     plugins = [{"name": "my-plugin", "owner_repo": "myorg/my-plugin@1.0.0"}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -273,11 +273,11 @@ def test_opencode_target_renders_config(clerk_mod_agentic: TemplateRepo, tmp_pat
 
 
 def test_kiro_target_renders_steering_seed_once(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """Kiro target renders .kiro/steering/project.md as seed-once (not overwritten)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["kiro"]})
+    _init(bailiff_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["kiro"]})
 
     steering_path = dest / ".kiro" / "steering" / "project.md"
     assert steering_path.is_file(), ".kiro/steering/project.md not rendered for kiro target"
@@ -293,12 +293,14 @@ def test_kiro_target_renders_steering_seed_once(
     )
 
 
-def test_kiro_mcp_config_renders_mcp_json(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_kiro_mcp_config_renders_mcp_json(
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
+) -> None:
     """Kiro + mcp_config renders .kiro/settings/mcp.json (managed)."""
     dest = tmp_path / "proj"
     servers = [{"name": "kiro-server", "command": "kiro-mcp", "args": []}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -314,13 +316,13 @@ def test_kiro_mcp_config_renders_mcp_json(clerk_mod_agentic: TemplateRepo, tmp_p
 
 
 def test_kiro_cli_agents_renders_agents_json(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """Kiro + kiro_cli_agents=true renders .kiro/agents/agents.json (managed)."""
     dest = tmp_path / "proj"
     plugins = [{"name": "my-agent", "owner_repo": "myorg/my-agent"}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -335,12 +337,12 @@ def test_kiro_cli_agents_renders_agents_json(
     assert "my-agent" in agents_path.read_text()
 
 
-def test_kiro_apm_path_stubbed(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_kiro_apm_path_stubbed(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Kiro + install_via_apm + non-empty apm_packages writes apm.lock.yaml (task-output)."""
     dest = tmp_path / "proj"
     pkgs = ["srobroek/agentic-packages/packages/speckit#>=5.0.0 <6.0.0"]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -350,7 +352,7 @@ def test_kiro_apm_path_stubbed(clerk_mod_agentic: TemplateRepo, tmp_path: Path) 
         },
     )
 
-    assert (dest / ".clerk-agentic-preflight").is_file(), "agentic preflight stub not run"
+    assert (dest / ".bailiff-agentic-preflight").is_file(), "agentic preflight stub not run"
     assert (dest / "apm.lock.yaml").is_file(), "apm install stub did not write lock"
 
 
@@ -359,12 +361,12 @@ def test_kiro_apm_path_stubbed(clerk_mod_agentic: TemplateRepo, tmp_path: Path) 
 # --------------------------------------------------------------------------- #
 
 
-def test_multi_target_all_disjoint(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_multi_target_all_disjoint(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """All four targets selected → each config on disjoint paths, no collision."""
     dest = tmp_path / "proj"
     servers = [{"name": "srv", "command": "npx", "args": ["-y", "srv-mcp"]}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -386,11 +388,11 @@ def test_multi_target_all_disjoint(clerk_mod_agentic: TemplateRepo, tmp_path: Pa
     assert set(af["agentic_targets"]) == {"claude", "codex", "opencode", "kiro"}
 
 
-def test_claude_codex_only_disjoint(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_claude_codex_only_disjoint(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """Claude + Codex only — no opencode.json or .kiro/ created."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {"project_name": "myapp", "agentic_targets": ["claude", "codex"]},
     )
@@ -407,14 +409,14 @@ def test_claude_codex_only_disjoint(clerk_mod_agentic: TemplateRepo, tmp_path: P
 
 
 def test_managed_files_byte_identical_on_reproduce(
-    clerk_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
     """All managed files are byte-identical after reproduce (R5 / Constitution III)."""
     dest = tmp_path / "proj"
     servers = [{"name": "srv", "command": "npx", "args": ["-y", "srv-mcp"]}]
     plugins = [{"name": "my-plugin", "owner_repo": "myorg/my-plugin"}]
     _init(
-        clerk_mod_agentic,
+        bailiff_mod_agentic,
         dest,
         {
             "project_name": "myapp",
@@ -452,12 +454,12 @@ def test_managed_files_byte_identical_on_reproduce(
 # --------------------------------------------------------------------------- #
 
 
-def test_agentic_md_present_all_targets(clerk_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
+def test_agentic_md_present_all_targets(bailiff_mod_agentic: TemplateRepo, tmp_path: Path) -> None:
     """AGENTIC.md is always written regardless of target selection."""
     for targets in [[], ["claude"], ["codex"], ["kiro"], ["claude", "codex", "kiro"]]:
         dest = tmp_path / f"proj-{'_'.join(targets) or 'empty'}"
         _init(
-            clerk_mod_agentic,
+            bailiff_mod_agentic,
             dest,
             {"project_name": "myapp", "agentic_targets": targets},
         )

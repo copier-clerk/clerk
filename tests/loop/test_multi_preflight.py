@@ -16,11 +16,11 @@ from textwrap import dedent
 
 import pytest
 
-from clerk import runner, trust
-from clerk.errors import InvalidRunSpecError
+from bailiff import runner, trust
+from bailiff.errors import InvalidRunSpecError
 from tests.conftest import build_template_repo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +29,7 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _make_record(full_id: str, repo):
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     return TemplateRecord(
         full_id=full_id,
@@ -158,7 +158,7 @@ def test_preflight_partial_answers_still_collects_all(tmp_path: Path) -> None:
 
 
 def test_preflight_via_cli_exits_1_with_all_gaps(tmp_path: Path) -> None:
-    """scripts/clerk.py init --check exits 1 and reports gaps from both layers."""
+    """scripts/bailiff.py init --check exits 1 and reports gaps from both layers."""
     tpl_p, tpl_q = _build_two_required_templates(tmp_path)
     trust.add_trust(tpl_p.url)
     trust.add_trust(tpl_q.url)

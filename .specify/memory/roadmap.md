@@ -2,7 +2,7 @@
 SYNC IMPACT REPORT
 ==================
 Version change: 1.0.0 → 2.0.0
-Bump rationale: MAJOR — direction change. A YAGNI review reframed clerk from a
+Bump rationale: MAJOR — direction change. A YAGNI review reframed bailiff from a
 published Python tool into a skills bundle + copier template family + minimal
 deterministic glue (constitution v2.0.0). Vision, decisions C-01/C-04/C-08, and
 every spec entry are restated so coordination code appears only where copier
@@ -11,7 +11,7 @@ content, per-project reproduce recipe, or CI bash.
 
 Changes this revision:
   - Vision restated (skills + templates + glue; no uvx/PyPI tool)
-  - C-01 clerk-nature rewritten; C-04 adapter → conditional; C-08 pydantic seam →
+  - C-01 bailiff-nature rewritten; C-04 adapter → conditional; C-08 pydantic seam →
     documented dry-run-validated handoff; C-11 added (glue-only-when-copier-cannot)
   - Every spec 001–009 re-scoped to the lean model; deferred entry unchanged
 Specs affected: 001–009 (all re-scoped), DEFERRED-rewrite (unchanged)
@@ -20,9 +20,9 @@ Notes: supersedes the v1.0.0 tool-centric roadmap. ADRs referencing a uvx tool /
 pydantic seam are governed by constitution v2.0.0 until reconciled.
 -->
 
-# clerk — Spec Roadmap
+# bailiff — Spec Roadmap
 
-Living, non-binding map of the specs planned for clerk. It captures the
+Living, non-binding map of the specs planned for bailiff. It captures the
 spec-specific decisions, technology choices, outcomes, and constraints surfaced
 during the constitution + grilling + YAGNI-review phases so they are not lost
 before the spec that needs them is written. Specs are scoped when they are
@@ -37,10 +37,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ## Vision & End States
 
-- clerk is an **agentic conductor for copier**, delivered as **an agent skill + a
-  family of copier templates (`clerk-mod-*`) + minimal deterministic glue** — NOT
+- bailiff is an **agentic conductor for copier**, delivered as **an agent skill + a
+  family of copier templates (`bailiff-mod-*`) + minimal deterministic glue** — NOT
   a published `uvx`/PyPI application. copier already owns the single-template
-  lifecycle; clerk adds the conducting skill, the templates, and only the sliver of
+  lifecycle; bailiff adds the conducting skill, the templates, and only the sliver of
   coordination copier lacks.
 - A **two-phase model**: the skill authors the *inputs*; a deterministic phase (a
   copier invocation, optionally wrapped by a small helper) executes. The agent is
@@ -51,17 +51,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   multi-template projects the order is **recomputed at reproduce time** from the
   committed answers + pinned template fetches (stable tie-break), never frozen into
   a committed recipe (see [[spec 010]] + Constitution III).
-- Users bring **their own template catalog**; clerk depends on no first-party hub.
-- clerk's distinctive value is the **agentic-ecosystem wiring** (APM / MCP /
+- Users bring **their own template catalog**; bailiff depends on no first-party hub.
+- bailiff's distinctive value is the **agentic-ecosystem wiring** (APM / MCP /
   SpecKit / ADR), delivered as template content, not tool code.
 
 ## Constraints & Decisions
 
-- **C-01 — clerk = skills + templates + minimal glue (not a tool):** the durable
-  artifacts are the `SKILL.md` conductor, the `clerk-mod-*` templates, and small
-  deterministic glue bundled as a single script `scripts/clerk.py` (ordering, edge
-  parsing, discovery, defaults, dry-run validation) run `./scripts/clerk.py` / `uv
-  run scripts/clerk.py`. No published application, no `[project.scripts] clerk`
+- **C-01 — bailiff = skills + templates + minimal glue (not a tool):** the durable
+  artifacts are the `SKILL.md` conductor, the `bailiff-mod-*` templates, and small
+  deterministic glue bundled as a single script `scripts/bailiff.py` (ordering, edge
+  parsing, discovery, defaults, dry-run validation) run `./scripts/bailiff.py` / `uv
+  run scripts/bailiff.py`. No published application, no `[project.scripts] bailiff`
   console entry. _See Constitution I; supersedes the earlier tool framing in
   ADR-0001 and the "reproduce-recipe generation" glue item (order is recomputed —
   spec 010)._
@@ -96,7 +96,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   non-agent program consumes the handoff. _See Constitution VIII._
 - **C-09 — Authoring monorepo → per-template fan-out + lifecycle:** templates
   authored in one monorepo; cocogitto tags `<name>-vX.Y.Z`; a hand-rolled
-  snapshot-mirror CI step fans out to read-only `copier-clerk/clerk-mod-*` repos
+  snapshot-mirror CI step fans out to read-only `bailiff-io/bailiff-mod-*` repos
   with clean `vX.Y.Z` tags; consumers source the split repos. The authoring
   lifecycle (scaffold via copier meta-template, `check-modules` contract lint,
   generated `catalog.json`, org GitHub App minting short-lived tokens with
@@ -119,12 +119,12 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Description:** Prove the whole conduct→copier→reproduce loop for ONE trusted
   source with ONE template, as **skill + example template + minimal glue** (no
   package).
-- **Outcome:** With the skill, a developer inspects `clerk-template-example`,
+- **Outcome:** With the skill, a developer inspects `bailiff-template-example`,
   supplies answers, generates a rendered + git-initialized project recording its
   template and version, and reproduces it faithfully with no agent — driven by
   copier's CLI plus small helper scripts.
 - **Scope (in):**
-  - The `clerk-template-example` example template (renders identity → README/.gitignore/
+  - The `bailiff-template-example` example template (renders identity → README/.gitignore/
     dirs; hermetic `git init` + LICENSE-via-`gh` tasks, no commit; ships the
     answers-file `.jinja`; tagged `v1.0.0`). _(Impl note: LICENSE is generated by
     a `gh api /licenses` task, not a render file — see [[0006]] rationale; it is
@@ -139,12 +139,12 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
     validation helper only if a bare command cannot (e.g. the answers-file check,
     tag filtering, a `--pretend` dry run). Static `copier.yml` parsing only — no
     Jinja env, no `Template`/`Worker` (so no adapter this slice).
-  - Trust onboarding: surface a clear untrusted-source refusal (clerk exit 3,
-    naming the exact `clerk trust add <prefix>` remediation); record trust only
+  - Trust onboarding: surface a clear untrusted-source refusal (bailiff exit 3,
+    naming the exact `bailiff trust add <prefix>` remediation); record trust only
     via an explicit consent step writing the expanded-`https://` prefix to
     `settings.yml`.
   - Fix the README + `pyproject.toml` claims (reproduce bare-recopy; "without trust
-    / action in clerk"; "never runs `_tasks`") and drop the uvx/PyPI framing.
+    / action in bailiff"; "never runs `_tasks`") and drop the uvx/PyPI framing.
 - **Scope (out):** meta-templates/catalog (002); multi-template/DAG (003); defaults
   (004); secrets (005); upgrade/migrations (006); agentic module (007);
   release/fan-out (008); project-setup port (009). No Python package, no pydantic
@@ -152,32 +152,32 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   insufficient (it does not, for this template).
 - **Depends on:** none.
 - **Governed by:** ADR-0001/0002/0004; Constitution I–VIII; C-01..C-08, C-10, C-11.
-- **Notes:** the slice ships `clerk-template-example` — a disposable *example*
+- **Notes:** the slice ships `bailiff-template-example` — a disposable *example*
   template (demonstrates the contract + loop), NOT a shippable module. The real
-  `clerk-mod-base` module (collapsing 5 project-setup base modules) is a spec 009
-  concern; keeping the example out of the `clerk-mod-*` namespace avoids confusing
+  `bailiff-mod-base` module (collapsing 5 project-setup base modules) is a spec 009
+  concern; keeping the example out of the `bailiff-mod-*` namespace avoids confusing
   the two. Example hand-published now; the automated authoring/fan-out is 008. One
   marked live smoke test; the rest hermetic/offline via local git fixtures.
-- **Completed 2026-07-10** (branch `001-clerk-vertical-slice`): all 35 tasks done;
-  `discover`/`init`/`reproduce`/`trust` verbs + `skills/clerk/SKILL.md` +
-  `examples/clerk-template-example/`. 35 hermetic tests + 1 network smoke (skips
-  until `clerk-template-example` is published); ruff/mypy-strict clean.
-- **Verified 2026-07-10:** `clerk-template-example` published to its own repo
-  (`copier-clerk/clerk-template-example`, tagged `v1.0.0`); the live network smoke
+- **Completed 2026-07-10** (branch `001-bailiff-vertical-slice`): all 35 tasks done;
+  `discover`/`init`/`reproduce`/`trust` verbs + `skills/bailiff/SKILL.md` +
+  `examples/bailiff-template-example/`. 35 hermetic tests + 1 network smoke (skips
+  until `bailiff-template-example` is published); ruff/mypy-strict clean.
+- **Verified 2026-07-10:** `bailiff-template-example` published to its own repo
+  (`bailiff-io/bailiff-template-example`, tagged `v1.0.0`); the live network smoke
   test passes against it — the full discover→init→reproduce loop confirmed against
   a real remote, not just local fixtures. (Automated authoring/fan-out is 008; the
   catalog that points at published templates is 002.)
-- **Follow-up (delivery reshape, next spec):** drop the `clerk` console script +
+- **Follow-up (delivery reshape, next spec):** drop the `bailiff` console script +
   generated justfile; bundle the deterministic wrappers (discover/init/reproduce/
-  update) as skill scripts invoked via a portable skill, keeping clerk a pure
+  update) as skill scripts invoked via a portable skill, keeping bailiff a pure
   copier wrapper (C-01). Multi-template reproduce recomputes the order at runtime
   from the committed answers files (pinned commits → identical edges → stable
-  topo-sort), so nothing clerk-specific need be committed to a project. Deps stay
+  topo-sort), so nothing bailiff-specific need be committed to a project. Deps stay
   in each template's `copier.yml` (versioned); no catalog dep-cache.
 
 ### 002 — Catalog + runtime injection  [status: implemented]
 
-- **Description:** Point clerk at user-owned source repos and present the available
+- **Description:** Point bailiff at user-owned source repos and present the available
   templates.
 - **Outcome:** A user supplies one or more sources; the skill (with a small parsing
   helper) discovers + verifies their templates and injects the catalog at runtime.
@@ -191,22 +191,22 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 001.
 - **Governed by:** ADR-0002/0003; C-04, C-06, C-11.
 - **Completed 2026-07-10** (branch `002-catalog`): catalog = user-owned TOML
-  (`~/.config/clerk/catalog.toml`, overridable via `CLERK_CATALOG_PATH` or
-  `--catalog PATH`) managed by `scripts/clerk.py catalog` verbs (`init`, `add`,
+  (`~/.config/bailiff/catalog.toml`, overridable via `BAILIFF_CATALOG_PATH` or
+  `--catalog PATH`) managed by `scripts/bailiff.py catalog` verbs (`init`, `add`,
   `remove`, `list`, `refresh`, `validate`). Discovery is deterministic and
-  LLM-free (reuses `src/clerk/discovery.py`; no template code executed). Templates
+  LLM-free (reuses `src/bailiff/discovery.py`; no template code executed). Templates
   identified by full-id `<catalog>/<template>`; `catalog validate` is the
   selection gate (exit 0 = valid; non-zero = unknown/ambiguous). ADR-0003's
   two-template meta-flow (repos-collector template + selector template) superseded:
   replaced by the plain catalog file + agent presentation + `validate` gate. The
   `--data catalog=[…]` render-scope fact is retained for spec 007's apm module.
-  No clerk artifact written into generated projects (010 invariant holds). The
+  No bailiff artifact written into generated projects (010 invariant holds). The
   `SKILL.md` documents the catalog-manage → list → pick → validate → init flow.
 
 ### 003 — Multi-template enablement + dependency ordering  [status: implemented]
 
 - **Description:** Select many templates and run them in correct dependency order.
-- **Outcome:** clerk computes a topological order from declared edges and drives one
+- **Outcome:** bailiff computes a topological order from declared edges and drives one
   copier run per template, threading answers; at reproduce the order is **recomputed**
   from the committed answers + pinned fetches (stable tie-break), not frozen into a
   committed recipe (see [[spec 010]]).
@@ -221,11 +221,11 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `--pretend`-dry-run to report all missing answers at once. The orchestrator ships
   bundled with the skill, not as a CLI (spec 010).
 - **Scope (out):** the agentic module's internal multiselect (007); a
-  project-committed clerk recipe/DAG artifact (rejected — spec 010).
+  project-committed bailiff recipe/DAG artifact (rejected — spec 010).
 - **Depends on:** 002; delivery contract from 010.
 - **Governed by:** ADR-0003; C-07, C-10, C-11; spec 010.
 - **Completed 2026-07-10** (branch `003-multi-template`, merged into main):
-  `src/clerk/ordering.py` — DAG build from `depends_on`/`run_after`/`run_before`
+  `src/bailiff/ordering.py` — DAG build from `depends_on`/`run_after`/`run_before`
   edges; topo-sort with stable tie-break by **basename** (basename is the portable
   edge identity inside `copier.yml`; consistent between init and reproduce, which
   reconstructs synthetic `_recorded/<basename>` full-ids); `OrderingError` on cycle,
@@ -239,22 +239,22 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 ### 004 — Global per-template defaults  [status: implemented]
 
 - **Description:** Stop re-entering the same values every run.
-- **Outcome (implemented):** `src/clerk/defaults.py` loads `~/.config/clerk/defaults.yml`
-  (YAML, `yaml.safe_load`; env-overridable via `CLERK_DEFAULTS_PATH`); selects keys
+- **Outcome (implemented):** `src/bailiff/defaults.py` loads `~/.config/bailiff/defaults.yml`
+  (YAML, `yaml.safe_load`; env-overridable via `BAILIFF_DEFAULTS_PATH`); selects keys
   relevant to each template's questions (excluding secrets + `when:false` edges);
   passes as `user_defaults=` (soft default — still overridable). `runner.init` and
   `runner.init_many` each use it: load+fold once per call, select per-layer. Optional
   best-effort fold of copier `settings.yml defaults:` as lower-priority fallback.
-  `DefaultsError(ClerkError)` added to `errors.py`. SKILL.md documents the feature.
+  `DefaultsError(BailiffError)` added to `errors.py`. SKILL.md documents the feature.
 - **Scope (out):** secret values (005); template-specific sections (YAGNI).
 - **Depends on:** 003.
 - **Governed by:** ADR-0005 (file is YAML, aligned — no deviation); C-11.
 
 ### 005 — Secrets policy + guardrail  [status: implemented]
 
-- **Description:** Handle secrets by POLICY, not a store engine. clerk-authored
+- **Description:** Handle secrets by POLICY, not a store engine. bailiff-authored
   templates avoid `secret: true` questions entirely; the phase-1 agent never
-  collects a credential; clerk depends on no secret store.
+  collects a credential; bailiff depends on no secret store.
 - **Outcome (implemented):** (a) policy lint test over in-repo templates
   (SC-001); (b) SKILL guardrail documenting out-of-band supply (SC-002);
   (c) `runner.init` + `runner.init_many` mechanically reject a secret key in any
@@ -284,9 +284,9 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 003.
 - **Governed by:** ADR-0001; Constitution III, VI; C-11.
 - **Completion note (2026-07-12):** `runner.update` + `runner.update_many` added to
-  `src/clerk/runner.py`; `_check_migrations_format` + `has_migrations` in
-  `src/clerk/discovery.py`; `DeprecatedMigrationFormatError`/`MergeConflictError`/
-  `DowngradeError` in `src/clerk/errors.py`; `update` verb in `scripts/clerk.py`;
+  `src/bailiff/runner.py`; `_check_migrations_format` + `has_migrations` in
+  `src/bailiff/discovery.py`; `DeprecatedMigrationFormatError`/`MergeConflictError`/
+  `DowngradeError` in `src/bailiff/errors.py`; `update` verb in `scripts/bailiff.py`;
   DAG re-solved at target versions (Q-006b dangling-edge refuse); conflict scan
   post-`run_update` (exit 4); multi-layer inter-layer git commit between layers.
   Q-006c verified: `skip_tasks` does NOT suppress migrations (copier calls
@@ -297,20 +297,20 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ### 007 — Agentic-ecosystem module (template content)  [status: implemented]
 
-- **Description:** clerk's distinctive value — wire the agentic ecosystem into
+- **Description:** bailiff's distinctive value — wire the agentic ecosystem into
   generated projects. **Clarified 2026-07-13 to an APM-only v1** (see spec 007
   Clarifications Q1–Q5).
-- **Outcome:** a project can opt into a wired APM toolchain via `clerk-mod-apm`.
-- **Scope (in):** `clerk-mod-apm` ONLY for v1 — a copier template whose APM package
+- **Outcome:** a project can opt into a wired APM toolchain via `bailiff-mod-apm`.
+- **Scope (in):** `bailiff-mod-apm` ONLY for v1 — a copier template whose APM package
   set is **runtime-injected** (the agent picks packages from project requirements;
   user may override) and whose rendered `apm.yml` configures ≥1 catalogue source;
   APM install as a trust-gated `_task` with the APM tool version pinned; empty
   package set is refused. Template + task content, not tool code.
 - **Scope (out):** MCP, SpecKit-bridge, steering/ADR — each DEFERRED to its own
-  future `clerk-mod-*` module (no longer part of 007). Base/language templates (009).
+  future `bailiff-mod-*` module (no longer part of 007). Base/language templates (009).
 - **Depends on:** 003; 002. Independent of 009 (007 Q5; tests against a stub base).
 - **Governed by:** ADR-0001/0003; C-06, C-11.
-- **Status detail:** IMPLEMENTED. `templates/clerk-mod-apm/` authored via
+- **Status detail:** IMPLEMENTED. `templates/bailiff-mod-apm/` authored via
   `just new-module` + `check_modules.py` (3 modules now: base, python, apm). APM-only
   v1 (Q1). Q1–Q5 realised in copier terms: runtime-injected `apm_packages`
   (`type: yaml`, no `choices:`, persisted — Q2); managed `apm.yml` byte-reproducible +
@@ -319,25 +319,25 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   base (Q5). APM CLI facts confirmed against apm-cli 0.24.1: install verb `apm install`
   (pinned `uvx --from apm-cli==<ver> apm install`); no consumer catalogue block (inline
   per-dependency sources). MCP/SpecKit/steering remain DEFERRED to their own future
-  `clerk-mod-*` modules.
+  `bailiff-mod-*` modules.
 
 ### 008 — Skill packaging: installable via Claude + Codex APM marketplaces  [status: implemented]
 
-- **Description:** Make the clerk skill installable into any macOS/Linux/WSL project
+- **Description:** Make the bailiff skill installable into any macOS/Linux/WSL project
   via APM, using APM's own tooling (`apm pack` / `apm publish` / `apm marketplace`).
-  Solves portability: the package vendors `src/clerk/*` (no PyPI `clerk`) and checks
+  Solves portability: the package vendors `src/bailiff/*` (no PyPI `bailiff`) and checks
   its deps (no assumed package manager).
-- **Outcome:** A developer can `apm marketplace add copier-clerk/clerk`, `apm install
-  clerk`, and drive copier from their own project with the bundled `scripts/clerk.py`.
+- **Outcome:** A developer can `apm marketplace add bailiff-io/bailiff`, `apm install
+  bailiff`, and drive copier from their own project with the bundled `scripts/bailiff.py`.
   Both a Claude (`.claude-plugin/marketplace.json`) and a Codex
   (`.agents/plugins/marketplace.json`) marketplace are built from one `apm.yml` config.
   Dep preflight with environment-aware install suggestion (uv/pipx/pip; brew for copier
-  only). `clerk doctor` for explicit readiness check. Release sequence is documented
+  only). `bailiff doctor` for explicit readiness check. Release sequence is documented
   and gated (`apm pack --check-versions --check-clean`).
 - **Scope (in):** `apm.yml` `marketplace:` block (claude+codex outputs, `category:
-  Productivity`); `packages/clerk/` local-source package layout; `src/clerk/_preflight.py`
+  Productivity`); `packages/bailiff/` local-source package layout; `src/bailiff/_preflight.py`
   (stdlib-only dep check + version pin + environment-aware suggestion); dual-mode
-  `sys.path` shim in `scripts/clerk.py` (BLOCKER-1 fix); PEP 723 header (FR-005);
+  `sys.path` shim in `scripts/bailiff.py` (BLOCKER-1 fix); PEP 723 header (FR-005);
   `doctor` verb; `just vendor`/`check-vendor`/`pack`/`release` recipes (BLOCKER-2 fix);
   CI `pack.yml` gate; portable SKILL.md update; README `## Install` section; roadmap
   split.
@@ -358,10 +358,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Description:** Author templates in one monorepo, distribute as per-template
   read-only repos, and manage the full module lifecycle (scaffold, structure
   lint, derived catalog) beyond version bumps. Deferred from spec 008 — no
-  `clerk-mod-*` templates exist to fan out until spec 009 (C-11: no speculative
+  `bailiff-mod-*` templates exist to fan out until spec 009 (C-11: no speculative
   machinery).
 - **Outcome:** a monorepo release publishes changed templates to
-  `copier-clerk/clerk-mod-*` and refreshes a generated catalog index; new modules
+  `bailiff-io/bailiff-mod-*` and refreshes a generated catalog index; new modules
   are scaffolded contract-complete and the family stays structurally in-sync.
 - **Scope (in):** cocogitto monorepo tags `<name>-vX.Y.Z`
   (`generate_mono_repository_global_tag=false`, `tag_prefix=v`); one CI job —
@@ -374,23 +374,23 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   pre-commit + `pre_bump_hooks`, and a generated catalog index (`catalog.json` in
   monorepo, served via raw git off the public monorepo — GitHub Pages dropped
   2026-07-13, needs a paid plan for private repos). **CI identity:** an org-owned
-  GitHub App ("clerk-fanout") minting short-lived tokens with repo `contents:write`
-  + org `administration:write`; the fan-out auto-creates missing `clerk-mod-*` repos
+  GitHub App ("bailiff-fanout") minting short-lived tokens with repo `contents:write`
+  + org `administration:write`; the fan-out auto-creates missing `bailiff-mod-*` repos
   (PAT is the documented fallback). The lint/scaffolder REUSE slice-001 discovery
   (authoring plane = consumer plane aimed inward) — all CI bash + template content,
   no new application code.
 - **Scope (out):** history-preserving splits (rejected); a standalone catalog repo
   (rejected — index lives in the monorepo).
-- **Depends on:** 008 (skill packaging), 009 (real clerk-mod-* templates exist).
+- **Depends on:** 008 (skill packaging), 009 (real bailiff-mod-* templates exist).
 - **Governed by:** ADR-0006/0002; C-09.
 - **Status detail:** **VERIFIED end to end (2026-07-13).** All phases T001–T016 done.
   Authoring plane (Phases 1–4): `cog.toml`, `just new-module`, `just check-modules`
   (now also gates the cog `- - -` changelog separator), catalog generator, pre-commit.
   Release plane (Phases 5–7): `release.yml` + `scripts/fanout_module.sh` ran a real
-  release publishing `clerk-mod-base`/`-python`/`-apm` @ v0.1.0 — monorepo tags,
+  release publishing `bailiff-mod-base`/`-python`/`-apm` @ v0.1.0 — monorepo tags,
   split-repo mirrors, GitHub Releases, and `catalog.json` served via raw git
-  (`raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`). `discovery.discover()`
-  on each mirror → `reproducible=True`. **CI identity:** App `clerk-fanout` installed
+  (`raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json`). `discovery.discover()`
+  on each mirror → `reproducible=True`. **CI identity:** App `bailiff-fanout` installed
   with **Contents:write only** — an App token CANNOT create org repos (403), so each
   new module's mirror is **pre-created once by a maintainer** (`gh repo create`, see
   runbook); the App only pushes. **Catalog hosting:** raw git off the public monorepo
@@ -401,21 +401,21 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 - **Description:** Re-home the mature ~25-module project-setup capability as copier
   templates. **Clarified 2026-07-13** (spec 009 Clarifications Q1–Q7).
-- **Outcome:** the project-setup module set exists as `clerk-mod-*` templates the
+- **Outcome:** the project-setup module set exists as `bailiff-mod-*` templates the
   skill can drive; landing the first slice **unblocks 008b's fan-out (Phases 5–7)**.
 - **Scope (in):** port base + languages + quality + tooling + docs + integration +
-  monorepo as `clerk-mod-*` templates (template content, driven by 002/003). **Base
-  is ONE collapsed `clerk-mod-base`** (Q1, resolving roadmap Q2 — not separate repos).
+  monorepo as `bailiff-mod-*` templates (template content, driven by 002/003). **Base
+  is ONE collapsed `bailiff-mod-base`** (Q1, resolving roadmap Q2 — not separate repos).
 - **Scope (out):** new *behavioural* capabilities not in project-setup. **NOTE (amended
   2026-07-14, Q8/Q9):** de-opinionation is now IN scope — modules offer finite
   tooling/config `choices:` (pkg-manager, linter, test-runner, …) instead of baking one
-  opinion, dropping dead options (e.g. bare pip); `clerk-mod-ci` offers multiple
+  opinion, dropping dead options (e.g. bare pip); `bailiff-mod-ci` offers multiple
   agent-selectable CI models. This relaxes the original "faithful translation" lean
   (spec 009 FR-011 relaxed; FR-014/FR-015 added). The built modules (base/python/apm)
   are REVISED to match. **The `agentic` category is still mostly EXCLUDED** (apm=007;
   mcp/speckit=future-007) — EXCEPT `codex-config`, now ported as one small deterministic
   module (2026-07-14, overriding the Q4 defer for that single non-overlapping file).
-- **Phasing (Q2):** **v1 = Phase 0 = `clerk-mod-base` + `clerk-mod-python`** (the
+- **Phasing (Q2):** **v1 = Phase 0 = `bailiff-mod-base` + `bailiff-mod-python`** (the
   minimal real module slice that unblocks 008b). Phases 1–3 (remaining languages +
   quality/tooling; agent-steered + integration; there is no agentic phase) are
   fast-follow, not v1.
@@ -428,18 +428,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Depends on:** 002, 003, 006, 008. Independent of 007 (Q4). **Unblocks:** 008b.
 - **Governed by:** ADR-0002/0003/0006; C-11.
 - **Status detail:** **Phase 0 IMPLEMENTED + RELEASED (2026-07-13).**
-  `clerk-mod-base` (collapsed 6-module base) + `clerk-mod-python` are built, tested
+  `bailiff-mod-base` (collapsed 6-module base) + `bailiff-mod-python` are built, tested
   (init/reproduce/seed-once integration tests), and **published at v0.1.0** via the
-  008b pipeline (mirrors + tags + releases + catalog). `clerk-mod-python` was
+  008b pipeline (mirrors + tags + releases + catalog). `bailiff-mod-python` was
   reconciled against the real `lang-python-v1.3.0` manifest (fetched from public
   `srobroek/project-setup`), resolving the earlier inference gaps (`python_version`
   is free-text not a choice list; exact ruff config; no invented pytest config).
   Resolved gaps: `dirs-scaffold` = 20 dirs (source comment's "21" was stale).
   **Phases 1–2 IN PROGRESS (started 2026-07-14)** under the amended de-opinionated scope
   (Q8/Q9). Full inventory reconciled against the live upstream repo (25 modules; the
-  earlier phasing list was a subset): P1 = `clerk-mod-{ts,go,rust,precommit,quality,justfile}`;
-  P2 = `clerk-mod-{env,readme,stack-adr,ci,github-repo,package-add,codex}` + `org-policy`
-  last. `clerk-mod-ci` is redesigned around multiple agent-selectable CI models (FR-015).
+  earlier phasing list was a subset): P1 = `bailiff-mod-{ts,go,rust,precommit,quality,justfile}`;
+  P2 = `bailiff-mod-{env,readme,stack-adr,ci,github-repo,package-add,codex}` + `org-policy`
+  last. `bailiff-mod-ci` is redesigned around multiple agent-selectable CI models (FR-015).
   `worktreeinclude-write` is DROPPED. Built modules (base/python/apm) are REVISED for
   de-opinionation (FR-014). **Working method:** each module (built + new) is adversarially
   grilled for opinionation before authoring; the CI-models design is grilled as its own
@@ -447,17 +447,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ### 010 — Delivery reshape: skill-bundled copier wrapper  [status: implemented]
 
-- **Description:** Reshape clerk's delivery so it is a **pure copier wrapper bundled
-  in a portable skill** with **zero clerk-specific artifact committed into generated
+- **Description:** Reshape bailiff's delivery so it is a **pure copier wrapper bundled
+  in a portable skill** with **zero bailiff-specific artifact committed into generated
   projects** — correcting the transitional CLI/justfile shape 001 shipped to prove
   the loop. Cross-cutting: specs 002–009 must honor it.
-- **Outcome:** no `clerk` console script and no generated justfile; deterministic
-  helpers ship as the bundled `scripts/clerk.py` invoked via `uv run scripts/clerk.py`;
-  a generated project reproduces with **copier alone** (no clerk, no `just`) from its
+- **Outcome:** no `bailiff` console script and no generated justfile; deterministic
+  helpers ship as the bundled `scripts/bailiff.py` invoked via `uv run scripts/bailiff.py`;
+  a generated project reproduces with **copier alone** (no bailiff, no `just`) from its
   committed answers files; multi-template reproduce **recomputes** order at runtime
   from committed answers + pinned template fetches (stable tie-break), never a frozen
   recipe.
-- **Scope (in):** drop `[project.scripts] clerk` + justfile generation; bundle
+- **Scope (in):** drop `[project.scripts] bailiff` + justfile generation; bundle
   discover/init/reproduce/check + the multi-template orchestrator with the skill;
   reproduce/update as **portable skills** (semantic auto-trigger), not slash commands;
   document the copier-only reproduce fallback; adapt (not weaken) 001's tests.
@@ -469,18 +469,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   (all); distribution = skill via APM + templates via repos (008).
 - **Depends on:** 001 (verified). Informs/precedes 002–009.
 - **Governed by:** Constitution I/II/III/V/VIII; ADR-0001/0002/0003/0006; C-01, C-02,
-  C-11. **Open:** Q-010a (skill namespace `clerk` vs `project-setup:*` — resolve at
+  C-11. **Open:** Q-010a (skill namespace `bailiff` vs `project-setup:*` — resolve at
   009), Q-010c (answers-file naming for multi-template — resolve at 003).
 - **Completed 2026-07-10** (branch `010-delivery-reshape`): delivery contract realized —
-  `scripts/clerk.py` is the single bundled entrypoint (discover/trust/init/reproduce);
-  `[project.scripts] clerk` removed; justfile generation removed; `cli.py` deleted;
-  SKILL.md, try-clerk.sh, and README updated to the bundled-script surface; copier-only
+  `scripts/bailiff.py` is the single bundled entrypoint (discover/trust/init/reproduce);
+  `[project.scripts] bailiff` removed; justfile generation removed; `cli.py` deleted;
+  SKILL.md, try-bailiff.sh, and README updated to the bundled-script surface; copier-only
   fallback documented. The reproduce-time recompute contract (FR-004) is fixed here;
   the N>1 ordering implementation is spec 003.
 
 ### DEFERRED — Rewrite / brownfield adoption  [status: deferred]
 
-- **Description:** Point clerk at an EXISTING project with no `.copier-answers.yml`,
+- **Description:** Point bailiff at an EXISTING project with no `.copier-answers.yml`,
   reverse-infer answers, adopt a template, and write the answers file to make it
   reproducible.
 - **Outcome:** _to be defined._
@@ -495,7 +495,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   1Password, both)? **Resolved (005):** none — the policy supersedes store
   injection. Escalation is evidence-gated; if a concrete template proves a
   scaffold-time secret is unavoidable, spec a mechanism then (FR-007).
-- **Q2 — 009 base re-split:** keep `clerk-mod-base` as one template or re-split?
+- **Q2 — 009 base re-split:** keep `bailiff-mod-base` as one template or re-split?
   Resolved when 009 is scoped.
 - **Q3 — Third-party discovery fidelity:** if static `copier.yml` parsing cannot
   cover some third-party templates (`!include`/inheritance), introduce the contained
@@ -515,14 +515,14 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   recomputed at reproduce from the committed `.copier-answers*.yml` + each template
   fetched at its pinned `_commit`, topo-sorted with a stable tie-break. Pinned
   commits → identical edges → identical order, so it is deterministic and agent-free
-  **without** committing any clerk-specific recipe/DAG file into the project (which
+  **without** committing any bailiff-specific recipe/DAG file into the project (which
   the user could forget to commit). Changed deps are picked up only at `update`.
-- **No clerk artifact in generated projects:** the committed copier answers files are
-  the entire reproduce state; a project reproduces with copier alone (no clerk, no
+- **No bailiff artifact in generated projects:** the committed copier answers files are
+  the entire reproduce state; a project reproduces with copier alone (no bailiff, no
   `just`). No generated justfile, no frozen recipe (spec 010).
 - **Distribution:** the SKILL (with its bundled deterministic scripts) ships via the
   APM marketplace; templates via their own repos + the catalog index. There is no
-  PyPI `clerk` package and no `clerk` console script to publish (C-01, spec 010).
+  PyPI `bailiff` package and no `bailiff` console script to publish (C-01, spec 010).
 
 ---
 

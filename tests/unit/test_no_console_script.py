@@ -10,26 +10,26 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
-_SCRIPT = _REPO_ROOT / "scripts" / "clerk.py"
+_SCRIPT = _REPO_ROOT / "scripts" / "bailiff.py"
 
 
 def test_no_project_scripts_entry() -> None:
-    """pyproject.toml must declare NO `[project.scripts] clerk` entry (FR-001)."""
+    """pyproject.toml must declare NO `[project.scripts] bailiff` entry (FR-001)."""
     data = tomllib.loads(_PYPROJECT.read_text())
     scripts = data.get("project", {}).get("scripts", {})
-    assert "clerk" not in scripts, (
-        f"[project.scripts] still declares 'clerk'; found keys: {list(scripts)}"
+    assert "bailiff" not in scripts, (
+        f"[project.scripts] still declares 'bailiff'; found keys: {list(scripts)}"
     )
 
 
 def test_script_exists_and_is_executable() -> None:
-    """scripts/clerk.py must exist and carry the executable bit."""
-    assert _SCRIPT.exists(), f"scripts/clerk.py not found at {_SCRIPT}"
-    assert os.access(_SCRIPT, os.X_OK), "scripts/clerk.py is not executable"
+    """scripts/bailiff.py must exist and carry the executable bit."""
+    assert _SCRIPT.exists(), f"scripts/bailiff.py not found at {_SCRIPT}"
+    assert os.access(_SCRIPT, os.X_OK), "scripts/bailiff.py is not executable"
 
 
 def test_script_help_via_uv_run() -> None:
-    """`uv run python scripts/clerk.py --help` must exit 0."""
+    """`uv run python scripts/bailiff.py --help` must exit 0."""
     result = subprocess.run(
         [sys.executable, str(_SCRIPT), "--help"],
         capture_output=True,
@@ -37,4 +37,4 @@ def test_script_help_via_uv_run() -> None:
         cwd=str(_REPO_ROOT),
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    assert "clerk.py" in result.stdout
+    assert "bailiff.py" in result.stdout

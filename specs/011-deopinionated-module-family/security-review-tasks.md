@@ -2,7 +2,7 @@
 document_type: security-review
 review_type: tasks
 assessment_date: 2026-07-14
-codebase_analyzed: copier-clerk/clerk (spec 011 — de-opinionated module family)
+codebase_analyzed: bailiff-io/bailiff (spec 011 — de-opinionated module family)
 total_files_analyzed: 4
 total_findings: 4
 overall_risk: LOW
@@ -65,7 +65,7 @@ No critical or high findings. One medium and three low observations follow.
 - **CWE**: CWE-22: Improper Limitation of a Pathname to a Restricted Directory
 - **Spec-Kit Task**: TASK-SEC-001
 
-The task description for T019 (`clerk-mod-package-add`) correctly states the guard must run "BEFORE any mkdir", but it does not explicitly require the guard to run before the native `add` command. The requirement in the body says "scaffold happens only after the guard passes" — this is good, but the loop-test assertion clause should also verify the guard fires before the workspace-registration invocation. This is an implementation-order note rather than a task-ordering gap.
+The task description for T019 (`bailiff-mod-package-add`) correctly states the guard must run "BEFORE any mkdir", but it does not explicitly require the guard to run before the native `add` command. The requirement in the body says "scaffold happens only after the guard passes" — this is good, but the loop-test assertion clause should also verify the guard fires before the workspace-registration invocation. This is an implementation-order note rather than a task-ordering gap.
 
 **Recommendation**: When implementing T019, ensure the loop test asserts that a path-traversal attempt produces ZERO side effects (no dir created, no native command invoked, no workspace registration). The task description is adequate; this is a verification-coverage note for the implementing coder.
 

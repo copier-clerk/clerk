@@ -16,7 +16,7 @@ from textwrap import dedent
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo, build_template_repo
 
 # ---------------------------------------------------------------------------
@@ -26,9 +26,9 @@ from tests.conftest import TemplateRepo, build_template_repo
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Isolate copier settings.yml and clerk defaults from the developer's machine."""
+    """Isolate copier settings.yml and bailiff defaults from the developer's machine."""
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-    monkeypatch.setenv("CLERK_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
+    monkeypatch.setenv("BAILIFF_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
 
 
 @pytest.fixture
@@ -174,7 +174,7 @@ def test_secret_question_not_pre_filled(
 def test_missing_defaults_file_is_noop(defaults_template: TemplateRepo, tmp_path: Path) -> None:
     """No defaults.yml → init runs identically to pre-004 (no error, no defaults)."""
     trust.add_trust(defaults_template.url)
-    # Note: CLERK_DEFAULTS_PATH is set to tmp_path/defaults.yml which does NOT exist.
+    # Note: BAILIFF_DEFAULTS_PATH is set to tmp_path/defaults.yml which does NOT exist.
     # But: defaults_path() raises DefaultsError when the env var names a missing file.
     # So we unset the env var here to use the platformdirs default (which also won't
     # exist in the test environment → silent no-op from load()).
@@ -182,7 +182,7 @@ def test_missing_defaults_file_is_noop(defaults_template: TemplateRepo, tmp_path
 
     # Remove the env override so defaults_path() falls back to platformdirs path
     # (which is also absent in CI → load() returns {} silently).
-    del os.environ["CLERK_DEFAULTS_PATH"]
+    del os.environ["BAILIFF_DEFAULTS_PATH"]
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
@@ -196,7 +196,7 @@ def test_missing_defaults_file_is_noop(defaults_template: TemplateRepo, tmp_path
 
 
 # ---------------------------------------------------------------------------
-# SC-007: no clerk defaults file written into project
+# SC-007: no bailiff defaults file written into project
 # ---------------------------------------------------------------------------
 
 
@@ -216,10 +216,12 @@ def test_no_defaults_file_in_project(defaults_template: TemplateRepo, tmp_path: 
     # No defaults.yml anywhere in the generated project tree
     found = list(dest.rglob("defaults.yml"))
     assert found == [], f"Unexpected defaults file in project: {found}"
-    # No CLERK_DEFAULTS_PATH-named file either
+    # No BAILIFF_DEFAULTS_PATH-named file either
     found_any = list(dest.rglob("*.yml"))
-    clerk_files = [f for f in found_any if "defaults" in f.name and f.name != ".copier-answers.yml"]
-    assert clerk_files == []
+    bailiff_files = [
+        f for f in found_any if "defaults" in f.name and f.name != ".copier-answers.yml"
+    ]
+    assert bailiff_files == []
 
 
 # ---------------------------------------------------------------------------

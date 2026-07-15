@@ -1,8 +1,8 @@
 ---
-description: "Task list for clerk template fan-out + authoring lifecycle CI (spec 008b)"
+description: "Task list for bailiff template fan-out + authoring lifecycle CI (spec 008b)"
 ---
 
-# Tasks: clerk template fan-out + authoring lifecycle (spec 008b)
+# Tasks: bailiff template fan-out + authoring lifecycle (spec 008b)
 
 **Input**: Design documents from `specs/008b-fanout-authoring/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
@@ -14,16 +14,16 @@ description: "Task list for clerk template fan-out + authoring lifecycle CI (spe
 > ### ✅ VERIFIED END TO END (2026-07-13) — live canary passed
 >
 > All phases (T001–T016) are complete and the fan-out pipeline is proven live.
-> On 2026-07-13 a real release published **`clerk-mod-base`, `clerk-mod-python`,
-> and `clerk-mod-apm` at v0.1.0**: monorepo tags pushed, split-repo mirrors fanned
+> On 2026-07-13 a real release published **`bailiff-mod-base`, `bailiff-mod-python`,
+> and `bailiff-mod-apm` at v0.1.0**: monorepo tags pushed, split-repo mirrors fanned
 > out, GitHub Releases created, and `catalog.json` served via raw git at
-> `https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json` (all
+> `https://raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json` (all
 > three modules). `discovery.discover()` on each fanned-out mirror returns
 > `reproducible=True` at a PEP 440 tag — the consumer contract holds.
 >
-> The one-time maintainer setup is done (App `clerk-fanout` installed with
+> The one-time maintainer setup is done (App `bailiff-fanout` installed with
 > Contents:write, org secrets set, monorepo public, workflow armed). NOTE: adding
-> a NEW module requires pre-creating its `copier-clerk/clerk-mod-<name>` mirror once
+> a NEW module requires pre-creating its `bailiff-io/bailiff-mod-<name>` mirror once
 > (`gh repo create`) — an App token cannot create org repos; see
 > [`docs/runbooks/fanout-release.md`](../../docs/runbooks/fanout-release.md).
 >
@@ -105,14 +105,14 @@ require a real module (blocked on 009).
   - `cog.toml`: inserts `[monorepo.packages.{{ module_name }}]` with
     `path = "templates/{{ module_name }}"` (append to existing `[monorepo.packages]`).
   - `catalog-sources.toml` (or equivalent catalog source file): appends the module's
-    split-repo URL `https://github.com/copier-clerk/{{ module_name }}.git`.
+    split-repo URL `https://github.com/bailiff-io/{{ module_name }}.git`.
 
 - [x] T007 Add `new-module` justfile target: `@copier copy _meta/module-template/ .
   -d module_name={{ name }}` (or equivalent copier invocation rendering into the
   monorepo root; adjust path if `_meta` layout needs `--overwrite`).
 
 - [x] T008 [P] Round-trip test (`tests/unit/test_scaffolder.py` or shell test):
-  render `_meta/module-template/` with `module_name=clerk-mod-test-fixture` into a
+  render `_meta/module-template/` with `module_name=bailiff-mod-test-fixture` into a
   temp directory; run `scripts/check_modules.py` against it; assert exit 0. Assert
   `cog.toml` and catalog source list contain the new entry. Tears down the temp dir.
   This is the scaffolder's definition of "contract-complete out of the box".
@@ -125,7 +125,7 @@ require a real module (blocked on 009).
   - Reads each module's `copier.yml` for `description` (and `name` if present,
     else uses the directory name).
   - Calls `discovery.list_versions(split_repo_url)` to get PEP 440 tags published
-    to `copier-clerk/clerk-mod-<name>` (same filter as the consumer plane — C-11).
+    to `bailiff-io/bailiff-mod-<name>` (same filter as the consumer plane — C-11).
   - Omits modules with no published tags from output (Q-008b-a resolution).
   - Emits `catalog.json` (shape from `contracts/fanout.md`) to monorepo root.
   - Accepts `--dry-run` to print JSON without writing.
@@ -158,7 +158,7 @@ require a real module (blocked on 009).
 - [x] T012 [P] Implement the fan-out bash block (inline in workflow or
   `scripts/fanout_module.sh`):
   - Inputs: `NAME`, `VERSION`, `APP_TOKEN`.
-  - `gh repo create copier-clerk/clerk-mod-${NAME} || true` (idempotent).
+  - `gh repo create bailiff-io/bailiff-mod-${NAME} || true` (idempotent).
   - Clone, replace contents, skip-commit-if-no-diff, annotated tag, push.
   - `git ls-remote --tags` pre-check for tag existence (idempotent re-run safety).
   - Commit message references `${GITHUB_SHA::8}`.
@@ -168,26 +168,26 @@ require a real module (blocked on 009).
 
 - [~] T013 [P] GitHub App token wiring: add `actions/create-github-app-token` step
   to the workflow (before step 4); document the required org-level secrets
-  (`CLERK_FANOUT_APP_ID`, `CLERK_FANOUT_PRIVATE_KEY`) in the workflow file comments
-  and in a runbook note. The App must be installed on the `copier-clerk` org with
+  (`BAILIFF_FANOUT_APP_ID`, `BAILIFF_FANOUT_PRIVATE_KEY`) in the workflow file comments
+  and in a runbook note. The App must be installed on the `bailiff-io` org with
   `contents:write` + `administration:write`; note this is a one-time manual setup
   for maintainers.
   AUTHORING DONE: `create-github-app-token@v3` step added before fan-out, scoped to
   the org with `permission-contents: write` + `permission-administration: write`;
   secrets documented in the workflow header comment and in
   `docs/runbooks/fanout-release.md`.
-  MAINTAINER MANUAL SETUP REQUIRED: a `copier-clerk` org-admin must create + install
-  the `clerk-fanout` App and add the two org secrets. Not doable by a code agent.
+  MAINTAINER MANUAL SETUP REQUIRED: a `bailiff-io` org-admin must create + install
+  the `bailiff-fanout` App and add the two org secrets. Not doable by a code agent.
 
 ---
 
 ## Phase 6: Catalog hosting (raw git — GitHub Pages dropped 2026-07-13)
 
 - [x] T014 Host `catalog.json` at a stable URL for spec-002 consumers.
-  RESOLVED via raw git, NOT GitHub Pages: the monorepo `copier-clerk/clerk` was
+  RESOLVED via raw git, NOT GitHub Pages: the monorepo `bailiff-io/bailiff` was
   made **public**, and the `catalog.json` committed by the release job's Step 5 is
   served directly at
-  `https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`.
+  `https://raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json`.
   The Pages deploy step, `pages:write`/`id-token:write` permissions, and the
   `github-pages` environment were REMOVED from `release.yml`. Rationale: GitHub
   Pages on a private repo needs a paid plan; serving the already-committed file via
@@ -203,7 +203,7 @@ require a real module (blocked on 009).
   modules present in `templates/`:
   - `just check-modules` → exit 0 ("ok — 3 module(s) checked").
   - `scripts/generate_catalog.py` → valid JSON; live catalog now lists all three
-    modules (`clerk-mod-base`, `clerk-mod-python`, `clerk-mod-apm` @ v0.1.0).
+    modules (`bailiff-mod-base`, `bailiff-mod-python`, `bailiff-mod-apm` @ v0.1.0).
   - Canary release ran the FULL job (bump → push tags → detect → fan-out → catalog)
     and published all three modules: monorepo tags, split-repo mirrors, GitHub
     Releases.
@@ -223,7 +223,7 @@ require a real module (blocked on 009).
 |---|---|
 | T001–T010 | ✅ Done (Phases 1–4) |
 | T011, T012 | ✅ Done — proven live (release workflow + fan-out ran end to end) |
-| T013 | ✅ Done — App `clerk-fanout` installed (Contents:write); org secrets set. NOTE: App tokens cannot create org repos, so mirrors are pre-created by a maintainer (runbook) |
+| T013 | ✅ Done — App `bailiff-fanout` installed (Contents:write); org secrets set. NOTE: App tokens cannot create org repos, so mirrors are pre-created by a maintainer (runbook) |
 | T014 | ✅ Done — catalog served via raw git off the public monorepo (GitHub Pages dropped — needs a paid plan for private repos) |
 | T015 | ✅ Done — live canary passed 2026-07-13; `discovery.discover()` → `reproducible=True` on each mirror |
 | T016 | ✅ Done — callout set to VERIFIED; roadmap 008b → `verified` |

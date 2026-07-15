@@ -1,4 +1,4 @@
-"""T019: clerk-mod-package-add loop tests.
+"""T019: bailiff-mod-package-add loop tests.
 
 Verifies:
   - SEC-001 path-traversal guard: bad name/dir inputs exit 1 with ZERO side effects
@@ -8,7 +8,7 @@ Verifies:
   - seed-once: manifest not overwritten on reproduce when it already exists.
 
 All native tool calls (bun/pnpm/uv/cargo/go) are stubbed offline via the
-clerk_mod_package_add fixture (tests/conftest.py _PACKAGE_ADD_STUB_TASKS).
+bailiff_mod_package_add fixture (tests/conftest.py _PACKAGE_ADD_STUB_TASKS).
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
-from clerk.errors import ClerkError
+from bailiff import runner, trust
+from bailiff.errors import BailiffError
 from tests.conftest import TemplateRepo
 
 
@@ -51,15 +51,15 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
     ],
 )
 def test_guard_rejects_bad_name(
-    clerk_mod_package_add: TemplateRepo, tmp_path: Path, bad_name: str
+    bailiff_mod_package_add: TemplateRepo, tmp_path: Path, bad_name: str
 ) -> None:
     """SEC-001: bad name is rejected — no directory created, no marker written."""
     dest = tmp_path / "proj"
     dest.mkdir()
 
-    with pytest.raises((ClerkError, SystemExit, Exception)):
+    with pytest.raises((BailiffError, SystemExit, Exception)):
         _init(
-            clerk_mod_package_add,
+            bailiff_mod_package_add,
             dest,
             {"name": bad_name, "lang": "python", "layout": "monorepo", "dir": "packages/"},
         )
@@ -70,7 +70,7 @@ def test_guard_rejects_bad_name(
         f"guard failed: packages/ has contents for bad name {bad_name!r}"
     )
     # ZERO side effects: no marker written
-    assert not (dest / ".clerk-package-add-preflight").exists(), (
+    assert not (dest / ".bailiff-package-add-preflight").exists(), (
         f"guard failed: preflight marker written for bad name {bad_name!r}"
     )
 
@@ -89,15 +89,15 @@ def test_guard_rejects_bad_name(
     ],
 )
 def test_guard_rejects_bad_dir(
-    clerk_mod_package_add: TemplateRepo, tmp_path: Path, bad_dir: str
+    bailiff_mod_package_add: TemplateRepo, tmp_path: Path, bad_dir: str
 ) -> None:
     """SEC-001: bad dir is rejected — no directory created, no marker written."""
     dest = tmp_path / "proj"
     dest.mkdir()
 
-    with pytest.raises((ClerkError, SystemExit, Exception)):
+    with pytest.raises((BailiffError, SystemExit, Exception)):
         _init(
-            clerk_mod_package_add,
+            bailiff_mod_package_add,
             dest,
             {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": bad_dir},
         )
@@ -106,7 +106,7 @@ def test_guard_rejects_bad_dir(
     # Use rglob to catch any directory the guard might have let mkdir create.
     created_dirs = [p for p in dest.rglob("*") if p.is_dir()]
     assert created_dirs == [], f"guard failed: dirs created for bad dir {bad_dir!r}: {created_dirs}"
-    assert not (dest / ".clerk-package-add-preflight").exists(), (
+    assert not (dest / ".bailiff-package-add-preflight").exists(), (
         f"guard failed: preflight marker written for bad dir {bad_dir!r}"
     )
 
@@ -116,14 +116,14 @@ def test_guard_rejects_bad_dir(
 # ---------------------------------------------------------------------------
 
 
-def test_single_layout_is_noop(clerk_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
+def test_single_layout_is_noop(bailiff_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
     """layout='single' — tasks exit 0, no package dir is created, no marker written."""
     dest = tmp_path / "proj"
     dest.mkdir()
 
     # Must NOT raise — the gate exits 0, not 1.
     _init(
-        clerk_mod_package_add,
+        bailiff_mod_package_add,
         dest,
         {"name": "mypkg", "lang": "python", "layout": "single", "dir": "packages/"},
     )
@@ -132,7 +132,7 @@ def test_single_layout_is_noop(clerk_mod_package_add: TemplateRepo, tmp_path: Pa
     assert not (dest / "packages" / "mypkg").exists(), (
         "monorepo gate failed: package dir created for single layout"
     )
-    assert not (dest / ".clerk-package-add-preflight").exists(), (
+    assert not (dest / ".bailiff-package-add-preflight").exists(), (
         "monorepo gate failed: preflight marker written for single layout"
     )
 
@@ -144,7 +144,7 @@ def test_single_layout_is_noop(clerk_mod_package_add: TemplateRepo, tmp_path: Pa
 
 @pytest.mark.parametrize("lang", ["ts", "python", "go", "rust"])
 def test_happy_path_scaffolds_package_dir(
-    clerk_mod_package_add: TemplateRepo, tmp_path: Path, lang: str
+    bailiff_mod_package_add: TemplateRepo, tmp_path: Path, lang: str
 ) -> None:
     """Valid monorepo inputs: package dir is created and marker is written."""
     dest = tmp_path / "proj"
@@ -159,14 +159,14 @@ def test_happy_path_scaffolds_package_dir(
     if lang == "ts":
         answers["js_pkg_manager"] = "bun"
 
-    _init(clerk_mod_package_add, dest, answers)
+    _init(bailiff_mod_package_add, dest, answers)
 
     # Package directory created.
     pkg_dir = dest / "packages" / "mypkg"
     assert pkg_dir.is_dir(), f"package dir not created for lang={lang}"
 
     # Preflight marker written by stub (confirms tasks ran past the guard).
-    marker = dest / ".clerk-package-add-preflight"
+    marker = dest / ".bailiff-package-add-preflight"
     assert marker.is_file(), f"preflight marker not written for lang={lang}"
     assert f"lang={lang}" in marker.read_text(), f"marker content missing lang={lang}"
     assert "name=mypkg" in marker.read_text(), "marker missing name=mypkg"
@@ -177,7 +177,7 @@ def test_happy_path_scaffolds_package_dir(
 # ---------------------------------------------------------------------------
 
 
-def test_answers_file_recorded(clerk_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
+def test_answers_file_recorded(bailiff_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
     """Visible answers are persisted; hidden edges (run_after, depends_on) are not."""
     import yaml
 
@@ -185,7 +185,7 @@ def test_answers_file_recorded(clerk_mod_package_add: TemplateRepo, tmp_path: Pa
     dest.mkdir()
 
     _init(
-        clerk_mod_package_add,
+        bailiff_mod_package_add,
         dest,
         {
             "name": "mypkg",
@@ -219,7 +219,7 @@ def test_answers_file_recorded(clerk_mod_package_add: TemplateRepo, tmp_path: Pa
 
 
 def test_seed_once_manifest_not_overwritten_on_reproduce(
-    clerk_mod_package_add: TemplateRepo, tmp_path: Path
+    bailiff_mod_package_add: TemplateRepo, tmp_path: Path
 ) -> None:
     """_skip_if_exists manifest files are preserved on reproduce (cross-cutting §8).
 
@@ -230,7 +230,7 @@ def test_seed_once_manifest_not_overwritten_on_reproduce(
     dest.mkdir()
 
     _init(
-        clerk_mod_package_add,
+        bailiff_mod_package_add,
         dest,
         {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": "packages/"},
     )

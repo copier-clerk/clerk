@@ -1,57 +1,57 @@
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-agentic.git"
+url = "https://github.com/bailiff-io/bailiff-mod-agentic.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-apm.git"
+url = "https://github.com/bailiff-io/bailiff-mod-apm.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-base.git"
+url = "https://github.com/bailiff-io/bailiff-mod-base.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-cdk.git"
+url = "https://github.com/bailiff-io/bailiff-mod-cdk.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-ci-github.git"
+url = "https://github.com/bailiff-io/bailiff-mod-ci-github.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-ci-gitlab.git"
+url = "https://github.com/bailiff-io/bailiff-mod-ci-gitlab.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-cloudformation.git"
+url = "https://github.com/bailiff-io/bailiff-mod-cloudformation.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-github-repo.git"
+url = "https://github.com/bailiff-io/bailiff-mod-github-repo.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-go.git"
+url = "https://github.com/bailiff-io/bailiff-mod-go.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-justfile.git"
+url = "https://github.com/bailiff-io/bailiff-mod-justfile.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-package-add.git"
+url = "https://github.com/bailiff-io/bailiff-mod-package-add.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-precommit.git"
+url = "https://github.com/bailiff-io/bailiff-mod-precommit.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-python.git"
+url = "https://github.com/bailiff-io/bailiff-mod-python.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-quality.git"
+url = "https://github.com/bailiff-io/bailiff-mod-quality.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-readme.git"
+url = "https://github.com/bailiff-io/bailiff-mod-readme.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-rust.git"
+url = "https://github.com/bailiff-io/bailiff-mod-rust.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-stack-adr.git"
+url = "https://github.com/bailiff-io/bailiff-mod-stack-adr.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-terraform.git"
+url = "https://github.com/bailiff-io/bailiff-mod-terraform.git"
 
 [[sources]]
-url = "https://github.com/copier-clerk/clerk-mod-ts.git"
+url = "https://github.com/bailiff-io/bailiff-mod-ts.git"

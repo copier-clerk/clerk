@@ -1,0 +1,101 @@
+# copier.yml — bailiff-mod-stack-adr
+#
+# Records the project's technology stack as either a plain STACK.md or a
+# numbered MADR-style ADR. Output is SEED-ONCE: written once at init from
+# frozen facts injected by the phase-1 agent (FR-010), then project-owned.
+#
+# This module sorts BEFORE language layers (alphabetical basename tie-break
+# on "s"), so it CANNOT read language answers from the run-order accumulator
+# (cross-cutting §6). The phase-1 agent MUST inject stack facts via --data.
+#
+# Constitution VI: NO secret: questions. Tokens are from ambient env in tasks.
+
+# --- Threading from bailiff-mod-base (FR-010 threading via copier default) ---
+
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from bailiff-mod-base via copier default)."
+
+# --- Format choice (OPT-IN: default = simple) --------------------------------
+
+format:
+  type: str
+  choices:
+    - simple
+    - adr
+  default: simple
+  help: "Output format: 'simple' writes STACK.md; 'adr' writes a numbered ADR under adr_dir."
+
+# --- ADR directory (only used when format=adr) --------------------------------
+
+adr_dir:
+  type: str
+  default: docs/decisions
+  help: "Directory for numbered ADRs (only used when format=adr; matches base scaffold)."
+
+# --- Agent-frozen stack facts (injected via --data from the phase-1 agent) ---
+#
+# These CANNOT be read from upstream answers at run time (this module sorts
+# before language layers). The phase-1 agent assembles the full selection and
+# freezes all stack facts before invoking bailiff init (cross-cutting §6 / FR-010).
+#
+# rationale may contain literal {{ }} notation (e.g. YAML maps) — copier
+# resolves the answer value first, then writes it verbatim into the output
+# (no second Jinja pass over the resolved string value). No double-render.
+
+stack_pins:
+  type: yaml
+  default: []
+  help: "Pinned technology stack entries as a YAML list (agent-frozen via --data)."
+
+framework:
+  type: str
+  default: ""
+  help: "Primary framework or runtime (agent-frozen via --data; empty = none)."
+
+rationale:
+  type: str
+  default: ""
+  help: "Free-text rationale for this stack (agent-frozen via --data; may contain {{ }} notation — written verbatim, not re-evaluated)."
+
+# `today` threaded from base (Constitution V — injected by bailiff, never jinja2_time).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Ordering edge (when:false hidden answers — FR-004) ----------------------
+
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# SEED-ONCE: stack docs are authored at init then project-owned; re-rendering
+# would overwrite project edits. On a fresh-checkout reproduce they are not
+# present so Constitution III holds.
+_skip_if_exists:
+  - STACK.md
+  - "{{ adr_dir }}/0001-stack.md"
+
+# Exclude the output file for the non-selected format.
+# copier renders _exclude entries through Jinja (verified in _main.py:match_exclude).
+# Empty string when condition is false → PathSpec ignores empty lines.
+_exclude:
+  - "{% if format != 'simple' %}STACK.md{% endif %}"
+  - "{% if format != 'adr' %}{{ adr_dir }}{% endif %}"

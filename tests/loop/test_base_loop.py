@@ -1,4 +1,4 @@
-"""spec 011 T004: clerk-mod-base v1.0.0 loop tests.
+"""spec 011 T004: bailiff-mod-base v1.0.0 loop tests.
 
 Covers the full init→reproduce loop for the thinned base scaffold including:
 - Both layouts (single + monorepo): thinned dirs PRESENT, moved-out ABSENT.
@@ -7,7 +7,7 @@ Covers the full init→reproduce loop for the thinned base scaffold including:
 - AGENTS.md seed-once: substituted with project_name / description / branch_strategy.
 - .mise.toml MANAGED: rendered from frozen mise_tools, byte-identical on reproduce.
 - .gitignore and LICENSE TASK-OUTPUT: present after init, guarded on reproduce.
-- Sentinel .clerk-base-init-done: present after init, skips heavy tasks on reproduce.
+- Sentinel .bailiff-base-init-done: present after init, skips heavy tasks on reproduce.
 - reproduce byte-identical for MANAGED outputs; presence-only for TASK-OUTPUT.
 """
 
@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 # Always-present managed dirs (thinned v1.0.0).
@@ -96,10 +96,10 @@ def _digest(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_init_single_thinned_dirs_present(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_single_thinned_dirs_present(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """MANAGED dirs always present; moved-out dirs absent after single-layout init."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_base, dest, {"project_name": "myproj", "org": "acme", "license": "mit"})
+    _init(bailiff_mod_base, dest, {"project_name": "myproj", "org": "acme", "license": "mit"})
 
     for d in _ALWAYS_DIRS:
         assert (dest / d / ".gitkeep").is_file(), f"always-present dir {d}/.gitkeep missing"
@@ -119,11 +119,11 @@ def test_init_single_thinned_dirs_present(clerk_mod_base: TemplateRepo, tmp_path
 # ---------------------------------------------------------------------------
 
 
-def test_init_monorepo_thinned_dirs_present(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_monorepo_thinned_dirs_present(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """layout=monorepo: always dirs + 15 monorepo targets present; moved-out absent."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "myproj", "org": "acme", "license": "mit", "layout": "monorepo"},
     )
@@ -143,30 +143,30 @@ def test_init_monorepo_thinned_dirs_present(clerk_mod_base: TemplateRepo, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_init_github_host_false_no_github(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_github_host_false_no_github(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """github_host=false → no .github/ at all."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "myproj", "org": "acme", "license": "mit", "github_host": False},
     )
     assert not (dest / ".github").exists(), "github_host=false must not scaffold .github/"
 
 
-def test_init_github_host_true_no_workflows(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_github_host_true_no_workflows(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """github_host=true → minimal .github/ present; workflows/ absent (belongs to ci)."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "myproj", "org": "acme", "license": "mit", "github_host": True},
     )
     assert (dest / ".github" / "CODEOWNERS").is_file(), "CODEOWNERS missing"
-    # dependabot.yml moved OUT of base to clerk-mod-dep-updates (spec 012 amendment,
+    # dependabot.yml moved OUT of base to bailiff-mod-dep-updates (spec 012 amendment,
     # applied pre-v1.0.0 so base ships clean).
     assert not (dest / ".github" / "dependabot.yml").exists(), (
-        "dependabot.yml must not be scaffolded by base — owned by clerk-mod-dep-updates (012)"
+        "dependabot.yml must not be scaffolded by base — owned by bailiff-mod-dep-updates (012)"
     )
     assert not (dest / ".github" / "workflows").exists(), (
         ".github/workflows must not be scaffolded by base"
@@ -178,11 +178,11 @@ def test_init_github_host_true_no_workflows(clerk_mod_base: TemplateRepo, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_init_docs_subdirs_false(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_docs_subdirs_false(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """docs_subdirs=false → docs/ present but architecture/decisions/runbooks absent."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "myproj", "license": "mit", "docs_subdirs": False},
     )
@@ -196,11 +196,11 @@ def test_init_docs_subdirs_false(clerk_mod_base: TemplateRepo, tmp_path: Path) -
 # ---------------------------------------------------------------------------
 
 
-def test_init_agents_md_substituted(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_agents_md_substituted(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """AGENTS.md is seed-once with correct project_name, description, branch_strategy."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "alpha",
@@ -217,11 +217,11 @@ def test_init_agents_md_substituted(clerk_mod_base: TemplateRepo, tmp_path: Path
 
 
 def test_init_agents_md_seed_once_not_overwritten(
-    clerk_mod_base: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
 ) -> None:
     """AGENTS.md is NOT overwritten on reproduce (_skip_if_exists)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_base, dest, {"project_name": "beta", "license": "mit"})
+    _init(bailiff_mod_base, dest, {"project_name": "beta", "license": "mit"})
     hand_edit = "# HAND EDITED\ndo not clobber\n"
     (dest / "AGENTS.md").write_text(hand_edit)
 
@@ -237,11 +237,11 @@ def test_init_agents_md_seed_once_not_overwritten(
 # ---------------------------------------------------------------------------
 
 
-def test_init_mise_toml_managed_rendered(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_mise_toml_managed_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """MANAGED: .mise.toml rendered from frozen mise_tools answer."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "gamma",
@@ -255,11 +255,11 @@ def test_init_mise_toml_managed_rendered(clerk_mod_base: TemplateRepo, tmp_path:
     assert "node" in mise and "22" in mise, "node 22 not in .mise.toml"
 
 
-def test_reproduce_mise_toml_byte_identical(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_reproduce_mise_toml_byte_identical(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """MANAGED: .mise.toml is byte-identical after reproduce."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "gamma",
@@ -281,18 +281,18 @@ def test_reproduce_mise_toml_byte_identical(clerk_mod_base: TemplateRepo, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_init_task_outputs_present(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_task_outputs_present(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """TASK-OUTPUT: .gitignore and LICENSE produced by trust-gated tasks on init."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_base, dest, {"project_name": "delta", "license": "apache-2.0"})
+    _init(bailiff_mod_base, dest, {"project_name": "delta", "license": "apache-2.0"})
     assert (dest / ".gitignore").is_file(), ".gitignore missing after init"
     assert (dest / "LICENSE").is_file(), "LICENSE missing after init"
 
 
-def test_reproduce_task_outputs_idempotent(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_reproduce_task_outputs_idempotent(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """TASK-OUTPUT: reproduce does not regenerate .gitignore or LICENSE (guards hold)."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_base, dest, {"project_name": "delta", "license": "mit"})
+    _init(bailiff_mod_base, dest, {"project_name": "delta", "license": "mit"})
     gi_digest = _digest(dest / ".gitignore")
     lic_digest = _digest(dest / "LICENSE")
 
@@ -309,12 +309,12 @@ def test_reproduce_task_outputs_idempotent(clerk_mod_base: TemplateRepo, tmp_pat
 # ---------------------------------------------------------------------------
 
 
-def test_init_sentinel_created(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """Sentinel .clerk-base-init-done is written after successful init."""
+def test_init_sentinel_created(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """Sentinel .bailiff-base-init-done is written after successful init."""
     dest = tmp_path / "proj"
-    _init(clerk_mod_base, dest, {"project_name": "eps", "license": "mit"})
-    assert (dest / ".clerk-base-init-done").is_file(), (
-        ".clerk-base-init-done sentinel must exist after init"
+    _init(bailiff_mod_base, dest, {"project_name": "eps", "license": "mit"})
+    assert (dest / ".bailiff-base-init-done").is_file(), (
+        ".bailiff-base-init-done sentinel must exist after init"
     )
 
 
@@ -328,11 +328,11 @@ def test_init_sentinel_created(clerk_mod_base: TemplateRepo, tmp_path: Path) -> 
 # ---------------------------------------------------------------------------
 
 
-def test_init_extra_dirs_created(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_init_extra_dirs_created(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """extra_dirs entries are created as .gitkeep dirs on init (MANAGED)."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "xdtest",
@@ -344,11 +344,11 @@ def test_init_extra_dirs_created(clerk_mod_base: TemplateRepo, tmp_path: Path) -
     assert (dest / "bar" / "baz" / ".gitkeep").is_file(), "extra_dirs 'bar/baz' not created"
 
 
-def test_reproduce_extra_dirs_idempotent(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_reproduce_extra_dirs_idempotent(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """extra_dirs .gitkeep files survive reproduce unchanged (MANAGED idempotent)."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "xdtest",
@@ -367,12 +367,12 @@ def test_reproduce_extra_dirs_idempotent(clerk_mod_base: TemplateRepo, tmp_path:
 
 
 def test_reproduce_managed_dirs_byte_identical(
-    clerk_mod_base: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
 ) -> None:
     """MANAGED dir scaffold is byte-identical after reproduce."""
     dest = tmp_path / "proj"
     _init(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "zeta",

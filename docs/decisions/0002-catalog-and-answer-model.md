@@ -5,13 +5,13 @@
 
 ## Context
 
-Clerk must let users point the agent at *their own* templates, not depend on a
+Bailiff must let users point the agent at *their own* templates, not depend on a
 first-party hub. Separately, we needed to decide where the per-module answer
 state and agentic metadata live.
 
 ## Decision — catalog
 
-- The catalog is **user-owned configuration**, not baked into clerk's repo. It
+- The catalog is **user-owned configuration**, not baked into bailiff's repo. It
   lists **sources**, not templates.
 - **One catalog entry = one git repo (`gituser/gitrepo`), NOT a subpath.** This
   is forced by copier's `1 template = 1 git repository` rule. VERIFIED: copier's
@@ -25,23 +25,23 @@ state and agentic metadata live.
 - **Catalog holds SOURCES, not pinned refs.** Do NOT store a `#ref` per entry as
   a mandatory pin — that duplicates copier's per-project pin and defeats the
   `update` flow. The reproduce pin lives in the generated project's answers file
-  (`_commit`); clerk honors it via `vcs_ref=VcsRef.CURRENT` (see
+  (`_commit`); bailiff honors it via `vcs_ref=VcsRef.CURRENT` (see
   [[0001-copier-as-engine]]). An explicit `vcs_ref` is an **optional** per-source
   override for teams standardizing a version — not the model.
 - Locator form: `gituser/gitrepo` (+ optional `@ref` override). No subpath
   segment (each template is a repo root).
 - **A repo using a templated `_subdirectory` for variant selection is still ONE
   catalog entry** — the variant is a *question answer*, not a separate template.
-  (`_subdirectory` is template-internal; clerk only reads it during discovery to
+  (`_subdirectory` is template-internal; bailiff only reads it during discovery to
   locate the template files.)
 - **Freshness is manual**: an explicit `just catalog` / CLI invocation refreshes;
   CI is just one caller of the same entrypoint, never a dependency.
 - **Merge / id collisions: full-id always** (`catalog/template`). No
   unnamespaced first-wins convenience lookup. Support one OR more catalog
-  pointers (URLs); clerk ships an **optional, swappable** reference catalog and
+  pointers (URLs); bailiff ships an **optional, swappable** reference catalog and
   works against any user-supplied sources with zero reference templates.
 - **Non-goal: no git submodules.** Templates are fetched by ref (copier's
-  `git clone --mirror`), never nested as submodules in clerk or in the catalog.
+  `git clone --mirror`), never nested as submodules in bailiff or in the catalog.
 
 ## Decision — answer model (supersedes the sidecar idea)
 
@@ -54,7 +54,7 @@ state and agentic metadata live.
     committed answers file — **agent not involved**.
 - **Per-question metadata is native copier** (`type`, `choices`, `when`,
   `validator`, `help`) and carries "what is valid" and "how to fill this". A
-  dedicated `clerk.yml` sidecar for that content is therefore **not needed** and
+  dedicated `bailiff.yml` sidecar for that content is therefore **not needed** and
   is rejected (see [[0003-selector-template-and-runtime-injection]] for how the
   catalog and agent guidance are supplied at runtime instead).
 
@@ -62,13 +62,13 @@ state and agentic metadata live.
 
 - Decentralization is native: copier's answers file records `_src_path` +
   `_commit`, so an answers file points at *its own* template at its own pin —
-  users bring their own templates and never depend on clerk's repo at reproduce
+  users bring their own templates and never depend on bailiff's repo at reproduce
   time.
 - **`_src_path` must be the SPLIT (per-template) repo URL, never the authoring
   monorepo** (verified gotcha). Because the split rewrites commit SHAs, a project
   generated from a split repo must always be reproduced/updated from that same
   split repo — mixing the monorepo and split repo makes `update` follow the wrong
-  tags. clerk always sources from split repos.
+  tags. bailiff always sources from split repos.
 - Agent-authored answers are replayed with `recopy` + `vcs_ref=VcsRef.CURRENT`
   (faithful reproduce), not `update` (smart 3-way merge, reserved for intentional
   upgrades) — copier forbids hand-editing the answers file and `update`'s diff
@@ -76,7 +76,7 @@ state and agentic metadata live.
 - No `catalog.yml` artifact: source repos are persisted as answers in the
   repos-collector template (see
   [[0003-selector-template-and-runtime-injection]]); the available-template
-  catalog is discovered by clerk at runtime and injected via `--data`.
+  catalog is discovered by bailiff at runtime and injected via `--data`.
 
 ## Related
 

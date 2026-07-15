@@ -1,8 +1,8 @@
 ---
-description: "Task list for clerk upgrade — explicit version upgrade + copier migrations (spec 006)"
+description: "Task list for bailiff upgrade — explicit version upgrade + copier migrations (spec 006)"
 ---
 
-# Tasks: clerk upgrade — explicit version upgrade + copier migrations
+# Tasks: bailiff upgrade — explicit version upgrade + copier migrations
 
 **Input**: Design documents from `specs/006-upgrade/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
@@ -10,7 +10,7 @@ description: "Task list for clerk upgrade — explicit version upgrade + copier 
 [constitution](../../.specify/memory/constitution.md) v2.1.0
 
 **Hard dependency**: spec 003 MUST be implemented before this spec
-(`src/clerk/ordering.py`, `runner.init_many`/`reproduce_many`, and the
+(`src/bailiff/ordering.py`, `runner.init_many`/`reproduce_many`, and the
 multi-template fixtures in `tests/conftest.py` are reused here).
 
 **Tests**: INCLUDED. Constitution VII makes per-step hardening (trust-gate,
@@ -42,7 +42,7 @@ research tasks for the two open questions that must resolve before implementatio
   `skip_tasks=True`? Read `copier/_main.py` Worker's `run_update` / `run_update_internal`
   method: look for whether `migration_tasks(stage, …)` is called inside the same
   `skip_tasks` guard as `_tasks`, or unconditionally. Record the finding in a
-  comment on this task. **Decision gates T011 (flag design) and `scripts/clerk.py`
+  comment on this task. **Decision gates T011 (flag design) and `scripts/bailiff.py`
   `update` verb.**
 
 - [ ] T002 Verify: what does `run_update` return / raise when conflicts are present
@@ -58,15 +58,15 @@ research tasks for the two open questions that must resolve before implementatio
 
 ## Phase 1: Errors + discovery extension
 
-- [ ] T003 Add to `src/clerk/errors.py`:
-  - `DeprecatedMigrationFormatError(ClerkError)` — deprecated `_migrations` format
+- [ ] T003 Add to `src/bailiff/errors.py`:
+  - `DeprecatedMigrationFormatError(BailiffError)` — deprecated `_migrations` format
     detected; message names the template source and the offending entry.
-  - `MergeConflictError(ClerkError)` — conflict markers or `.rej` files present;
+  - `MergeConflictError(BailiffError)` — conflict markers or `.rej` files present;
     `conflicted_paths: list[str]` attribute; message lists them.
-  - `DowngradeError(ClerkError)` — target version is older than current `_commit`
+  - `DowngradeError(BailiffError)` — target version is older than current `_commit`
     version; message names from/to.
 
-- [ ] T004 Extend `src/clerk/discovery.py`:
+- [ ] T004 Extend `src/bailiff/discovery.py`:
   Add `_check_migrations_format(raw: dict) -> None` — static check: iterate
   `raw.get("_migrations", [])`, raise `DeprecatedMigrationFormatError` if any entry
   is a dict containing `"before"` or `"after"` as keys. Also add `has_migrations:
@@ -103,7 +103,7 @@ raises correctly on a hand-crafted deprecated dict.
 ## Phase 3: US1 — single-layer upgrade (runner.update)
 
 - [ ] T006 [US1] Add `runner.update(dest, *, vcs_ref, answers_file, today,
-  pretend, conflict)` to `src/clerk/runner.py`:
+  pretend, conflict)` to `src/bailiff/runner.py`:
   - Pre-checks: format-check migrations (`_check_migrations_format`); trust pre-check
     (if `has_migrations` or `has_tasks` and source untrusted → `UntrustedSourceError`);
     downgrade check (if target version < current `_commit` version →  `DowngradeError`);
@@ -149,7 +149,7 @@ rejected.
 ## Phase 5: US3 — multi-layer upgrade (runner.update_many)
 
 - [ ] T009 [US3] Add `runner.update_many(dest, *, vcs_ref, today, pretend, conflict)`
-  to `src/clerk/runner.py`:
+  to `src/bailiff/runner.py`:
   1. `enumerate_answers_files(dest)` → committed layers.
   2. For each, read `_src_path` (+ `_commit` for downgrade check).
   3. Discover each template at the **target version** (`vcs_ref` or latest).
@@ -206,30 +206,30 @@ rejected.
 
 ## Phase 8: CLI surface + SKILL
 
-- [ ] T014 Wire the `update` verb into `scripts/clerk.py`:
+- [ ] T014 Wire the `update` verb into `scripts/bailiff.py`:
   - Arguments: `dest` (required positional); `--vcs-ref` (optional); `--pretend`
     (flag); `--conflict inline|rej` (default `inline`); `--skip-tasks` (flag,
     gated on T001 finding — if `skip_tasks` also suppresses migrations, document
     and add `--skip-migrations` separately if needed).
   - Route: count `.copier-answers*.yml` files in `dest`; call `runner.update_many`
     (handles N=1 and N>1 uniformly).
-  - Exit-code map: 0 ok; 1 `ClerkError`/`OrderingError`/`DeprecatedMigrationFormatError`/
+  - Exit-code map: 0 ok; 1 `BailiffError`/`OrderingError`/`DeprecatedMigrationFormatError`/
     `DowngradeError`; 2 argparse; 3 `UntrustedSourceError`; 4 `MergeConflictError`.
   - Print per-layer announcements (from→to) and results.
 
-- [ ] T015 [P] Extend `skills/clerk/SKILL.md`:
+- [ ] T015 [P] Extend `skills/bailiff/SKILL.md`:
   Document the upgrade/migration sub-procedure (the end-state component from
   `docs/architecture/end-state-components.md` for spec 006):
   - Pre-upgrade: inspect current `_commit` (from answers file) vs available tags
-    (via `scripts/clerk.py discover`); announce from→to; check trust; confirm
+    (via `scripts/bailiff.py discover`); announce from→to; check trust; confirm
     with user.
-  - Run: `uv run scripts/clerk.py update <dest> [--vcs-ref <tag>] [--pretend]`.
+  - Run: `uv run scripts/bailiff.py update <dest> [--vcs-ref <tag>] [--pretend]`.
   - Post-upgrade: surface migration effects (files changed, migrations run); resolve
     any conflicts named in exit-4 output.
   - Note: deprecated `_migrations` format refused at discovery (point template authors
     to the new format in contracts/upgrade.md).
 
-**Checkpoint**: `uv run scripts/clerk.py update --help` works; SKILL documents the flow.
+**Checkpoint**: `uv run scripts/bailiff.py update --help` works; SKILL documents the flow.
 
 ---
 
@@ -246,7 +246,7 @@ rejected.
   resolved during implementation).
 
 - [ ] T018 Update `README.md`: brief `## Upgrade` note — upgrade from one template
-  version to another via `scripts/clerk.py update`; version-crossing migrations
+  version to another via `scripts/bailiff.py update`; version-crossing migrations
   handled by copier; multi-layer upgrade in dependency order. Open PR.
 
 ---

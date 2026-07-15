@@ -1,13 +1,13 @@
-# Contract — clerk catalog (spec 002)
+# Contract — bailiff catalog (spec 002)
 
-The catalog lets a user point clerk at their **own** source repos and list the
-templates they offer. It is user-owned config managed by `scripts/clerk.py`; it is
+The catalog lets a user point bailiff at their **own** source repos and list the
+templates they offer. It is user-owned config managed by `scripts/bailiff.py`; it is
 NOT a copier template and nothing catalog-related is written into a generated
 project (the spec-010 invariant). Discovery is static (no template code, no trust).
 
 ## The catalog file (TOML)
 
-Default path: `user_config_path("clerk")/catalog.toml` (same `platformdirs`/env
+Default path: `user_config_path("bailiff")/catalog.toml` (same `platformdirs`/env
 resolution `trust.py` uses); overridable with `--catalog PATH`. Local files only
 (spec 002). Plain, hand-editable, and agent-manageable.
 
@@ -16,8 +16,8 @@ resolution `trust.py` uses); overridable with `--catalog PATH`. Local files only
 [[catalog]]
 name = "demo"                        # explicit; defaults to a sanitized basename if omitted
 sources = [
-  "copier-clerk/clerk-template-example",   # gituser/gitrepo — one repo = one template (ADR-0002)
-  "acme/clerk-mod-python@v2.1.0",          # optional @ref: a display/standardization override ONLY,
+  "copier-bailiff/bailiff-template-example",   # gituser/gitrepo — one repo = one template (ADR-0002)
+  "acme/bailiff-mod-python@v2.1.0",          # optional @ref: a display/standardization override ONLY,
 ]                                          #   NOT a reproduce pin (that lives in the project answers file)
 ```
 
@@ -28,9 +28,9 @@ sources = [
 - **No `catalog.yml` in generated projects, no submodules, no generation CI**
   (ADR-0002/0003).
 
-## `scripts/clerk.py catalog <verb>`
+## `scripts/bailiff.py catalog <verb>`
 
-Run `./scripts/clerk.py catalog …` or `uv run scripts/clerk.py catalog …`. All verbs
+Run `./scripts/bailiff.py catalog …` or `uv run scripts/bailiff.py catalog …`. All verbs
 accept `--catalog PATH` to target a non-default file. Errors print legibly to
 stderr with a non-zero exit — never a bare stack trace.
 
@@ -76,8 +76,8 @@ Deterministic; per template, derived live from each source's static `discover`:
       "name": "demo",
       "templates": [
         {
-          "full_id": "demo/clerk-template-example",
-          "source": "https://github.com/copier-clerk/clerk-template-example.git",
+          "full_id": "demo/bailiff-template-example",
+          "source": "https://github.com/copier-bailiff/bailiff-template-example.git",
           "ref": "v1.0.0",
           "versions": ["v1.0.0"],
           "reproducible": true,
@@ -95,7 +95,7 @@ Deterministic; per template, derived live from each source's static `discover`:
 
 - `full_id` = `<catalog-name>/<template>`. `<template>` is the source repo basename.
 - `questions` is the visible-question key list (from `discovery.Discovery.questions`);
-  full per-question metadata is available via `scripts/clerk.py discover <source>`
+  full per-question metadata is available via `scripts/bailiff.py discover <source>`
   (spec 001, unchanged) — the listing summarizes, discover details.
 - `reproducible: false` sources are listed under `unusable` with the reason (VI gate).
 

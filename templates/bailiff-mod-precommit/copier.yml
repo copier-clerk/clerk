@@ -1,0 +1,101 @@
+# copier.yml — bailiff-mod-precommit
+#
+# SINGLE WRITER of the hook config file: .pre-commit-config.yaml (pre-commit),
+# lefthook.yml (lefthook), or nothing (none). Implements the hook_manager +
+# hook_blocks frozen-union contract (_cross-cutting §4, M1): the phase-1 agent
+# freezes both answers via --data; this module just renders them.
+#
+# Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
+# questions; ordering edges are when:false hidden answers (Constitution VI).
+
+# --- Threading: hook_manager (choice-axis key FR-002) ------------------------
+# Threaded from the phase-1 agent's frozen answer via --data, OR answered
+# interactively when used standalone. husky/simple-git-hooks are dead options
+# (_cross-cutting §1) — NOT offered.
+hook_manager:
+  type: str
+  choices:
+    - pre-commit
+    - lefthook
+    - none
+  default: pre-commit
+  help: "Hook manager. pre-commit = .pre-commit-config.yaml; lefthook = lefthook.yml; none = no file written."
+
+# --- Optional feature flags --------------------------------------------------
+
+enforce_conventional_commits:
+  type: bool
+  default: true
+  help: "Add a commit-msg hook that enforces Conventional Commits via close-keywords."
+
+enable_typo_check:
+  type: bool
+  default: true
+  help: "Add a typo-check hook (pre-commit: crate-ci/typos; lefthook: typos CLI)."
+
+# De-hardwires the old SpecKit exclude patterns: previously locked to a fixed
+# list; now caller-supplied so no single set is baked in.
+precommit_exclude_patterns:
+  type: yaml
+  default: []
+  help: "Extra exclude patterns injected into .pre-commit-config.yaml (yaml list). bailiff injects this."
+
+# When true (default) the install task runs once on init.
+install_hooks:
+  type: bool
+  default: true
+  help: "Run 'pre-commit install' / 'lefthook install' after rendering (init-only-guarded)."
+
+# --- Agent-frozen union (M1 — _cross-cutting §4) -----------------------------
+# The phase-1 agent assembles the full union of language hook blocks and injects
+# it here via --data BEFORE any module runs. This module renders them verbatim.
+# NOT built by runtime accumulation (circular dependency: precommit needs
+# languages' hook_blocks, languages need precommit's hook_manager). Default []
+# so standalone renders produce a valid, empty-blocks hook file.
+hook_blocks:
+  type: yaml
+  default: []
+  help: "Agent-frozen union of language hook blocks (yaml list). bailiff injects this — do not set manually."
+
+# Threaded from base (FR-010 pattern); standalone fallback is empty string.
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency ordering edges (when:false hidden answers) -------------------
+
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# Template body lives under template/ — copier renders only that subtree.
+_subdirectory: template
+
+# --- Trust-gated tasks (FR-007b / FR-012a) -----------------------------------
+# The install task is init-only-guarded: we write a committed sentinel
+# (.bailiff-precommit-installed) on first run; the `test -f` guard makes reproduce
+# a no-op so we never double-install.
+_tasks:
+  # pre-commit install (guarded: only when hook_manager=pre-commit AND install_hooks)
+  - command: >-
+      test -f .bailiff-precommit-installed ||
+      { pre-commit install && touch .bailiff-precommit-installed; }
+    when: "{{ hook_manager == 'pre-commit' and install_hooks }}"
+  # lefthook install (guarded: only when hook_manager=lefthook AND install_hooks)
+  - command: >-
+      test -f .bailiff-precommit-installed ||
+      { lefthook install && touch .bailiff-precommit-installed; }
+    when: "{{ hook_manager == 'lefthook' and install_hooks }}"

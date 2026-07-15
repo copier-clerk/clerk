@@ -1,14 +1,14 @@
 {
-  "name": "clerk",
+  "name": "bailiff",
   "interface": {
-    "displayName": "clerk"
+    "displayName": "bailiff"
   },
   "plugins": [
     {
-      "name": "clerk",
+      "name": "bailiff",
       "source": {
         "source": "local",
-        "path": "./packages/clerk"
+        "path": "./packages/bailiff"
       },
       "policy": {
         "installation": "AVAILABLE",

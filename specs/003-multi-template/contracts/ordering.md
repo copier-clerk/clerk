@@ -1,31 +1,31 @@
-# Contract — clerk multi-template ordering + recomputed reproduce (spec 003)
+# Contract — bailiff multi-template ordering + recomputed reproduce (spec 003)
 
-clerk applies several templates to one project in dependency order and recomputes
+bailiff applies several templates to one project in dependency order and recomputes
 that order at reproduce from committed state. copier does zero cross-template
-coordination; clerk is the ordering brain (ADR-0003). Nothing clerk-authored is
+coordination; bailiff is the ordering brain (ADR-0003). Nothing bailiff-authored is
 committed to encode the order (spec 010 / Constitution III).
 
 ## The multi-template run-spec
 
 An extension of the 001 single-template run-spec: a **selection** (≥1 template) plus
-per-layer answers. `today` is injected by clerk (unchanged). Single-template is the
+per-layer answers. `today` is injected by bailiff (unchanged). Single-template is the
 N=1 case of this shape.
 
 ```yaml
 dest: "./my-project"
 selection:
-  - full_id: "demo/clerk-mod-base"      # from spec 002 catalog validate
-    source: "https://github.com/…/clerk-mod-base.git"   # resolved locator
+  - full_id: "demo/bailiff-mod-base"      # from spec 002 catalog validate
+    source: "https://github.com/…/bailiff-mod-base.git"   # resolved locator
     ref: "v1.2.0"                        # optional pin (else latest)
     answers: { project_name: acme, license: MIT }
-  - full_id: "demo/clerk-mod-python"
-    source: "https://github.com/…/clerk-mod-python.git"
+  - full_id: "demo/bailiff-mod-python"
+    source: "https://github.com/…/bailiff-mod-python.git"
     ref: null
     answers: { python_version: "3.12" }  # may reference an earlier layer's answer via copier default
 ```
 
 - The agent authors this from the validated selection (spec 002) + collected answers.
-- Per-layer `answers` thread forward: clerk accumulates them and passes the running
+- Per-layer `answers` thread forward: bailiff accumulates them and passes the running
   dict as `data=` into each subsequent `copier copy` (NOT `_external_data` — ADR-0003).
 
 ## Dependency edges (inputs to the DAG)
@@ -71,7 +71,7 @@ produce byte-identical output regardless of the selection's input order.
    overwrite=True, quiet=True, pretend=check)`.
 3. Merge that layer's answers into the accumulating `data=` dict for later layers.
 4. Each layer commits its own `.copier-answers.<basename>.yml` recording its
-   `_src_path` + `_commit`. **No clerk-authored order file is written.**
+   `_src_path` + `_commit`. **No bailiff-authored order file is written.**
 
 `--check` runs step 2 with `pretend=True` for every layer (the all-gaps preflight)
 and writes nothing.
@@ -91,10 +91,10 @@ and writes nothing.
 
 - Uses ONLY the committed answers files + pinned re-fetches. No recipe/DAG file is
   read or required (FR-005).
-- **copier-only-by-hand fallback**: a human without clerk runs `copier recopy
+- **copier-only-by-hand fallback**: a human without bailiff runs `copier recopy
   --vcs-ref=:current: --defaults --overwrite -a <each .copier-answers*.yml>` in the
   recomputed order; the order is derivable by hand from the same committed edges.
-  (clerk automates it; nothing about the project *requires* clerk — spec 010.)
+  (bailiff automates it; nothing about the project *requires* bailiff — spec 010.)
 - Reproduce resolves only from recorded pins; a dependency added in a newer template
   version is NOT picked up (that is `update`, spec 006 — FR-009).
 
@@ -112,7 +112,7 @@ template author knows without knowing the consumer's catalog.)
 | Code | Meaning |
 |---|---|
 | 0 | success (or `--check` clean) |
-| 1 | `OrderingError` (cycle / dangling edge / basename collision) or other `ClerkError` (bad run-spec, copier failure) |
+| 1 | `OrderingError` (cycle / dangling edge / basename collision) or other `BailiffError` (bad run-spec, copier failure) |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` — a layer takes actions from an untrusted source |
 

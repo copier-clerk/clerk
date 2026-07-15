@@ -1,4 +1,4 @@
-"""spec 011 T016: clerk-mod-ci-github loop tests.
+"""spec 011 T016: bailiff-mod-ci-github loop tests.
 
 MANAGED render — .github/workflows/ci.yml is byte-identical on reproduce.
 ZERO _tasks — the module has no task block so no stub is needed.
@@ -29,7 +29,7 @@ from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
 # Constants and helpers
 # ---------------------------------------------------------------------------
 
-_MODULE = "clerk-mod-ci-github"
+_MODULE = "bailiff-mod-ci-github"
 _CI_FILE = Path(".github/workflows/ci.yml")
 
 # Two-language facts injected as AGENT-FROZEN --data for all model tests.
@@ -56,7 +56,7 @@ _NO_TASKS_STUB = ""
 
 
 def _make_ci_github_repo(tmp_path: Path) -> TemplateRepo:
-    """Build a hermetic local repo from the real clerk-mod-ci-github template.
+    """Build a hermetic local repo from the real bailiff-mod-ci-github template.
 
     No task stub needed — the module has ZERO _tasks. _copy_module_with_stub_tasks
     strips any _tasks block and appends the stub (empty string = effectively no tasks).
@@ -66,7 +66,7 @@ def _make_ci_github_repo(tmp_path: Path) -> TemplateRepo:
 
 @pytest.fixture
 def ci_github_repo(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-ci-github as a hermetic local repo."""
+    """The real bailiff-mod-ci-github as a hermetic local repo."""
     return _make_ci_github_repo(tmp_path)
 
 
@@ -486,7 +486,7 @@ def test_answers_file_written(ci_github_repo: TemplateRepo, tmp_path: Path) -> N
         answers=_base_answers(ci_model="minimal"),
     )
     # Standalone copier writes .copier-answers.yml (no module suffix).
-    # In multi-layer clerk, copier writes .copier-answers.<module>.yml.
+    # In multi-layer bailiff, copier writes .copier-answers.<module>.yml.
     # Either form is acceptable — find any answers file.
     answers_files = list(dest.glob(".copier-answers*.yml"))
     assert len(answers_files) == 1, f"Expected 1 answers file, got: {answers_files}"

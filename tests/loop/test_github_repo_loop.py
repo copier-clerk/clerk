@@ -1,6 +1,6 @@
-"""spec 011 T018: clerk-mod-github-repo loop tests.
+"""spec 011 T018: bailiff-mod-github-repo loop tests.
 
-Three scenarios per contract (docs-integration.md §clerk-mod-github-repo):
+Three scenarios per contract (docs-integration.md §bailiff-mod-github-repo):
 
 1. visibility=public → hard exit 1 before any gh call (no silent public creation).
 2. gh absent → non-fatal exit 0 (warn-and-continue); scaffold completes.
@@ -19,8 +19,8 @@ from textwrap import dedent
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.errors import ClerkError
+from bailiff import runner, trust
+from bailiff.errors import BailiffError
 from tests.conftest import _GH_STUB_TASKS, TemplateRepo, _copy_module_with_stub_tasks
 
 # ---------------------------------------------------------------------------
@@ -34,11 +34,11 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def clerk_mod_github_repo(tmp_path: Path) -> TemplateRepo:
-    """Real clerk-mod-github-repo with gh tasks stubbed offline."""
+def bailiff_mod_github_repo(tmp_path: Path) -> TemplateRepo:
+    """Real bailiff-mod-github-repo with gh tasks stubbed offline."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-github-repo",
-        tmp_path / "clerk-mod-github-repo",
+        "bailiff-mod-github-repo",
+        tmp_path / "bailiff-mod-github-repo",
         _GH_STUB_TASKS,
     )
 
@@ -47,17 +47,17 @@ def clerk_mod_github_repo(tmp_path: Path) -> TemplateRepo:
 _GH_ABSENT_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'gh-absent-stub\\n' > .clerk-gh-preflight"
+      - "printf 'gh-absent-stub\\n' > .bailiff-gh-preflight"
     """
 )
 
 
 @pytest.fixture
-def clerk_mod_github_repo_no_gh(tmp_path: Path) -> TemplateRepo:
+def bailiff_mod_github_repo_no_gh(tmp_path: Path) -> TemplateRepo:
     """Variant where the gh-absent path is taken (non-fatal exit 0)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-github-repo",
-        tmp_path / "clerk-mod-github-repo-no-gh",
+        "bailiff-mod-github-repo",
+        tmp_path / "bailiff-mod-github-repo-no-gh",
         _GH_ABSENT_STUB_TASKS,
     )
 
@@ -68,18 +68,18 @@ _GH_PUBLIC_STUB_TASKS = dedent(
     """\
     _tasks:
       - >-
-        echo "clerk-mod-github-repo: ABORTED — visibility=public requires manual confirmation." >&2;
+        echo "bailiff-mod-github-repo: ABORTED — public requires manual confirmation." >&2;
         exit 1
     """
 )
 
 
 @pytest.fixture
-def clerk_mod_github_repo_public(tmp_path: Path) -> TemplateRepo:
+def bailiff_mod_github_repo_public(tmp_path: Path) -> TemplateRepo:
     """Variant whose task always exits 1 (simulates public consent gate firing)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-github-repo",
-        tmp_path / "clerk-mod-github-repo-public",
+        "bailiff-mod-github-repo",
+        tmp_path / "bailiff-mod-github-repo-public",
         _GH_PUBLIC_STUB_TASKS,
     )
 
@@ -90,18 +90,18 @@ def clerk_mod_github_repo_public(tmp_path: Path) -> TemplateRepo:
 
 
 def test_public_visibility_aborts(
-    clerk_mod_github_repo_public: TemplateRepo, tmp_path: Path
+    bailiff_mod_github_repo_public: TemplateRepo, tmp_path: Path
 ) -> None:
     """visibility=public must cause the task to exit 1 (hard abort-without-consent gate)."""
-    trust.add_trust(clerk_mod_github_repo_public.url)
+    trust.add_trust(bailiff_mod_github_repo_public.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_github_repo_public.url,
+        source=bailiff_mod_github_repo_public.url,
         dest=str(dest),
         answers={"project_name": "mypub", "visibility": "public"},
     )
-    # copier propagates non-zero task exit; clerk wraps it as ClerkError.
-    with pytest.raises(ClerkError):
+    # copier propagates non-zero task exit; bailiff wraps it as BailiffError.
+    with pytest.raises(BailiffError):
         runner.init(spec, today="2026-07-14")
 
 
@@ -110,12 +110,12 @@ def test_public_visibility_aborts(
 # ---------------------------------------------------------------------------
 
 
-def test_gh_absent_is_nonfatal(clerk_mod_github_repo_no_gh: TemplateRepo, tmp_path: Path) -> None:
+def test_gh_absent_is_nonfatal(bailiff_mod_github_repo_no_gh: TemplateRepo, tmp_path: Path) -> None:
     """When gh is absent the task exits 0 and the answers file is still written."""
-    trust.add_trust(clerk_mod_github_repo_no_gh.url)
+    trust.add_trust(bailiff_mod_github_repo_no_gh.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_github_repo_no_gh.url,
+        source=bailiff_mod_github_repo_no_gh.url,
         dest=str(dest),
         answers={"project_name": "myproj", "visibility": "private"},
     )
@@ -137,13 +137,13 @@ def test_gh_absent_is_nonfatal(clerk_mod_github_repo_no_gh: TemplateRepo, tmp_pa
 
 
 def test_init_stubbed_gh_writes_answers(
-    clerk_mod_github_repo: TemplateRepo, tmp_path: Path
+    bailiff_mod_github_repo: TemplateRepo, tmp_path: Path
 ) -> None:
     """Stubbed gh: init completes and the answers file records all question values."""
-    trust.add_trust(clerk_mod_github_repo.url)
+    trust.add_trust(bailiff_mod_github_repo.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_github_repo.url,
+        source=bailiff_mod_github_repo.url,
         dest=str(dest),
         answers={
             "project_name": "myproj",
@@ -171,9 +171,9 @@ def test_init_stubbed_gh_writes_answers(
         for p in dest.iterdir()
         if p.name
         not in {
-            ".copier-answers.clerk-mod-github-repo.yml",
+            ".copier-answers.bailiff-mod-github-repo.yml",
             ".copier-answers.yml",
-            ".clerk-gh-preflight",
+            ".bailiff-gh-preflight",
         }
         and not p.name.startswith(".copier-answers")
     ]
@@ -190,7 +190,7 @@ def test_no_secret_questions() -> None:
     copier_yml = (
         Path(__file__).resolve().parent.parent.parent
         / "templates"
-        / "clerk-mod-github-repo"
+        / "bailiff-mod-github-repo"
         / "copier.yml"
     )
     text = copier_yml.read_text()

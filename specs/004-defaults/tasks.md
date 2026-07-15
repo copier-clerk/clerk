@@ -1,8 +1,8 @@
 ---
-description: "Task list for clerk global per-template defaults (spec 004)"
+description: "Task list for bailiff global per-template defaults (spec 004)"
 ---
 
-# Tasks: clerk global per-template defaults
+# Tasks: bailiff global per-template defaults
 
 **Input**: Design documents from `specs/004-defaults/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
@@ -20,12 +20,12 @@ no-op, malformed YAML error, per-layer independence, and `settings.yml` fallback
 
 ## Design decisions this task list assumes (resolved; flagged for review)
 
-- Config format = YAML at `~/.config/clerk/defaults.yml` — aligned with ADR-0005
-  and clerk's existing YAML configs (Q-004a: no ADR deviation).
-- `CLERK_DEFAULTS_PATH` pointing at a nonexistent file → `DefaultsError` (Q-004c).
+- Config format = YAML at `~/.config/bailiff/defaults.yml` — aligned with ADR-0005
+  and bailiff's existing YAML configs (Q-004a: no ADR deviation).
+- `BAILIFF_DEFAULTS_PATH` pointing at a nonexistent file → `DefaultsError` (Q-004c).
 - `settings.yml` fallback = best-effort; gracefully degrades (Q-004b).
 - Hidden `when:false` questions = SHOULD exclude from `user_defaults=` (Q-004d).
-- `DefaultsError` lives in `src/clerk/errors.py` (consistent with `CatalogError`).
+- `DefaultsError` lives in `src/bailiff/errors.py` (consistent with `CatalogError`).
 - `defaults.py` is a standalone module (not inlined into `runner.py`).
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -37,27 +37,27 @@ no-op, malformed YAML error, per-layer independence, and `settings.yml` fallback
 
 ## Phase 1: Setup + error type
 
-- [ ] T001 Add `DefaultsError(ClerkError)` to `src/clerk/errors.py` (malformed YAML
+- [ ] T001 Add `DefaultsError(BailiffError)` to `src/bailiff/errors.py` (malformed YAML
   or nonexistent explicit-override path; message includes path + reason). Create the
-  `src/clerk/defaults.py` module skeleton (module docstring: user-config store for
+  `src/bailiff/defaults.py` module skeleton (module docstring: user-config store for
   soft per-template defaults — mirrors `catalog.py`'s path-resolution pattern; pure
   functions, no copier import in the load/select path).
 
-**Checkpoint**: `import clerk.defaults` works; `DefaultsError` importable; `mypy`
+**Checkpoint**: `import bailiff.defaults` works; `DefaultsError` importable; `mypy`
 clean on skeletons.
 
 ---
 
 ## Phase 2: `defaults.py` — load, path resolution, key selection
 
-- [ ] T002 [US1/US4] `defaults.defaults_path() -> Path`: resolve `CLERK_DEFAULTS_PATH`
+- [ ] T002 [US1/US4] `defaults.defaults_path() -> Path`: resolve `BAILIFF_DEFAULTS_PATH`
   env var → if set and file missing, raise `DefaultsError`; else return `Path(env)`.
-  Fallback: `user_config_path("clerk", appauthor=False) / "defaults.yml"`. Mirror
-  `catalog.catalog_path()` in `src/clerk/catalog.py:50-59`.
+  Fallback: `user_config_path("bailiff", appauthor=False) / "defaults.yml"`. Mirror
+  `catalog.catalog_path()` in `src/bailiff/catalog.py:50-59`.
 - [ ] T003 [US1/US4] `defaults.load(path: Path) -> dict[str, Any]`: missing file →
   return `{}` (no error); malformed YAML → raise `DefaultsError(f"defaults file is
   not valid YAML: {path}\n  {exc}")`. Use `yaml.safe_load`. Mirror the error-handling
-  pattern in `catalog.load()` at `src/clerk/catalog.py:111-138`.
+  pattern in `catalog.load()` at `src/bailiff/catalog.py:111-138`.
 - [ ] T004 [US1/US3] `defaults.select_keys(defaults: dict, questions: list[Question])
   -> dict`: filter to keys present in `questions`, excluding `question.secret is True`,
   excluding questions whose `when` is statically `False` (SHOULD). Return the filtered
@@ -87,7 +87,7 @@ clean on skeletons.
 
 ## Phase 3: US1 — single-template init with defaults
 
-- [ ] T007 [US1] Extend `runner.init()` in `src/clerk/runner.py`: before calling
+- [ ] T007 [US1] Extend `runner.init()` in `src/bailiff/runner.py`: before calling
   `run_copy`, load defaults (`defaults.load(defaults.defaults_path())`), fold
   settings (`defaults.fold_settings_defaults`), discover the template to get
   `disc.questions`, call `defaults.select_keys(merged_defaults, disc.questions)`,
@@ -106,16 +106,16 @@ clean on skeletons.
     error and behavior is identical to pre-004 (no `user_defaults` passed, or empty
     dict).
   - **SC-007 (no project file)**: assert the generated project contains no
-    defaults-related file written by clerk.
+    defaults-related file written by bailiff.
 
 **Checkpoint**: single-template defaults injection works; precedence intact; secrets
-excluded; missing file is a no-op; no clerk file in the project.
+excluded; missing file is a no-op; no bailiff file in the project.
 
 ---
 
 ## Phase 4: US2 — per-layer defaults in multi-template init
 
-- [ ] T009 [US2] Extend `runner.init_many()` in `src/clerk/runner.py`: load +
+- [ ] T009 [US2] Extend `runner.init_many()` in `src/bailiff/runner.py`: load +
   fold defaults ONCE per `init_many` call (before the per-layer loop). Inside the
   loop, for each layer, call `defaults.select_keys(merged_defaults, disc.questions)`
   and pass the result as `user_defaults=` to `run_copy`. The `disc` (discovery
@@ -130,7 +130,7 @@ excluded; missing file is a no-op; no clerk file in the project.
     in `data=`; it threads forward to layer B; `defaults.yml` has `author_name =
     "Ada"`; assert layer B records `author_name: Org` (threaded `data=` wins over
     `user_defaults=` — precedence check across the multi-layer seam).
-  - **US2 SC-007**: assert no clerk defaults file in the generated project tree.
+  - **US2 SC-007**: assert no bailiff defaults file in the generated project tree.
 
 **Checkpoint**: per-layer defaults injection works; threaded answer wins; no project
 file.
@@ -159,9 +159,9 @@ file.
 
 ## Phase 6: SKILL update
 
-- [ ] T012 [P] Extend `skills/clerk/SKILL.md`: add a note that clerk pre-fills soft
-  defaults from `~/.config/clerk/defaults.yml` (env-overridable via
-  `CLERK_DEFAULTS_PATH`); state that secret questions are never pre-filled; state
+- [ ] T012 [P] Extend `skills/bailiff/SKILL.md`: add a note that bailiff pre-fills soft
+  defaults from `~/.config/bailiff/defaults.yml` (env-overridable via
+  `BAILIFF_DEFAULTS_PATH`); state that secret questions are never pre-filled; state
   that the defaults file is user-side config and never written into the project;
   point at `specs/004-defaults/contracts/defaults.md`. Keep the update terse — one
   short paragraph.
@@ -175,14 +175,14 @@ file.
 - [ ] T013 Update `docs/decisions/0005-global-per-module-defaults.md`: the ADR
   names `defaults.yml`; this spec also uses `defaults.yml` (YAML) — aligned.
   Add one line to the ADR's Consequences section confirming the file is YAML
-  (`yaml.safe_load`), consistent with clerk's other YAML configs and PyYAML
+  (`yaml.safe_load`), consistent with bailiff's other YAML configs and PyYAML
   already being a project dependency.
 - [ ] T014 Full gate: `uv run ruff check src/ tests/ scripts/ && uv run ruff format
   --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Confirm existing
   001/010/002/003 tests still pass (NO regression). Run `-m network` if reachable,
   else note untested.
 - [ ] T015 [P] Update `.specify/memory/roadmap.md`: mark spec 004 `planned →
-  implemented` with a completion note (YAML defaults at `~/.config/clerk/defaults.yml`;
+  implemented` with a completion note (YAML defaults at `~/.config/bailiff/defaults.yml`;
   `user_defaults=` injection; key selection excludes secrets; multi-layer per-layer;
   settings.yml best-effort fold). Confirm 005/006 entries' dependency on 003 still
   read correctly (004 does not add a new dependency for 005).
@@ -212,4 +212,4 @@ file.
 - SC-004 — missing file no-op (T006, T008).
 - SC-005 — multi-layer per-layer defaults; threaded answer wins (T009, T010).
 - SC-006 — malformed YAML → `DefaultsError` (T006).
-- SC-007 — no clerk defaults file written into the generated project (T008, T010).
+- SC-007 — no bailiff defaults file written into the generated project (T008, T010).

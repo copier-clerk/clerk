@@ -32,28 +32,28 @@ Key verified constraints:
    fan-out strips it). See the DECIDED release-tooling section below.
 3. **Fan-out CI** (after the component tag lands): for each released component,
    strip the prefix → `vX.Y.Z`, push `templates/<name>/` to its own read-only repo
-   `copier-clerk/clerk-mod-<name>`, and create the clean annotated `vX.Y.Z` tag
+   `bailiff-io/bailiff-mod-<name>`, and create the clean annotated `vX.Y.Z` tag
    there.
    **Mechanism = snapshot mirror, NOT history-preserving split.** VERIFIED: copier
    only needs the correct tree at each tag + a PEP440 tag — it diffs tree-at-old
    vs tree-at-new on update and never walks intermediate history. So the fan-out
    is just `cp subdir → commit → tag → push`; history-preserving tooling
    (splitsh-lite, `git subtree split`, `git-filter-repo`, copybara) solves a
-   problem clerk does not have and is rejected as over-engineering.
+   problem bailiff does not have and is rejected as over-engineering.
    - **DECIDED: hand-rolled ~25-line GitHub Actions workflow** (matrix over
      `templates/<name>`): checkout monorepo at the release tag → clone (or
-     auto-create if missing) target `copier-clerk/clerk-mod-<name>` → replace
+     auto-create if missing) target `bailiff-io/bailiff-mod-<name>` → replace
      contents with `templates/<name>/.` → commit (skip if no diff) → `git tag -a
      vX.Y.Z` → push HEAD + tags. Auth is an org GitHub App minting short-lived
      tokens, NOT a personal PAT — see *CI identity for cross-repo writes* below.
-     Zero external deps, no history-rewrite edge cases, fits clerk's "own the thin
+     Zero external deps, no history-rewrite edge cases, fits bailiff's "own the thin
      layer" ethos. NOT adopting a third-party split action.
    - (For reference only, not adopted: `danharrin/monorepo-split-github-action`
      is the maintained symplify continuation doing the identical snapshot-mirror
      logic — the hand-roll is a ~25-line de-obfuscation of it, so we own it
      rather than pin an external action.)
    - Two edge cases: skip-commit-when-no-diff, and token scoping (the GitHub App
-     installation token must reach the `copier-clerk/clerk-mod-*` repos, and hold
+     installation token must reach the `bailiff-io/bailiff-mod-*` repos, and hold
      **organization** `administration:write` for auto-create — creating a repo is
      an org-level action, not repo-level — see *CI identity* below).
    - **Direct push, NOT a PR into the split repos.** Considered opening a PR per
@@ -70,12 +70,12 @@ Key verified constraints:
    - Rejected/dead: `git-subsplit` (abandoned since 2018), `meta`/`git-xargs`
      (multi-repo managers, wrong shape), `git-subrepo` (vendoring, wrong
      direction), copybara (JDK/Bazel/Starlark — disproportionate for ~24 `cp`s).
-4. **Catalog** is published from the monorepo (a JSON index of `clerk-mod-*`
-   repos + latest `v*`). clerk reads it (one or more catalog pointers). It is
+4. **Catalog** is published from the monorepo (a JSON index of `bailiff-mod-*`
+   repos + latest `v*`). bailiff reads it (one or more catalog pointers). It is
    GENERATED, not hand-maintained — see the *Authoring lifecycle* section for how
    it is derived, hosted (in-monorepo + GitHub Pages), and kept drift-free.
-5. **Consumers/clerk always source from the split repos**
-   (`https://github.com/copier-clerk/clerk-mod-<name>.git` — expanded https form,
+5. **Consumers/bailiff always source from the split repos**
+   (`https://github.com/bailiff-io/bailiff-mod-<name>.git` — expanded https form,
    per the trust contract in [[0001-copier-as-engine]]), never the monorepo — see
    the `_src_path` gotcha in [[0002-catalog-and-answer-model]].
 
@@ -84,16 +84,16 @@ Key verified constraints:
 There are two release contexts; the decision is deliberately uniform on
 **cocogitto** to keep one tool across the whole family.
 
-- **Authoring monorepo (`copier-clerk/clerk`)** — cocogitto in monorepo
+- **Authoring monorepo (`bailiff-io/bailiff`)** — cocogitto in monorepo
   mode tags each package as `<name>-vX.Y.Z` (the prefix disambiguates components
   and is exactly what the fan-out step strips). This replaces the earlier
   release-please assumption. `cog` generates each package's CHANGELOG.
-- **Split repos (`copier-clerk/clerk-mod-*`) and the clerk tool repo
-  (`copier-clerk/clerk`)** — cocogitto single-package: `cog bump --auto` computes
+- **Split repos (`bailiff-io/bailiff-mod-*`) and the bailiff tool repo
+  (`bailiff-io/bailiff`)** — cocogitto single-package: `cog bump --auto` computes
   the version, updates `CHANGELOG.md`, and tags `vX.Y.Z` (`tag_prefix = "v"`,
   clean PEP440 for copier) on merge, via `cocogitto/cocogitto-action`.
 
-**Rationale:** cocogitto is already in clerk's pre-commit stack (`cocogitto-verify`),
+**Rationale:** cocogitto is already in bailiff's pre-commit stack (`cocogitto-verify`),
 so it is one tool for verify + release across every repo — no second releaser to
 learn or maintain. It gives native changelogs (committed `CHANGELOG.md`, and the
 changelog body can be piped into `gh release create` for GitHub Release notes),
@@ -148,7 +148,7 @@ DECISION — one CI job, fan-out as later steps (no separate job needed):
    new package tags on the bump commit (no hook, no dry-run parsing needed; the
    `cocogitto-action` exposes no "bumped packages" output, so derive it here).
 4. For each: strip prefix → `cp + commit + tag vX.Y.Z + push` to
-   `copier-clerk/clerk-mod-<name>`.
+   `bailiff-io/bailiff-mod-<name>`.
 A fan-out failure fails the workflow AFTER the monorepo release is safely done;
 re-run steps 3-4 alone against existing tags (idempotent, testable in isolation,
 the cross-repo token scoped to the fan-out steps only — see *CI identity* below).
@@ -213,8 +213,8 @@ layering, not a release topology:
    to one project, each tracked by its own answers file
    (`copier copy -a .copier-answers.<layer>.yml <repo> .`), each updated
    independently (`copier update -a .copier-answers.<layer>.yml`). Each layer is
-   STILL its own repo with its own `v*` tag line. This is exactly clerk's
-   `clerk-mod-*` model (base + pre-commit + CI + …) and is the *payoff* of the
+   STILL its own repo with its own `v*` tag line. This is exactly bailiff's
+   `bailiff-mod-*` model (base + pre-commit + CI + …) and is the *payoff* of the
    split, not an alternative to it — it strengthens the case for many small,
    independently-tagged repos.
 2. **`_external_data`** — one template reads another already-applied template's
@@ -227,7 +227,7 @@ layering, not a release topology:
 
 The release mechanics above cover *version bump → tag → fan-out*. This section
 covers the rest of the module lifecycle in the authoring monorepo
-(`copier-clerk/clerk`): creating modules, keeping the family
+(`bailiff-io/bailiff`): creating modules, keeping the family
 structured, and deriving the published catalog. It is the design detail behind
 roadmap **spec 008**; slice 001 implements none of it.
 
@@ -266,18 +266,18 @@ C-01/C-11 (glue only where copier cannot; prefer template content + CI bash).
    - `cog.toml [monorepo.packages]` stays DECLARATIVE (the scaffolder writes the
      entry); the lint VERIFIES it matches the directory rather than regenerating a
      release tool's own config (auto-generating it is fragile).
-   - The **catalog JSON index** (what clerk consumers read) is GENERATED on release
+   - The **catalog JSON index** (what bailiff consumers read) is GENERATED on release
      from monorepo state: enumerate `templates/*/`, read name + description from
      each `copier.yml` + latest `v*` tag, emit JSON. Per
      [[0002-catalog-and-answer-model]] it holds SOURCES, not mandatory pins — the
      latest tag is informational display only; the real reproduce pin lives in each
      project's answers file. **Hosting (updated 2026-07-13):** committed as
      `catalog.json` in the monorepo and served via **raw git off the public
-     monorepo** (`raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json`) —
+     monorepo** (`raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json`) —
      one versioned source of truth, plan-independent. GitHub Pages was the original
      choice but was dropped (Pages on a private repo needs a paid plan; the monorepo
      was made public and raw git serves the already-committed file with no extra
-     deploy step). (Alternatives: a dedicated `copier-clerk/catalog` repo — extra
+     deploy step). (Alternatives: a dedicated `bailiff-io/catalog` repo — extra
      repo + PAT + push target; or a Release asset — no always-live URL.)
 
 4. **Publishing — the release job, extended.** The decision-#3 job gains a catalog
@@ -293,12 +293,12 @@ own, so the default Actions `GITHUB_TOKEN` (scoped to its own repo) is
 insufficient — a cross-repo credential is required regardless of topology.
 
 **Split repos are auto-created if missing.** The fan-out runs `gh repo create
-copier-clerk/clerk-mod-<name>` when the target does not exist (idempotent), so a
+bailiff-io/bailiff-mod-<name>` when the target does not exist (idempotent), so a
 newly scaffolded module needs zero manual pre-provisioning and one code path owns
 repo existence. Creating a repo in the org needs **`administration: write`** on
 the org — a higher grant than the `contents: write` a push needs.
 
-**DECIDED — an org-owned GitHub App ("clerk-fanout"), not a personal PAT.** The
+**DECIDED — an org-owned GitHub App ("bailiff-fanout"), not a personal PAT.** The
 workflow mints a short-lived (~1h) installation token per run (e.g.
 `actions/create-github-app-token`) with `contents: write` + `administration:
 write`. Rationale: the elevated org-admin grant belongs to an auditable,

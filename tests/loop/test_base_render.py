@@ -1,6 +1,6 @@
-"""spec 009 US1 / SC-001 (T017): clerk-mod-base v1.0.0 thinned scaffold.
+"""spec 009 US1 / SC-001 (T017): bailiff-mod-base v1.0.0 thinned scaffold.
 
-Init clerk-mod-base and assert:
+Init bailiff-mod-base and assert:
 - the managed dir scaffold .gitkeep files exist (thinned base dirs);
 - AGENTS.md is present with the substituted identity (seed-once render);
 - .copier-answers.yml records _src_path + _commit;
@@ -8,7 +8,7 @@ Init clerk-mod-base and assert:
 - layout=monorepo adds the 15 monorepo target dirs;
 - moved-out / dropped dirs are ABSENT.
 
-Tasks are stubbed to hermetic offline no-ops via the ``clerk_mod_base`` fixture
+Tasks are stubbed to hermetic offline no-ops via the ``bailiff_mod_base`` fixture
 (the real gitnr/gh tasks are validated live only outside the suite).
 """
 
@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 # Thinned base dirs (v1.0.0): only always-present dirs remain.
@@ -84,11 +84,11 @@ def _init_base(repo: TemplateRepo, dest: Path, answers: dict[str, Any]) -> None:
     runner.init(spec, today="2026-07-13")
 
 
-def test_base_single_scaffold(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_single_scaffold(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """SC-001: base single-layout v1.0.0 scaffold — thinned dirs, seed-once AGENTS.md."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "demo", "org": "acme", "license": "mit", "layout": "single"},
     )
@@ -118,7 +118,7 @@ def test_base_single_scaffold(clerk_mod_base: TemplateRepo, tmp_path: Path) -> N
 
     # .copier-answers.yml records source + pinned commit.
     af = yaml.safe_load((dest / ".copier-answers.yml").read_text())
-    assert clerk_mod_base.url in af["_src_path"]
+    assert bailiff_mod_base.url in af["_src_path"]
     assert af["_commit"], "answers file must record a pinned _commit"
     assert af["project_name"] == "demo"
     assert "run_after" not in af
@@ -130,11 +130,11 @@ def test_base_single_scaffold(clerk_mod_base: TemplateRepo, tmp_path: Path) -> N
     assert (dest / ".git").is_dir(), "git init task did not run"
 
 
-def test_base_monorepo_adds_targets(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_monorepo_adds_targets(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """SC-001: layout=monorepo adds the 15 monorepo target dirs on top of the base."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "demo", "org": "acme", "license": "apache-2.0", "layout": "monorepo"},
     )
@@ -149,11 +149,13 @@ def test_base_monorepo_adds_targets(clerk_mod_base: TemplateRepo, tmp_path: Path
     assert "## Path Mapping" not in agents
 
 
-def test_base_github_host_false_no_github_dir(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_github_host_false_no_github_dir(
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
+) -> None:
     """github_host=false → .github/ must not be scaffolded at all."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "demo",
@@ -166,12 +168,12 @@ def test_base_github_host_false_no_github_dir(clerk_mod_base: TemplateRepo, tmp_
 
 
 def test_base_github_host_true_scaffolds_github(
-    clerk_mod_base: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
 ) -> None:
     """github_host=true (default) → minimal .github/ present, no workflows/."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "demo",
@@ -182,19 +184,19 @@ def test_base_github_host_true_scaffolds_github(
     )
     assert (dest / ".github").is_dir(), "github_host=true must scaffold .github/"
     assert not (dest / ".github" / "workflows").exists(), (
-        ".github/workflows must not be scaffolded by base (that is clerk-mod-ci)"
+        ".github/workflows must not be scaffolded by base (that is bailiff-mod-ci)"
     )
     assert (dest / ".github" / "CODEOWNERS").is_file(), "CODEOWNERS must be present"
     assert not (dest / ".github" / "dependabot.yml").exists(), (
-        "dependabot.yml removed in spec 012 (pre-v1.0.0) — separate clerk-mod-dep-updates"
+        "dependabot.yml removed in spec 012 (pre-v1.0.0) — separate bailiff-mod-dep-updates"
     )
 
 
-def test_base_docs_subdirs_false(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_docs_subdirs_false(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """docs_subdirs=false → docs/ present but lean core subdirs absent."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "demo", "org": "acme", "license": "mit", "docs_subdirs": False},
     )
@@ -203,12 +205,12 @@ def test_base_docs_subdirs_false(clerk_mod_base: TemplateRepo, tmp_path: Path) -
         assert not (dest / d).exists(), f"docs_subdirs=false must not scaffold {d}"
 
 
-def test_base_no_initial_commit_by_default(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_no_initial_commit_by_default(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """Q5 gate: initial_commit defaults false → git repo has no commit yet."""
     import subprocess
 
     dest = tmp_path / "proj"
-    _init_base(clerk_mod_base, dest, {"project_name": "demo", "license": "mit"})
+    _init_base(bailiff_mod_base, dest, {"project_name": "demo", "license": "mit"})
     r = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD"],
         cwd=dest,
@@ -218,13 +220,13 @@ def test_base_no_initial_commit_by_default(clerk_mod_base: TemplateRepo, tmp_pat
     assert r.returncode != 0, "initial_commit=false must not create a commit"
 
 
-def test_base_initial_commit_true_commits(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_initial_commit_true_commits(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """Q5 gate: initial_commit=true → the scaffold is committed by the last base task."""
     import subprocess
 
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "demo", "license": "mit", "initial_commit": True},
     )
@@ -239,22 +241,22 @@ def test_base_initial_commit_true_commits(clerk_mod_base: TemplateRepo, tmp_path
     )
 
 
-def test_base_run_git_init_false(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_run_git_init_false(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """run_git_init=false → no .git/ created."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {"project_name": "demo", "license": "mit", "run_git_init": False},
     )
     assert not (dest / ".git").exists(), "run_git_init=false must not run git init"
 
 
-def test_base_copyright_name_in_license(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_copyright_name_in_license(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """copyright_name is used in LICENSE, not org."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "demo",
@@ -267,11 +269,11 @@ def test_base_copyright_name_in_license(clerk_mod_base: TemplateRepo, tmp_path: 
     assert "My Legal Name" in license_text, "copyright_name must appear in LICENSE"
 
 
-def test_base_mise_toml_rendered(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_base_mise_toml_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """MANAGED: .mise.toml is rendered from the frozen mise_tools answer."""
     dest = tmp_path / "proj"
     _init_base(
-        clerk_mod_base,
+        bailiff_mod_base,
         dest,
         {
             "project_name": "demo",

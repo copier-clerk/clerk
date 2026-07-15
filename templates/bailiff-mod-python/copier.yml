@@ -1,0 +1,210 @@
+# copier.yml — bailiff-mod-python
+#
+# Python language overlay (spec 011 / v1.0.0). Clean break from v0.x:
+# drops poetry/pip/pipenv, adds structured choice axes (FR-002), native-command
+# scaffold (FR-007 / ADR-0007), and the agent-frozen M1 threading contract.
+#
+# Lifecycle summary:
+#   MANAGED (byte-identical): ruff.toml, answers file.
+#   TASK-OUTPUT (process-deterministic): pyproject.toml — written by native init,
+#     then seed-once (_skip_if_exists); reproduce uses the committed file verbatim.
+#   CONTRIBUTES tokens only (M1): python version + uv token → mise_tools (base
+#     writes .mise.toml); Python (gitnr short-code) → gitignore_stack (base writes .gitignore);
+#     ruff hook block → hook_blocks (precommit writes hook config).
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions; edges are when:false hidden answers.
+
+# --- Threaded identity -------------------------------------------------------
+
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from bailiff-mod-base via data=; standalone: empty)."
+
+description:
+  type: str
+  default: ""
+  help: "One-line project description (written into pyproject [project].description)."
+
+# --- Python toolchain axes (FR-002) ------------------------------------------
+# Choices are FROZEN per C-06: do not reorder or remove after publishing a tag.
+
+python_pkg_manager:
+  type: str
+  choices:
+    - uv
+    - pdm
+  default: uv
+  help: "Package manager: uv (default) or pdm."
+
+python_version:
+  type: str
+  choices:
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
+  default: "3.13"
+  help: "Python version — pins requires-python + ruff target-version + mise tool."
+
+python_layout:
+  type: str
+  choices:
+    - src
+    - flat
+  default: src
+  help: "Project layout: src (uv init --package, installable) or flat."
+
+framework:
+  type: str
+  choices:
+    - none
+    - fastapi
+    - django
+    - flask
+  default: none
+  help: "Framework hint — recorded for agent use; no scaffolding branch."
+
+# --- Ruff axes (FR-002) -------------------------------------------------------
+
+ruff_line_length:
+  type: str
+  choices:
+    - "79"
+    - "88"
+    - "100"
+    - "119"
+    - "120"
+  default: "88"
+  help: "Ruff line-length (written to the managed ruff.toml)."
+
+ruff_quote_style:
+  type: str
+  choices:
+    - double
+    - single
+  default: double
+  help: "Ruff quote style (format.quote-style)."
+
+ruff_rule_profile:
+  type: str
+  choices:
+    - standard
+    - strict
+  default: standard
+  help: "standard = [E, F, I, N, W, UP, B, SIM, TCH]; strict adds [ANN, RUF, PERF, C4, PT]."
+
+# --- Test scaffold (opt-in) ---------------------------------------------------
+
+add_tests:
+  type: bool
+  default: false
+  help: "Add a tests/ scaffold with a pytest example (opt-in; pytest is the sole runner)."
+
+# --- Threading contracts (M1 / cross-cutting §2–§4) --------------------------
+# These are not written by this module; the phase-1 agent injects the frozen
+# union values via --data. They are declared here so copier records them and
+# downstream layers can thread them. See _cross-cutting.md.
+
+hook_manager:
+  type: str
+  default: "{{ hook_manager }}"
+  help: "Hook manager (threaded from selection; bailiff-mod-precommit is the single writer)."
+
+ruff_version:
+  type: str
+  default: ""
+  help: "Pinned ruff version for the pre-commit hook block (agent-resolved)."
+
+# `today` is injected by bailiff and frozen into answers (never jinja2_time — Constitution V).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+
+# run_after: bailiff-mod-precommit added here when bailiff-mod-precommit lands (hook_blocks ordering).
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# ruff.toml is MANAGED (byte-identical re-render on every reproduce).
+# pytest.ini is MANAGED (byte-identical, only present when add_tests=true).
+# pyproject.toml is TASK-OUTPUT (native init) then guarded by _skip_if_exists so
+# copier never clobbers the project-owned file on reproduce.
+# tests/test_example.py is SEED-ONCE (_skip_if_exists); project owns it after init.
+_subdirectory: template
+
+_skip_if_exists:
+  - pyproject.toml
+  - tests/test_example.py
+
+# --- Trust-gated tasks (FR-007 / ADR-0007) -----------------------------------
+# Tasks run post-render at BOTH init and reproduce.
+# Init-only guard (FR-012a): sentinel .bailiff-python-mise-installed prevents
+# `mise install` from re-running on reproduce over a populated tree.
+_tasks:
+  # (1) Preflight: mise and the selected package manager must be on PATH.
+  - >-
+    command -v mise >/dev/null 2>&1 ||
+    { echo "bailiff-mod-python: required tool 'mise' not found on PATH." >&2;
+    echo "  mise — https://mise.jdx.dev" >&2;
+    exit 1; }
+  - command: >-
+      command -v uv >/dev/null 2>&1 ||
+      { echo "bailiff-mod-python: required tool 'uv' not found on PATH." >&2;
+      echo "  uv — https://docs.astral.sh/uv/" >&2;
+      exit 1; }
+    when: "{{ python_pkg_manager == 'uv' }}"
+  - command: >-
+      command -v pdm >/dev/null 2>&1 ||
+      { echo "bailiff-mod-python: required tool 'pdm' not found on PATH." >&2;
+      echo "  pdm — https://pdm-project.org" >&2;
+      exit 1; }
+    when: "{{ python_pkg_manager == 'pdm' }}"
+
+  # (2) mise install — init-only-guarded (FR-012a).
+  #   Sentinel written after a successful install so reproduce is a no-op.
+  - >-
+    test -f .bailiff-python-mise-installed ||
+    ( mise install &&
+    printf 'mise-install: {{ python_pkg_manager }} python={{ python_version }}\n'
+    > .bailiff-python-mise-installed )
+
+  # (3) Native init (TASK-OUTPUT / ADR-0007): guarded so reproduce never re-runs it.
+  #   uv init --package produces src/<name>/ layout with build-system (python_layout=src).
+  #   uv init (no --package) produces a flat layout (python_layout=flat).
+  #   pdm init --non-interactive uses pdm's heuristics.
+  #   copier's when: form keeps _tasks as valid YAML (no Jinja block tags).
+  - command: >-
+      test -f pyproject.toml ||
+      uv init
+      --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
+      --python {{ python_version }} --package
+    when: "{{ python_pkg_manager == 'uv' and python_layout == 'src' }}"
+
+  - command: >-
+      test -f pyproject.toml ||
+      uv init
+      --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
+      --python {{ python_version }}
+    when: "{{ python_pkg_manager == 'uv' and python_layout == 'flat' }}"
+
+  - command: >-
+      test -f pyproject.toml ||
+      pdm init --non-interactive --python {{ python_version }}
+    when: "{{ python_pkg_manager == 'pdm' }}"

@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 def _trust(repo: TemplateRepo) -> None:
@@ -70,9 +70,9 @@ def test_today_is_frozen_into_answers(base_template: TemplateRepo, tmp_path: Pat
 def test_missing_required_answer_is_refused(base_template: TemplateRepo, tmp_path: Path) -> None:
     _trust(base_template)
     dest = tmp_path / "proj"
-    # omit the required project_name → clerk surfaces a legible error, no files
+    # omit the required project_name → bailiff surfaces a legible error, no files
     spec = runner.RunSpec(source=base_template.url, dest=str(dest), answers={})
-    from clerk.errors import InvalidRunSpecError
+    from bailiff.errors import InvalidRunSpecError
 
     with pytest.raises(InvalidRunSpecError):
         runner.init(spec, today="2026-07-09")
@@ -80,7 +80,7 @@ def test_missing_required_answer_is_refused(base_template: TemplateRepo, tmp_pat
 
 
 # ---------------------------------------------------------------------------
-# T015: scripts/clerk.py init via subprocess
+# T015: scripts/bailiff.py init via subprocess
 # ---------------------------------------------------------------------------
 
 
@@ -93,10 +93,10 @@ def _write_run_spec(tmp_path: Path, source: str, dest: Path, **answers: str) -> 
     return path
 
 
-def test_init_via_clerk_script(
+def test_init_via_bailiff_script(
     base_template: TemplateRepo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """scripts/clerk.py init --run-spec writes files, records answers, no clerk artifact."""
+    """scripts/bailiff.py init --run-spec writes files, records answers, no bailiff artifact."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -112,7 +112,7 @@ def test_init_via_clerk_script(
         env=env,
     )
     assert result.returncode == 0, (
-        f"clerk.py init failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        f"bailiff.py init failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
 
     # output file written
@@ -122,15 +122,15 @@ def test_init_via_clerk_script(
     assert answers["project_name"] == "demo"
     assert answers["_src_path"] == base_template.url
 
-    # SC-002: no clerk artifact
+    # SC-002: no bailiff artifact
     assert not (dest / "justfile").exists()
     assert not (dest / "Justfile").exists()
 
 
-def test_init_via_clerk_script_exits_1_on_missing_answer(
+def test_init_via_bailiff_script_exits_1_on_missing_answer(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init exits 1 (ClerkError) when a required answer is missing."""
+    """scripts/bailiff.py init exits 1 (BailiffError) when a required answer is missing."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -151,10 +151,10 @@ def test_init_via_clerk_script_exits_1_on_missing_answer(
     assert not (dest / "out.txt").exists()
 
 
-def test_init_via_clerk_script_exits_3_on_untrusted(
+def test_init_via_bailiff_script_exits_3_on_untrusted(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init exits 3 (UntrustedSourceError) for untrusted source."""
+    """scripts/bailiff.py init exits 3 (UntrustedSourceError) for untrusted source."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 

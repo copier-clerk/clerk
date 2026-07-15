@@ -15,8 +15,8 @@ from textwrap import dedent
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo, build_template_repo
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ from tests.conftest import TemplateRepo, build_template_repo
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-    monkeypatch.setenv("CLERK_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
+    monkeypatch.setenv("BAILIFF_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
 
 
 def _write_defaults(tmp_path: Path, content: str) -> None:

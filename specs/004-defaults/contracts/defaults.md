@@ -1,16 +1,16 @@
-# Contract — clerk global per-template defaults (spec 004)
+# Contract — bailiff global per-template defaults (spec 004)
 
-clerk pre-fills copier's soft-default prompt values from a user-owned YAML file.
+bailiff pre-fills copier's soft-default prompt values from a user-owned YAML file.
 copier's own `user_defaults=` parameter is the injection point; the precedence
 ladder is copier's native one, unmodified. Nothing defaults-related is written
 into the generated project (spec 010 invariant).
 
 ## Defaults config file
 
-**Path**: `~/.config/clerk/defaults.yml`
-(resolved via `user_config_path("clerk", appauthor=False) / "defaults.yml"`)
+**Path**: `~/.config/bailiff/defaults.yml`
+(resolved via `user_config_path("bailiff", appauthor=False) / "defaults.yml"`)
 
-**Env override**: `CLERK_DEFAULTS_PATH` — must point at an existing file when set;
+**Env override**: `BAILIFF_DEFAULTS_PATH` — must point at an existing file when set;
 raises `DefaultsError` if the path does not exist (an explicit override that
 silently no-ops is surprising — Q-004c resolved).
 
@@ -23,7 +23,7 @@ nesting. Values may be strings, integers, booleans, or lists — any type copier
 recognizes for its question types. Parsed with `yaml.safe_load`.
 
 ```yaml
-# clerk user defaults — ~/.config/clerk/defaults.yml
+# bailiff user defaults — ~/.config/bailiff/defaults.yml
 author_name: Ada Lovelace
 author_email: ada@example.com
 github_org: acme
@@ -37,7 +37,7 @@ sections or causing errors for unrecognized keys.
 
 ## Key-selection algorithm
 
-Before calling `run_copy`, clerk filters the full defaults dict to only the keys
+Before calling `run_copy`, bailiff filters the full defaults dict to only the keys
 relevant to the current template invocation:
 
 ```
@@ -65,18 +65,18 @@ no error, no placeholder.
 ## `settings.yml` defaults fold (best-effort)
 
 If copier's `~/.config/copier/settings.yml` (or the copier-platform path) contains
-a `defaults:` mapping, clerk merges it as a LOWER-PRIORITY fallback:
+a `defaults:` mapping, bailiff merges it as a LOWER-PRIORITY fallback:
 
 ```python
 merged = {**copier_settings_defaults, **yaml_defaults}
-# yaml_defaults wins on key collision — clerk-managed config outranks copier's flat global
+# yaml_defaults wins on key collision — bailiff-managed config outranks copier's flat global
 ```
 
 The key-selection algorithm runs on `merged`, not on either source alone. This gives
 users copier's cross-tool convention (`user_name`, `user_email`) for free.
 
 **Graceful degradation**: if `copier.load_settings()` raises for any reason (absent
-file, schema change in a copier upgrade, permissions), clerk logs a debug message and
+file, schema change in a copier upgrade, permissions), bailiff logs a debug message and
 uses only the YAML defaults. This is best-effort — FR-005. No error is surfaced.
 
 ## `user_defaults=` injection point
@@ -107,13 +107,13 @@ override it interactively. The roadmap scope says "soft default, still overridab
 
 | Priority | Source |
 |---|---|
-| 1 (highest) | `data=` / `--data` (clerk explicit answers, incl. injected `today`) |
+| 1 (highest) | `data=` / `--data` (bailiff explicit answers, incl. injected `today`) |
 | 2 | Previous answers file (`.copier-answers.yml` / layered) |
 | 3 | `user_defaults=` (this feature — from `defaults.yml` + `settings.yml` fold) |
 | 4 | `settings.yml defaults:` (copier's own flat global, if NOT folded into 3) |
 | 5 (lowest) | Template `copier.yml` question `default:` |
 
-clerk does NOT change this ladder. Passing user defaults as `user_defaults=` places
+bailiff does NOT change this ladder. Passing user defaults as `user_defaults=` places
 them at priority 3, which is exactly "soft default — overridable by explicit answers
 and by previously recorded answers at reproduce".
 
@@ -125,13 +125,13 @@ no change in reproduce output.
 
 ## Exit codes
 
-The defaults module raises `DefaultsError` (a `ClerkError` subclass); the existing
+The defaults module raises `DefaultsError` (a `BailiffError` subclass); the existing
 CLI error mapping applies:
 
 | Code | Meaning |
 |---|---|
 | 0 | success |
-| 1 | `DefaultsError` (malformed YAML, explicit-override path missing) or other `ClerkError` |
+| 1 | `DefaultsError` (malformed YAML, explicit-override path missing) or other `BailiffError` |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` |
 

@@ -1,4 +1,4 @@
-"""spec 007 US2 / SC-002, Q3 (T013): [.., clerk-mod-apm] reproduces faithfully.
+"""spec 007 US2 / SC-002, Q3 (T013): [.., bailiff-mod-apm] reproduces faithfully.
 
 Generate an APM-wired project, then reproduce and assert:
 - apm.yml re-renders BYTE-IDENTICALLY (same recorded apm_packages + pinned _commit);
@@ -6,7 +6,7 @@ Generate an APM-wired project, then reproduce and assert:
   STATE — the lock is explicitly NOT asserted byte-identical (Q3 / Constitution III).
 
 Covers N=1 (apm only, via reproduce) and the multi-layer case (via reproduce_many).
-Tasks are the offline stub (clerk_mod_apm fixture).
+Tasks are the offline stub (bailiff_mod_apm fixture).
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 _PKGS = [
@@ -48,12 +48,12 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
     )
 
 
-def test_apm_reproduce_byte_identical_n1(clerk_mod_apm: TemplateRepo, tmp_path: Path) -> None:
+def test_apm_reproduce_byte_identical_n1(bailiff_mod_apm: TemplateRepo, tmp_path: Path) -> None:
     """SC-002 / Q3 (N=1): apm.yml byte-identical on reproduce; lock is external state."""
-    trust.add_trust(clerk_mod_apm.url)
+    trust.add_trust(bailiff_mod_apm.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_apm.url,
+        source=bailiff_mod_apm.url,
         dest=str(dest),
         answers={"project_name": "myapp", "apm_packages": _PKGS},
     )
@@ -74,20 +74,20 @@ def test_apm_reproduce_byte_identical_n1(clerk_mod_apm: TemplateRepo, tmp_path: 
 
 
 def test_apm_reproduce_multi_layer(
-    apm_stub_base: TemplateRepo, clerk_mod_apm: TemplateRepo, tmp_path: Path
+    apm_stub_base: TemplateRepo, bailiff_mod_apm: TemplateRepo, tmp_path: Path
 ) -> None:
     """SC-002 / Q3 (multi-layer): [stub_base, apm] reproduces; apm.yml byte-identical."""
     trust.add_trust(apm_stub_base.url)
-    trust.add_trust(clerk_mod_apm.url)
+    trust.add_trust(bailiff_mod_apm.url)
     dest = tmp_path / "proj"
 
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-stub-base", apm_stub_base, ["project_name"]),
+            _record("demo/bailiff-mod-stub-base", apm_stub_base, ["project_name"]),
             {"project_name": "myapp"},
         ),
         (
-            _record("demo/clerk-mod-apm", clerk_mod_apm, ["project_name", "apm_packages"]),
+            _record("demo/bailiff-mod-apm", bailiff_mod_apm, ["project_name", "apm_packages"]),
             {"apm_packages": _PKGS},
         ),
     ]

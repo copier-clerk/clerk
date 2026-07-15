@@ -5,7 +5,7 @@ SC-004, FR-007 (spec 006).
 Phase 0 / T002 finding: copier's run_update does NOT raise on conflict.
 In inline mode it writes ``<<<<<<< before updating`` markers.
 In rej mode it writes ``.rej`` files.
-clerk detects both post-update.
+bailiff detects both post-update.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner
-from clerk.errors import MergeConflictError
+from bailiff import runner
+from bailiff.errors import MergeConflictError
 from tests.conftest import ConflictUpgradeFixture
 
 _PATH = __import__("os").environ.get("PATH", "/usr/bin:/bin")
@@ -29,10 +29,10 @@ def _git(repo: Path, *args: str) -> None:
         check=True,
         capture_output=True,
         env={
-            "GIT_AUTHOR_NAME": "clerk-test",
-            "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-            "GIT_COMMITTER_NAME": "clerk-test",
-            "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+            "GIT_AUTHOR_NAME": "bailiff-test",
+            "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+            "GIT_COMMITTER_NAME": "bailiff-test",
+            "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_SYSTEM": "/dev/null",
             "PATH": _PATH,

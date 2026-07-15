@@ -17,60 +17,60 @@ pre_bump_hooks = ["just check-modules"]
 # Format: [monorepo.packages.<name>]  path = "templates/<name>"
 [monorepo.packages]
 
-[monorepo.packages.clerk-mod-agentic]
-path = "templates/clerk-mod-agentic"
+[monorepo.packages.bailiff-mod-agentic]
+path = "templates/bailiff-mod-agentic"
 
-[monorepo.packages.clerk-mod-apm]
-path = "templates/clerk-mod-apm"
+[monorepo.packages.bailiff-mod-apm]
+path = "templates/bailiff-mod-apm"
 
-[monorepo.packages.clerk-mod-base]
-path = "templates/clerk-mod-base"
+[monorepo.packages.bailiff-mod-base]
+path = "templates/bailiff-mod-base"
 
-[monorepo.packages.clerk-mod-cdk]
-path = "templates/clerk-mod-cdk"
+[monorepo.packages.bailiff-mod-cdk]
+path = "templates/bailiff-mod-cdk"
 
-[monorepo.packages.clerk-mod-ci-github]
-path = "templates/clerk-mod-ci-github"
+[monorepo.packages.bailiff-mod-ci-github]
+path = "templates/bailiff-mod-ci-github"
 
-[monorepo.packages.clerk-mod-ci-gitlab]
-path = "templates/clerk-mod-ci-gitlab"
+[monorepo.packages.bailiff-mod-ci-gitlab]
+path = "templates/bailiff-mod-ci-gitlab"
 
-[monorepo.packages.clerk-mod-cloudformation]
-path = "templates/clerk-mod-cloudformation"
+[monorepo.packages.bailiff-mod-cloudformation]
+path = "templates/bailiff-mod-cloudformation"
 
-[monorepo.packages.clerk-mod-github-repo]
-path = "templates/clerk-mod-github-repo"
+[monorepo.packages.bailiff-mod-github-repo]
+path = "templates/bailiff-mod-github-repo"
 
-[monorepo.packages.clerk-mod-go]
-path = "templates/clerk-mod-go"
+[monorepo.packages.bailiff-mod-go]
+path = "templates/bailiff-mod-go"
 
-[monorepo.packages.clerk-mod-justfile]
-path = "templates/clerk-mod-justfile"
+[monorepo.packages.bailiff-mod-justfile]
+path = "templates/bailiff-mod-justfile"
 
-[monorepo.packages.clerk-mod-package-add]
-path = "templates/clerk-mod-package-add"
+[monorepo.packages.bailiff-mod-package-add]
+path = "templates/bailiff-mod-package-add"
 
-[monorepo.packages.clerk-mod-precommit]
-path = "templates/clerk-mod-precommit"
+[monorepo.packages.bailiff-mod-precommit]
+path = "templates/bailiff-mod-precommit"
 
-[monorepo.packages.clerk-mod-python]
-path = "templates/clerk-mod-python"
+[monorepo.packages.bailiff-mod-python]
+path = "templates/bailiff-mod-python"
 
-[monorepo.packages.clerk-mod-quality]
-path = "templates/clerk-mod-quality"
+[monorepo.packages.bailiff-mod-quality]
+path = "templates/bailiff-mod-quality"
 
-[monorepo.packages.clerk-mod-readme]
-path = "templates/clerk-mod-readme"
+[monorepo.packages.bailiff-mod-readme]
+path = "templates/bailiff-mod-readme"
 
-[monorepo.packages.clerk-mod-rust]
-path = "templates/clerk-mod-rust"
+[monorepo.packages.bailiff-mod-rust]
+path = "templates/bailiff-mod-rust"
 
-[monorepo.packages.clerk-mod-stack-adr]
-path = "templates/clerk-mod-stack-adr"
+[monorepo.packages.bailiff-mod-stack-adr]
+path = "templates/bailiff-mod-stack-adr"
 
-[monorepo.packages.clerk-mod-terraform]
-path = "templates/clerk-mod-terraform"
+[monorepo.packages.bailiff-mod-terraform]
+path = "templates/bailiff-mod-terraform"
 
-[monorepo.packages.clerk-mod-ts]
-path = "templates/clerk-mod-ts"
+[monorepo.packages.bailiff-mod-ts]
+path = "templates/bailiff-mod-ts"
 

@@ -1,4 +1,4 @@
-"""spec 011 T013: clerk-mod-stack-adr loop tests.
+"""spec 011 T013: bailiff-mod-stack-adr loop tests.
 
 Covers:
 - simple format: STACK.md rendered from frozen facts; seed-once on reproduce.
@@ -15,8 +15,8 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 
@@ -43,13 +43,13 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
 
 
 def test_simple_format_init_writes_stack_md(
-    clerk_mod_stack_adr: TemplateRepo, tmp_path: Path
+    bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path
 ) -> None:
     """simple format: STACK.md is created at init with frozen stack facts."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -76,10 +76,10 @@ def test_simple_format_init_writes_stack_md(
 
 
 def test_simple_format_seed_once_not_overwritten(
-    clerk_mod_stack_adr: TemplateRepo, tmp_path: Path
+    bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path
 ) -> None:
     """simple format: STACK.md is not overwritten on reproduce (_skip_if_exists)."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     answers: dict[str, Any] = {
         "project_name": "myapp",
@@ -89,7 +89,7 @@ def test_simple_format_seed_once_not_overwritten(
         "rationale": "Initial rationale.",
     }
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers=answers,
     )
@@ -112,13 +112,13 @@ def test_simple_format_seed_once_not_overwritten(
 
 
 def test_simple_format_reproduce_no_agent(
-    clerk_mod_stack_adr: TemplateRepo, tmp_path: Path
+    bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path
 ) -> None:
     """Reproduce replays frozen answers; no agent step in reproduce path."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers={"project_name": "myapp", "format": "simple", "stack_pins": ["go@1.23"]},
     )
@@ -136,7 +136,7 @@ def test_simple_format_reproduce_no_agent(
     # Reproduce is purely answer-replay (no agent marker file created).
     runner.reproduce(str(dest))
     # No side-effect files from an agent step.
-    assert not (dest / ".clerk-stack-adr-agent").exists()
+    assert not (dest / ".bailiff-stack-adr-agent").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -145,13 +145,13 @@ def test_simple_format_reproduce_no_agent(
 
 
 def test_adr_format_init_writes_numbered_adr(
-    clerk_mod_stack_adr: TemplateRepo, tmp_path: Path
+    bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path
 ) -> None:
     """adr format: numbered ADR written under adr_dir with MADR headings."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers={
             "project_name": "svcapp",
@@ -190,13 +190,13 @@ def test_adr_format_init_writes_numbered_adr(
 
 
 def test_adr_format_seed_once_not_overwritten(
-    clerk_mod_stack_adr: TemplateRepo, tmp_path: Path
+    bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path
 ) -> None:
     """adr format: ADR file is not overwritten on reproduce (_skip_if_exists)."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers={
             "project_name": "svcapp",
@@ -219,12 +219,12 @@ def test_adr_format_seed_once_not_overwritten(
     )
 
 
-def test_adr_format_custom_adr_dir(clerk_mod_stack_adr: TemplateRepo, tmp_path: Path) -> None:
+def test_adr_format_custom_adr_dir(bailiff_mod_stack_adr: TemplateRepo, tmp_path: Path) -> None:
     """adr format: adr_dir overridden to a non-default location."""
-    trust.add_trust(clerk_mod_stack_adr.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_stack_adr.url,
+        source=bailiff_mod_stack_adr.url,
         dest=str(dest),
         answers={
             "project_name": "svcapp",

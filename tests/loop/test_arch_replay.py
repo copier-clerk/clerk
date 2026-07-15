@@ -1,6 +1,6 @@
 """spec 009 US4 #1 / SC-005 (T028): the frozen architecture fact replays agent-free.
 
-Init clerk-mod-base with write_architecture=true + a frozen architecture_md (+
+Init bailiff-mod-base with write_architecture=true + a frozen architecture_md (+
 agent_editable_globs) injected as --data → the ## Architecture sentinel span
 renders those facts. Reproduce → the span re-renders byte-identically from the
 frozen answer, with NO agent call (reproduce is agent-free by construction —
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
 _ARCH_BODY = (
@@ -39,12 +39,12 @@ def _arch_span(agents_md: str) -> str:
     return agents_md[agents_md.index(begin) : agents_md.index(end) + len(end)]
 
 
-def test_frozen_arch_renders_and_replays(clerk_mod_base: TemplateRepo, tmp_path: Path) -> None:
+def test_frozen_arch_renders_and_replays(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
     """write_architecture=true → frozen facts render into the span; reproduce is identical."""
-    trust.add_trust(clerk_mod_base.url)
+    trust.add_trust(bailiff_mod_base.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_base.url,
+        source=bailiff_mod_base.url,
         dest=str(dest),
         answers={
             "project_name": "demo",
@@ -72,13 +72,13 @@ def test_frozen_arch_renders_and_replays(clerk_mod_base: TemplateRepo, tmp_path:
 
 
 def test_arch_gate_false_leaves_empty_sentinels(
-    clerk_mod_base: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, tmp_path: Path
 ) -> None:
     """write_architecture=false → the sentinel pair is empty (Q5 gate), even if a fact exists."""
-    trust.add_trust(clerk_mod_base.url)
+    trust.add_trust(bailiff_mod_base.url)
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_base.url,
+        source=bailiff_mod_base.url,
         dest=str(dest),
         answers={
             "project_name": "demo",

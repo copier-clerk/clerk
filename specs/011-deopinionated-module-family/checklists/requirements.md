@@ -1,4 +1,4 @@
-# Specification Quality Checklist: De-opinionated clerk-mod-* module family + new modules
+# Specification Quality Checklist: De-opinionated bailiff-mod-* module family + new modules
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-14
@@ -32,9 +32,9 @@
 ## Notes
 
 - This spec deliberately names concrete tools (uv, mise, biome, copier, GitHub Actions, etc.)
-  because clerk is itself a developer-tooling product and the ratified decisions ARE about tool
-  choices — the "no implementation details" criterion is interpreted as "no clerk-internal code
-  design", which holds (FR-011: no new src/clerk code). Tool names are the domain vocabulary, not
+  because bailiff is itself a developer-tooling product and the ratified decisions ARE about tool
+  choices — the "no implementation details" criterion is interpreted as "no bailiff-internal code
+  design", which holds (FR-011: no new src/bailiff code). Tool names are the domain vocabulary, not
   leaked implementation.
 - Authored directly from a fully-ratified decision ledger, so no [NEEDS CLARIFICATION] markers
   were needed — every decision was already made with the maintainer.

@@ -1,12 +1,12 @@
 ---
-description: "Phase-0 task list for spec 009 (clerk-mod-base + clerk-mod-python)"
+description: "Phase-0 task list for spec 009 (bailiff-mod-base + bailiff-mod-python)"
 ---
 
-# Tasks: project-setup module port → clerk-mod-* — **Phase 0 (v1)**
+# Tasks: project-setup module port → bailiff-mod-* — **Phase 0 (v1)**
 
 **Input**: [plan.md](./plan.md) + [spec.md](./spec.md) (CLARIFIED).
 
-**Scope**: Phase 0 = collapsed `clerk-mod-base` + `clerk-mod-python` ONLY. Phases 1–3 are
+**Scope**: Phase 0 = collapsed `bailiff-mod-base` + `bailiff-mod-python` ONLY. Phases 1–3 are
 deferred (plan.md *Forward note*). Do NOT author later-phase modules.
 
 **Tests**: REQUIRED. The spec mandates an init+reproduce integration test per module
@@ -22,9 +22,9 @@ deferred (plan.md *Forward note*). Do NOT author later-phase modules.
 
 - project-setup source (READ-ONLY): `~/.claude/skills/project-setup/modules/<m>/`.
 - Authoring plane: `just new-module name=…`, `just check-modules`, `_meta/module-template/`.
-- Trust-gated `_task` pattern to copy: `examples/clerk-template-example/copier.yml`.
+- Trust-gated `_task` pattern to copy: `examples/bailiff-template-example/copier.yml`.
 - Threading + `when:false` edge pattern to copy: `specs/007-agentic-module/tasks.md`
-  T004–T006 and `templates/clerk-mod-apm/copier.yml` once it exists.
+  T004–T006 and `templates/bailiff-mod-apm/copier.yml` once it exists.
 - Fixtures: `tests/loop/` + `build_template_repo` / `multi_template_set` in `tests/conftest.py`.
 
 ---
@@ -36,17 +36,17 @@ deferred (plan.md *Forward note*). Do NOT author later-phase modules.
 - [x] T001 Verify Phase-0 source manifests before porting (Assumptions caveat): read
   `~/.claude/skills/project-setup/modules/{core-identity,dirs-scaffold,gitignore-generate,license-write,agents-md,git-init}/module.toml`
   + `module.py`, and the `agents-md/steering/resolve-arch.md` + `templates/{single,monorepo}.md`.
-  For `clerk-mod-python`: its full manifest is **NOT locally present** — record the exact
+  For `bailiff-mod-python`: its full manifest is **NOT locally present** — record the exact
   ported behaviour from `~/.claude/skills/project-setup/addons/catalog.json` (lang-python
   entry) + SKILL.md characterization (`pins 3.13, uv + pyproject.toml`, appends Python
   `.gitignore` entries, ruff hooks). Write findings inline as porting notes; do NOT invent
   behaviour beyond these sources (FR-011).
-- [x] T002 Scaffold base: `just new-module name=clerk-mod-base`. Confirm it creates
-  `templates/clerk-mod-base/` with `copier.yml`, `{{ _copier_conf.answers_file }}.jinja`,
+- [x] T002 Scaffold base: `just new-module name=bailiff-mod-base`. Confirm it creates
+  `templates/bailiff-mod-base/` with `copier.yml`, `{{ _copier_conf.answers_file }}.jinja`,
   `README.md`, `CHANGELOG.md`, and the registration edits in
-  `cog.toml [monorepo.packages.clerk-mod-base]` + `catalog-sources.toml`.
-- [x] T003 [P] Scaffold python: `just new-module name=clerk-mod-python`. Same
-  confirmation for `templates/clerk-mod-python/`.
+  `cog.toml [monorepo.packages.bailiff-mod-base]` + `catalog-sources.toml`.
+- [x] T003 [P] Scaffold python: `just new-module name=bailiff-mod-python`. Same
+  confirmation for `templates/bailiff-mod-python/`.
 - [x] T004 Run `just check-modules` — both fresh stubs MUST report `ok` (three-way
   registration parity green). (SC-006 pre-check.)
 
@@ -58,32 +58,32 @@ deferred (plan.md *Forward note*). Do NOT author later-phase modules.
 
 **Purpose**: the `copier.yml` shells every user story depends on. **Blocks US1–US5.**
 
-- [x] T005 [US1] Author `clerk-mod-base` identity + choice questions in
-  `templates/clerk-mod-base/copier.yml` (FR-003 / Q7): `project_name` (str),
+- [x] T005 [US1] Author `bailiff-mod-base` identity + choice questions in
+  `templates/bailiff-mod-base/copier.yml` (FR-003 / Q7): `project_name` (str),
   `org` (str, default `acme`), `description` (str, default `""`), `layout`
   (choices `[single, monorepo]`, default `single`), `license` (choices = the **13** SPDX
   keys VERBATIM from `license-write/module.toml`: agpl-3.0, apache-2.0, bsd-2-clause,
   bsd-3-clause, bsl-1.0, cc0-1.0, epl-2.0, gpl-2.0, gpl-3.0, lgpl-2.1, mit, mpl-2.0,
   unlicense; default apache-2.0), and `today` (injected answer, blank default — mirror
-  `clerk-template-example`). NO `secret:` questions (FR-002 / SC-007).
-- [x] T006 [US1] Author `clerk-mod-base` gate + task-control booleans (Q5 / FR-007a):
+  `bailiff-template-example`). NO `secret:` questions (FR-002 / SC-007).
+- [x] T006 [US1] Author `bailiff-mod-base` gate + task-control booleans (Q5 / FR-007a):
   `write_architecture: bool = false` (gates the AGENTS.md arch splice),
   `initial_commit: bool = false` (gates the git commit task). Author the
   `gitignore_stack` list answer (default `[]`; injected via `--data` at init — Q7) and the
   frozen agent facts `architecture_md: str = ""` + `agent_editable_globs` (list, default
   `[]`) as normal answers (FR-006). Author `_subdirectory: template`.
-- [x] T007 [US1] Declare `clerk-mod-base` edges as `when:false` hidden answers with
+- [x] T007 [US1] Declare `bailiff-mod-base` edges as `when:false` hidden answers with
   `default: []` (FR-004): `depends_on`, `run_after`, `run_before` — all empty (base is the
   upstream root; its internal 6-module ordering is template-internal per Q1/FR-013, NOT
   cross-module edges).
-- [x] T008 [P] [US2] Author `clerk-mod-python` questions in
-  `templates/clerk-mod-python/copier.yml`: threaded `project_name`
+- [x] T008 [P] [US2] Author `bailiff-mod-python` questions in
+  `templates/bailiff-mod-python/copier.yml`: threaded `project_name`
   (`default: "{{ project_name }}"`, standalone fallback — FR-010, SC-006-style),
   `python_version` (fixed `choices:` incl. the pinned default `3.13` per SKILL.md — Q7),
   and `today` injected. Confirm python contributes `python` into the shared
   `gitignore_stack` (see T017), not its own `.gitignore`.
-- [x] T009 [US2] Declare `clerk-mod-python` edge in `copier.yml` as a `when:false` hidden
-  answer `run_after: [clerk-mod-base]` (ADR-0003 / plan *Ordering*); `depends_on`/
+- [x] T009 [US2] Declare `bailiff-mod-python` edge in `copier.yml` as a `when:false` hidden
+  answer `run_after: [bailiff-mod-base]` (ADR-0003 / plan *Ordering*); `depends_on`/
   `run_before` default `[]`. Do NOT hardcode that base supplies `project_name` (FR-010).
 - [x] T010 Confirm both answers-file `.jinja` files exist and render the copier answers
   (`{{ _copier_answers|to_nice_yaml }}`); run `just check-modules` — still `ok`. (VI a.)
@@ -95,22 +95,22 @@ edges parse; lint green.
 
 ## Phase 3: US1 — Scaffold a project from the base module (Priority: P1) 🎯 MVP
 
-**Goal**: selecting `clerk-mod-base` produces the dir scaffold, `.gitignore`, `LICENSE`,
+**Goal**: selecting `bailiff-mod-base` produces the dir scaffold, `.gitignore`, `LICENSE`,
 `AGENTS.md`, and a committed `.copier-answers.yml`; `git init` runs as a trust-gated task;
 untrusted source is refused at exit 3 before any task runs. (Spec US1 / SC-001, SC-004.)
 
-**Independent Test**: `clerk init` `clerk-mod-base` with `project_name=demo org=acme
+**Independent Test**: `bailiff init` `bailiff-mod-base` with `project_name=demo org=acme
 license=MIT` on a trusted source → scaffold + answers present; repeat untrusted → exit 3.
 
 ### Implementation for US1
 
 - [x] T011 [P] [US1] Author the **managed dir scaffold**: create
-  `templates/clerk-mod-base/template/<dir>/.gitkeep` for each base dir taken VERBATIM from
+  `templates/bailiff-mod-base/template/<dir>/.gitkeep` for each base dir taken VERBATIM from
   `dirs-scaffold/module.py` `_BASE_DIRS` (verify the EXACT count/list at port — the
   docstring says 21 but the local array is 20; FR-011 forbids drift). Gate the 15
   `_MONOREPO_TARGETS` dirs on `layout=monorepo` (a Jinja `{% if %}` in a computed path or
   a `_skip_if_exists`-independent conditional subtree). MANAGED lifecycle (byte-identical).
-- [x] T012 [US1] Author `templates/clerk-mod-base/template/AGENTS.md.jinja` (SEED-ONCE):
+- [x] T012 [US1] Author `templates/bailiff-mod-base/template/AGENTS.md.jinja` (SEED-ONCE):
   render the `single.md` or `monorepo.md` body (from agents-md/templates/) chosen by
   `layout`, substituting `PROJECT_NAME`→`project_name`, `ORG`→`org`, and the description
   placeholder from `description`. Render the `## Architecture` sentinel span from frozen
@@ -121,19 +121,19 @@ license=MIT` on a trusted source → scaffold + answers present; repeat untruste
   failing with explicit install guidance (FR-007b); (2) **gitnr** `.gitignore` generation
   from `gitignore_stack`, `gitnr` **version-pinned** in the command (Q7 — task-output);
   (3) **gh** LICENSE fetch `test -f LICENSE || gh api /licenses/{{ license }}` filling
-  `[year]`/`[fullname]` from `{{ today }}`/`{{ org }}` (copy `clerk-template-example`);
+  `[year]`/`[fullname]` from `{{ today }}`/`{{ org }}` (copy `bailiff-template-example`);
   (4) `git init --quiet`; (5) `git add -A && git commit` guarded `when: initial_commit`.
   Token read from ambient env, never an answer (FR-002).
-- [x] T014 [US1] Add `_skip_if_exists: ["AGENTS.md"]` to `clerk-mod-base/copier.yml`
+- [x] T014 [US1] Add `_skip_if_exists: ["AGENTS.md"]` to `bailiff-mod-base/copier.yml`
   (FR-005a / D-009-7). `.gitignore` and `LICENSE` are task-output so are NOT in the
   `_skip_if_exists` render list; their idempotency is the task guard (T013).
-- [x] T015 [US1] Author `clerk-mod-base` README prerequisites section documenting
+- [x] T015 [US1] Author `bailiff-mod-base` README prerequisites section documenting
   `git` + `gh` (authenticated) + `gitnr` (FR-007b) and the seed-once/managed lifecycle.
-- [x] T016 [P] [US1] Add the `clerk-mod-base` fixture to `tests/conftest.py` reusing
+- [x] T016 [P] [US1] Add the `bailiff-mod-base` fixture to `tests/conftest.py` reusing
   `build_template_repo`; stub the gitnr/gh/git `_tasks` to deterministic offline no-ops
   (write marker files, no network) so the suite is hermetic.
 - [x] T017 [P] [US1] `tests/loop/test_base_render.py` (US1 #1, SC-001): init
-  `clerk-mod-base` with `project_name=demo org=acme license=mit layout=single` → assert
+  `bailiff-mod-base` with `project_name=demo org=acme license=mit layout=single` → assert
   the base dir scaffold `.gitkeep`s exist (managed), `AGENTS.md` present with substituted
   identity, `.copier-answers.yml` records `_src_path` + `_commit`, and the stubbed tasks
   produced `.gitignore` + `LICENSE`. Assert `layout=monorepo` adds the 15 targets.
@@ -147,7 +147,7 @@ license=MIT` on a trusted source → scaffold + answers present; repeat untruste
 
 ## Phase 4: US2 — Add the Python overlay on top of base (Priority: P1)
 
-**Goal**: `[clerk-mod-base, clerk-mod-python]` applies base first (edge-ordered), threads
+**Goal**: `[bailiff-mod-base, bailiff-mod-python]` applies base first (edge-ordered), threads
 `project_name`, and produces `pyproject.toml` + Python `.gitignore` entries — the output
 lang-python produces. (Spec US2 / SC-002.)
 
@@ -157,28 +157,28 @@ first, python after; `project_name` threaded; `pyproject.toml` present. Init pyt
 
 ### Implementation for US2
 
-- [x] T019 [US2] Author `templates/clerk-mod-python/template/pyproject.toml.jinja`
+- [x] T019 [US2] Author `templates/bailiff-mod-python/template/pyproject.toml.jinja`
   (SEED-ONCE): uv/ruff/pytest config + `requires-python` pinned from `python_version`;
   `[project].name = "{{ project_name }}"`. Port config faithfully from the lang-python
   characterization recorded in T001 (do NOT invent fields beyond it; flag gaps — FR-011).
 - [x] T020 [US2] Add `_skip_if_exists: ["pyproject.toml"]` to
-  `clerk-mod-python/copier.yml` (FR-005a — language manifest is seed-once).
-- [x] T021 [US2] Add the `clerk-mod-python` **uv preflight `_task`** ordered FIRST
+  `bailiff-mod-python/copier.yml` (FR-005a — language manifest is seed-once).
+- [x] T021 [US2] Add the `bailiff-mod-python` **uv preflight `_task`** ordered FIRST
   (FR-007b / Q6): checks `uv` on PATH, fails with the astral install URL. Document `uv` in
   the module README.
 - [x] T022 [US2] Thread the Python `.gitignore` contribution through base's
   `gitignore_stack` (plan *Ordering*): at init the skill injects `python` into
   `gitignore_stack` via `--data`; confirm python's template writes NO `.gitignore` itself
   (single writer, idempotent reproduce). Flag if the local characterization disagrees.
-- [x] T023 [P] [US2] Add the `clerk-mod-python` fixture to `tests/conftest.py`; extend
-  `multi_template_set` to build the ordered `[clerk-mod-base, clerk-mod-python]` pair with
+- [x] T023 [P] [US2] Add the `bailiff-mod-python` fixture to `tests/conftest.py`; extend
+  `multi_template_set` to build the ordered `[bailiff-mod-base, bailiff-mod-python]` pair with
   the `run_after` edge.
 - [x] T024 [US2] `tests/loop/test_python_overlay.py` (US2 #1, SC-002): init
   `[base, python]` `python_version=3.13` → assert base rendered before python (edge order),
   `pyproject.toml` present with threaded `project_name` + pinned `requires-python`, and
   the gitnr stack included `python`.
 - [x] T025 [P] [US2] `tests/loop/test_python_standalone.py` (US2 #2, SC-006-style):
-  init `clerk-mod-python` ALONE → renders with default `project_name`; no crash from the
+  init `bailiff-mod-python` ALONE → renders with default `project_name`; no crash from the
   missing base layer.
 
 **Checkpoint**: overlay renders after base; threading works; standalone works.
@@ -243,8 +243,8 @@ documents the family. (Spec US5 / SC-006, SC-008.)
 - [x] T031 [P] [US5] Add the spec-005 secrets-policy assertion coverage: confirm neither
   module declares a `secret:` question so `tests/loop/test_secrets_policy.py` stays green
   (SC-007). (No new test if the existing lint already scans `templates/`.)
-- [x] T032 [P] [US5] Update `skills/clerk/SKILL.md` (FR-012): document the ported family
-  (which modules exist: `clerk-mod-base` + `clerk-mod-python`), the **base-selection
+- [x] T032 [P] [US5] Update `skills/bailiff/SKILL.md` (FR-012): document the ported family
+  (which modules exist: `bailiff-mod-base` + `bailiff-mod-python`), the **base-selection
   step**, per-module trust consent for the git/gh/gitnr/uv tasks, and the multi-layer
   handoff shape (base first, then python `run_after`). Note the base is always the
   identity root.
@@ -309,7 +309,7 @@ documents the family. (Spec US5 / SC-006, SC-008.)
   (Constitution VII / tests-first for the loop tests).
 - Commit after each logical group; do NOT run the 008b fan-out CI (out of scope).
 - **Residual ambiguities flagged in-doc** (resolve at implementation, do not invent):
-  (1) exact base dir list count (20 vs docstring's 21 — T011); (2) `clerk-mod-python`
+  (1) exact base dir list count (20 vs docstring's 21 — T011); (2) `bailiff-mod-python`
   reconciled against `lang-python-v1.3.0` (module.toml + module.py) — ruff pre-commit
   hook contribution still has no Phase-0 file to append to (deferred to precommit-setup;
   T022, plan mapping); (3) git-init commit scope (project-setup's

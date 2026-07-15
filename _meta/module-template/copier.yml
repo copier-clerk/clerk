@@ -5,7 +5,7 @@
 
 module_name:
   type: str
-  help: "Module name (e.g. clerk-mod-python). Used as the templates/ subdirectory name."
+  help: "Module name (e.g. bailiff-mod-python). Used as the templates/ subdirectory name."
 
 # Post-render tasks run in the destination (monorepo root) with --trust.
 # Delegate to scripts/_meta_register.py to avoid inline-python shell quoting issues.

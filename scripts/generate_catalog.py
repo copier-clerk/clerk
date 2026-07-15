@@ -29,18 +29,18 @@ from pathlib import Path
 import yaml
 
 # ---------------------------------------------------------------------------
-# Module resolution — same dual-mode shim as scripts/clerk.py so this script
-# works both in-repo (src/clerk/ on PYTHONPATH) and as a standalone uv script.
+# Module resolution — same dual-mode shim as scripts/bailiff.py so this script
+# works both in-repo (src/bailiff/ on PYTHONPATH) and as a standalone uv script.
 # ---------------------------------------------------------------------------
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
 
-# Add repo src/ to path so `from clerk.discovery import list_versions` works.
+# Add repo src/ to path so `from bailiff.discovery import list_versions` works.
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from clerk.discovery import list_versions  # noqa: E402
+from bailiff.discovery import list_versions  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,7 +76,7 @@ def _split_repo_url(name: str) -> str:
             if stem == name:
                 return url
     # Fall back to derived URL (ADR-0002 trust contract: always https://)
-    return f"https://github.com/copier-clerk/{name}.git"
+    return f"https://github.com/bailiff-io/{name}.git"
 
 
 # ---------------------------------------------------------------------------

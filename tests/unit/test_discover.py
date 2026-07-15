@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from clerk.discovery import discover, list_versions
-from clerk.errors import DiscoveryError
+from bailiff.discovery import discover, list_versions
+from bailiff.errors import DiscoveryError
 from tests.conftest import TemplateRepo, build_template_repo
 
 
@@ -47,7 +47,7 @@ def test_secret_flag_and_hidden_edges(secret_edge_template: TemplateRepo) -> Non
     assert "api_token" in keys
     assert d.secret_questions == ["api_token"]
     assert "depends_on" not in keys
-    assert d.dependency_edges.get("depends_on") == ["clerk-mod-base"]
+    assert d.dependency_edges.get("depends_on") == ["bailiff-mod-base"]
 
 
 def test_reproducible_flag_true_when_answers_file_present(base_template: TemplateRepo) -> None:

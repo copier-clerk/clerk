@@ -1,23 +1,23 @@
-# Contract — clerk upgrade invocation + migrations + multi-layer ordering (spec 006)
+# Contract — bailiff upgrade invocation + migrations + multi-layer ordering (spec 006)
 
-clerk drives `copier update` per layer in dependency order (DAG re-solved at
-target versions). copier owns the 3-way merge and migration execution; clerk
+bailiff drives `copier update` per layer in dependency order (DAG re-solved at
+target versions). copier owns the 3-way merge and migration execution; bailiff
 supplies the version announcement, the cross-template ordering, and the conflict
-report. Nothing clerk-authored is committed to encode the upgrade state; the new
+report. Nothing bailiff-authored is committed to encode the upgrade state; the new
 `_commit` in each layer's answers file is the complete record.
 
 ---
 
 ## Prerequisites
 
-- **Clean git working tree.** Before any clone or write, clerk checks `dest` with
-  `git status --porcelain`; if it is dirty, clerk raises `DirtyWorktreeError`
+- **Clean git working tree.** Before any clone or write, bailiff checks `dest` with
+  `git status --porcelain`; if it is dirty, bailiff raises `DirtyWorktreeError`
   (exit 1) and does nothing. Two reasons converge on this: (1) a multi-layer upgrade
   commits each layer between layers via `git add -A`, which would otherwise sweep the
-  user's unrelated uncommitted work into a clerk commit; (2) copier's own
+  user's unrelated uncommitted work into a bailiff commit; (2) copier's own
   `run_update` refuses a dirty tree even in `pretend` mode. Checking up front lets
-  clerk surface one clear "commit or stash first" message instead of copier's cryptic
-  mid-run "repository is dirty" error. A path that is not a git repo is not clerk's
+  bailiff surface one clear "commit or stash first" message instead of copier's cryptic
+  mid-run "repository is dirty" error. A path that is not a git repo is not bailiff's
   precondition to enforce (copier surfaces that itself).
 
 ---
@@ -41,7 +41,7 @@ ref map is a future extension; use the run-spec for now if per-layer targeting i
 needed).
 
 The skill authors this from the announced from→to decision + trust consent. The
-deterministic phase (`scripts/clerk.py update`) executes it LLM-free.
+deterministic phase (`scripts/bailiff.py update`) executes it LLM-free.
 
 ---
 
@@ -98,14 +98,14 @@ _migrations:
 ```
 
 **Version-crossing filter** (when `version:` present): copier runs this migration
-only if `target_version >= entry_version > from_version`. clerk's discovery
+only if `target_version >= entry_version > from_version`. bailiff's discovery
 validates the format statically but does NOT evaluate the version condition —
 copier applies it at runtime.
 
 ### Deprecated format (REJECTED)
 
 ```yaml
-# REJECTED — clerk refuses this at discovery; do not author
+# REJECTED — bailiff refuses this at discovery; do not author
 _migrations:
   - version: "v1.1.0"
     before:
@@ -156,11 +156,11 @@ B when both are being upgraded).
 ### New dependency (Q-006b — resolved: refuse)
 
 If the re-solved DAG contains a dependency on a template that is NOT in the current
-project (no committed answers file for that template), clerk MUST:
+project (no committed answers file for that template), bailiff MUST:
 
 1. Detect the dangling edge in `ordering.build_dag` (same `OrderingError` as init).
 2. Surface a clear message: "Template `<B>` at version `<v1.1.0>` now depends on
-   `<C>`, which is not in this project. Add `<C>` first (`scripts/clerk.py init …`)
+   `<C>`, which is not in this project. Add `<C>` first (`scripts/bailiff.py init …`)
    before upgrading `<B>`."
 3. Exit 1 (same as other `OrderingError` cases).
 4. Write nothing.
@@ -172,7 +172,7 @@ consistent with the principle of no surprise layers.
 
 ## Conflict surfacing
 
-After each `run_update` call, clerk scans the destination tree for conflict markers
+After each `run_update` call, bailiff scans the destination tree for conflict markers
 and reports them.
 
 **Detection**: scan all files in `dest` (recursively, excluding `.git`) for the
@@ -181,13 +181,13 @@ collect the relative paths of all conflicted files.
 
 **Behaviour**:
 - `conflict='inline'` (default): copier writes inline `<<<<<<< / ======= / >>>>>>>`
-  markers. Clerk detects them post-update, names the files, and raises
+  markers. Bailiff detects them post-update, names the files, and raises
   `MergeConflictError` → exit 4.
-- `conflict='rej'`: copier writes `.rej` files instead. Clerk detects `.rej` files
+- `conflict='rej'`: copier writes `.rej` files instead. Bailiff detects `.rej` files
   post-update, names them, raises `MergeConflictError` → exit 4.
 
 In either case the project is left in the partially-upgraded state so the user can
-resolve the conflicts and rerun. Clerk does NOT auto-resolve conflicts or revert.
+resolve the conflicts and rerun. Bailiff does NOT auto-resolve conflicts or revert.
 
 ---
 
@@ -196,7 +196,7 @@ resolve the conflicts and rerun. Clerk does NOT auto-resolve conflicts or revert
 | Code | Meaning |
 |---|---|
 | 0 | success (clean upgrade, or `--pretend` preview complete) |
-| 1 | `ClerkError` / `DirtyWorktreeError` / `OrderingError` / `DeprecatedMigrationFormatError` / `DowngradeError` / other clerk error |
+| 1 | `BailiffError` / `DirtyWorktreeError` / `OrderingError` / `DeprecatedMigrationFormatError` / `DowngradeError` / other bailiff error |
 | 2 | argparse usage error |
 | 3 | `UntrustedSourceError` — source has migrations/tasks and is untrusted |
 | 4 | `MergeConflictError` — upgrade completed but conflicts remain; named paths in output |
@@ -208,7 +208,7 @@ Exit code 4 is distinct from exit 1 so callers (CI, skill steps) can distinguish
 
 ## Announced output format
 
-Before any `run_update` call, clerk writes to stdout (one line per layer):
+Before any `run_update` call, bailiff writes to stdout (one line per layer):
 
 ```
 Upgrading <layer-basename>: <from_commit> → <to_version>
@@ -216,8 +216,8 @@ Upgrading <layer-basename>: <from_commit> → <to_version>
 
 Example for a multi-layer upgrade:
 ```
-Upgrading clerk-mod-base: abc1234 → v1.2.0
-Upgrading clerk-mod-python: def5678 → v1.2.0
+Upgrading bailiff-mod-base: abc1234 → v1.2.0
+Upgrading bailiff-mod-python: def5678 → v1.2.0
 ```
 
 Where `from_commit` is the short `_commit` SHA from the answers file and
@@ -225,20 +225,20 @@ Where `from_commit` is the short `_commit` SHA from the answers file and
 
 On completion (per layer, in order):
 ```
-  ✓ clerk-mod-base upgraded to v1.2.0
-  ✓ clerk-mod-python upgraded to v1.2.0
+  ✓ bailiff-mod-base upgraded to v1.2.0
+  ✓ bailiff-mod-python upgraded to v1.2.0
 ```
 
 On conflict:
 ```
-  ✗ clerk-mod-python: merge conflict in src/main.py — resolve and re-run upgrade
+  ✗ bailiff-mod-python: merge conflict in src/main.py — resolve and re-run upgrade
 ```
 
 ---
 
 ## Copier-only fallback
 
-A user without clerk can upgrade a single layer manually:
+A user without bailiff can upgrade a single layer manually:
 
 ```bash
 # Single-layer project
@@ -246,12 +246,12 @@ copier update --vcs-ref v1.2.0 --defaults --overwrite ./my-project
 
 # Multi-layer: upgrade each layer in dependency order (derivable from copier.yml edges)
 copier update --vcs-ref v1.2.0 --defaults --overwrite \
-  -a .copier-answers.clerk-mod-base.yml ./my-project
+  -a .copier-answers.bailiff-mod-base.yml ./my-project
 copier update --vcs-ref v1.2.0 --defaults --overwrite \
-  -a .copier-answers.clerk-mod-python.yml ./my-project
+  -a .copier-answers.bailiff-mod-python.yml ./my-project
 ```
 
-clerk automates the ordering; nothing about the project *requires* clerk for the
+bailiff automates the ordering; nothing about the project *requires* bailiff for the
 upgrade — the committed answers files carry the layer state and copier's own
 `update` command works per-layer.
 

@@ -2,22 +2,22 @@
 
 OFFLINE-verifiable parts of the end-to-end smoke:
   - `scripts/check_modules.py` exits 0 against the real templates/ (contract lint).
-  - `scripts/generate_catalog.py` emits valid JSON containing clerk-mod-base +
-    clerk-mod-python *when their split-repo tags are present* (mocked here — the
+  - `scripts/generate_catalog.py` emits valid JSON containing bailiff-mod-base +
+    bailiff-mod-python *when their split-repo tags are present* (mocked here — the
     tag fetch is the only network dependency).
 
 CATALOG-EMPTY-UNTIL-FANOUT: the live generator calls discovery.list_versions()
-against copier-clerk/clerk-mod-<name>, which do not exist until the release
+against bailiff-io/bailiff-mod-<name>, which do not exist until the release
 workflow's fan-out step first mirrors + tags them. Until then the live catalog
 OMITS every module (Q-008b-a "omit modules with no published tags"), so a live
 `--dry-run` yields `"modules": []`. The `network`-marked test below documents
 and verifies that; the offline test proves the generator is otherwise correct.
 
-NOT COVERED HERE (requires copier-clerk org-admin — see docs/runbooks/fanout-release.md):
+NOT COVERED HERE (requires bailiff-io org-admin — see docs/runbooks/fanout-release.md):
   - the live canary release (bump -> push -> fan-out -> catalog -> Pages), and
-  - discovery.discover() against a fanned-out clerk-mod-* repo asserting
+  - discovery.discover() against a fanned-out bailiff-mod-* repo asserting
     reproducible=True + a PEP 440 tag.
-Both need the clerk-fanout GitHub App + org secrets + Pages enabled, so they are
+Both need the bailiff-fanout GitHub App + org secrets + Pages enabled, so they are
 skip-marked below rather than faked.
 """
 
@@ -37,7 +37,7 @@ _SCRIPTS = _REPO_ROOT / "scripts"
 _TEMPLATES = _REPO_ROOT / "templates"
 
 # The real modules spec 009 landed; the smoke asserts these appear in the catalog.
-_EXPECTED_MODULES = {"clerk-mod-base", "clerk-mod-python"}
+_EXPECTED_MODULES = {"bailiff-mod-base", "bailiff-mod-python"}
 
 
 def _load(name: str):
@@ -85,7 +85,7 @@ def test_live_catalog_dry_run_is_valid_but_empty_until_fanout() -> None:
     """Live `--dry-run` is valid JSON; modules is empty until the first fan-out.
 
     Verifies the documented catalog-empty-until-fanout behaviour: the split repos
-    copier-clerk/clerk-mod-* do not exist yet, so every module is omitted.
+    bailiff-io/bailiff-mod-* do not exist yet, so every module is omitted.
     """
     proc = subprocess.run(
         [sys.executable, str(_SCRIPTS / "generate_catalog.py"), "--dry-run"],
@@ -106,14 +106,14 @@ def test_live_catalog_dry_run_is_valid_but_empty_until_fanout() -> None:
 
 @pytest.mark.network
 def test_fanned_out_repo_is_reproducible() -> None:
-    """discovery.discover() against a fanned-out clerk-mod-* repo (post-release).
+    """discovery.discover() against a fanned-out bailiff-mod-* repo (post-release).
 
-    Skipped until the clerk-fanout App + org secrets + Pages are set up and a
+    Skipped until the bailiff-fanout App + org secrets + Pages are set up and a
     canary release has mirrored at least one module (docs/runbooks/fanout-release.md).
     Cannot be faked: it asserts a live split repo is reproducible at a PEP 440 tag.
     """
     pytest.skip(
-        "live canary not run: requires copier-clerk org-admin setup "
-        "(clerk-fanout App + org secrets + Pages) and a fanned-out clerk-mod-* repo "
+        "live canary not run: requires bailiff-io org-admin setup "
+        "(bailiff-fanout App + org secrets + Pages) and a fanned-out bailiff-mod-* repo "
         "— see docs/runbooks/fanout-release.md"
     )

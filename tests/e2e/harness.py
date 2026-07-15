@@ -1,4 +1,4 @@
-"""Reusable REAL end-to-end harness for the clerk-mod-* family — NO stubs.
+"""Reusable REAL end-to-end harness for the bailiff-mod-* family — NO stubs.
 
 Unlike tests/loop/ (hermetic, tasks stubbed), this harness runs the modules'
 REAL trust-gated tasks: mise install, uv init, bun init, cargo init, go mod
@@ -7,7 +7,7 @@ and is NOT collected by pytest (no test_ prefix; excluded from CI).
 
 Usage (from the repo root, venv active):
     export GITHUB_TOKEN=$(gh auth token)      # mise attestation + gh API rate limits
-    export CLERK_E2E_ROOT=/tmp/clerk-e2e-$USER-1   # per-agent isolation
+    export BAILIFF_E2E_ROOT=/tmp/bailiff-e2e-$USER-1   # per-agent isolation
     uv run python -c "from tests.e2e.harness import *; ..."
 
 Known answer-shape quirks (E2E-verified 2026-07-14):
@@ -26,17 +26,17 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-E2E = Path(os.environ.get("CLERK_E2E_ROOT", "/tmp/clerk-e2e"))
+E2E = Path(os.environ.get("BAILIFF_E2E_ROOT", "/tmp/bailiff-e2e"))
 MODULES_SRC = REPO / "templates"
 
 sys.path.insert(0, str(REPO / "src"))
 
-from clerk import runner, trust  # noqa: E402
-from clerk.catalog import TemplateRecord  # noqa: E402
-from clerk.errors import ClerkError  # noqa: E402
+from bailiff import runner, trust  # noqa: E402
+from bailiff.catalog import TemplateRecord  # noqa: E402
+from bailiff.errors import BailiffError  # noqa: E402
 
 __all__ = [
-    "ClerkError",
+    "BailiffError",
     "check",
     "expect_failure",
     "make_module_repo",
@@ -130,7 +130,7 @@ def expect_failure(
     try:
         run_scenario(scenario, module_answers)
         return False, f"{scenario}: expected failure but init SUCCEEDED"
-    except (ClerkError, RuntimeError) as exc:
+    except (BailiffError, RuntimeError) as exc:
         msg = str(exc)
         if match and match.lower() not in msg.lower():
             return False, f"{scenario}: failed but message lacks {match!r}: {msg[:300]}"

@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
-from clerk.errors import InvalidRunSpecError, UntrustedSourceError
+from bailiff import runner, trust
+from bailiff.errors import InvalidRunSpecError, UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ def test_check_untrusted_reports_untrusted_precedence(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
     # untrusted AND missing an answer → untrusted-source condition takes precedence,
-    # because the engine (and clerk's pre-check) verify trust before answers.
+    # because the engine (and bailiff's pre-check) verify trust before answers.
     dest = tmp_path / "proj"
     spec = runner.RunSpec(source=base_template.url, dest=str(dest), answers={})
     with pytest.raises(UntrustedSourceError):
@@ -62,12 +62,14 @@ def test_check_untrusted_reports_untrusted_precedence(
 
 
 # ---------------------------------------------------------------------------
-# T015: scripts/clerk.py init --check via subprocess
+# T015: scripts/bailiff.py init --check via subprocess
 # ---------------------------------------------------------------------------
 
 
-def test_check_via_clerk_script_writes_nothing(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """scripts/clerk.py init --check exits 0 and writes nothing."""
+def test_check_via_bailiff_script_writes_nothing(
+    base_template: TemplateRepo, tmp_path: Path
+) -> None:
+    """scripts/bailiff.py init --check exits 0 and writes nothing."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -88,17 +90,17 @@ def test_check_via_clerk_script_writes_nothing(base_template: TemplateRepo, tmp_
         env=env,
     )
     assert result.returncode == 0, (
-        f"clerk.py init --check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        f"bailiff.py init --check failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
     # --check must write nothing (FR-006 / FR-008)
     assert not dest.exists() or not (dest / "out.txt").exists()
     assert "inputs valid" in result.stdout
 
 
-def test_check_via_clerk_script_exits_1_on_missing_answer(
+def test_check_via_bailiff_script_exits_1_on_missing_answer(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init --check exits 1 when a required answer is absent."""
+    """scripts/bailiff.py init --check exits 1 when a required answer is absent."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 

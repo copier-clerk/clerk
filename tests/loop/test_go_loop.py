@@ -1,4 +1,4 @@
-"""spec 011 T008: clerk-mod-go overlay loop tests.
+"""spec 011 T008: bailiff-mod-go overlay loop tests.
 
 Tests:
 - init [base, go]: base renders first (run_after edge), project_name threaded,
@@ -20,8 +20,8 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 
@@ -60,7 +60,7 @@ def _init_base_go(
     trust.add_trust(go.url)
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", base, ["project_name", "license", "layout"]),
+            _record("demo/bailiff-mod-base", base, ["project_name", "license", "layout"]),
             {
                 "project_name": project_name,
                 "org": "acme",
@@ -71,7 +71,7 @@ def _init_base_go(
             },
         ),
         (
-            _record("demo/clerk-mod-go", go, ["project_name", "go_version", "app_kind"]),
+            _record("demo/bailiff-mod-go", go, ["project_name", "go_version", "app_kind"]),
             {
                 "go_version": "1.23",
                 "app_kind": app_kind,
@@ -88,24 +88,24 @@ def _init_base_go(
 
 
 def test_base_go_ordered_and_threaded(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """Init [base, go]: base first, project_name threaded, seed-once files present."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest)
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest)
 
     # Base rendered.
     assert (dest / "AGENTS.md").is_file(), "base did not render (AGENTS.md missing)"
 
     # Go overlay answers file written.
-    af = yaml.safe_load((dest / ".copier-answers.clerk-mod-go.yml").read_text())
-    assert clerk_mod_go.url in af["_src_path"]
+    af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-go.yml").read_text())
+    assert bailiff_mod_go.url in af["_src_path"]
     assert af["project_name"] == "mygoapp"
     assert af["go_version"] == "1.23"
     assert af["app_kind"] == "cli"
 
     # Task-output marker (preflight stub) present.
-    assert (dest / ".clerk-go-preflight").is_file(), "go preflight marker missing"
+    assert (dest / ".bailiff-go-preflight").is_file(), "go preflight marker missing"
 
     # Seed-once .golangci.yml present (lifecycle: seed-once).
     assert (dest / ".golangci.yml").is_file(), ".golangci.yml missing"
@@ -127,48 +127,48 @@ def test_base_go_ordered_and_threaded(
 
 
 def test_app_kind_library_no_cmd(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """app_kind=library: cmd/ is excluded entirely (no empty dir)."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest, app_kind="library")
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest, app_kind="library")
 
     # cmd/ must not exist at all — not even an empty directory.
     assert not (dest / "cmd").exists(), "cmd/ should not exist for library app_kind"
 
 
 def test_use_vendor_mode_recorded(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """use_vendor_mode=true is recorded in answers (agent uses it to build gitignore token)."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest, use_vendor_mode=True)
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest, use_vendor_mode=True)
 
-    af = yaml.safe_load((dest / ".copier-answers.clerk-mod-go.yml").read_text())
+    af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-go.yml").read_text())
     assert af["use_vendor_mode"] is True, "use_vendor_mode not recorded in answers"
 
 
 def test_ordering_recomputed_edge(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """run_after edge sequences base before go regardless of input order."""
-    from clerk import ordering
+    from bailiff import ordering
 
     recs = [
-        _record("demo/clerk-mod-go", clerk_mod_go, ["project_name"]),
-        _record("demo/clerk-mod-base", clerk_mod_base, ["project_name"]),
+        _record("demo/bailiff-mod-go", bailiff_mod_go, ["project_name"]),
+        _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
     ]
     plan = ordering.layer_plan(recs)
     order = [r.full_id.rsplit("/", 1)[-1] for r, _ in plan]
-    assert order == ["clerk-mod-base", "clerk-mod-go"], f"edge not honoured: {order}"
+    assert order == ["bailiff-mod-base", "bailiff-mod-go"], f"edge not honoured: {order}"
 
 
 def test_golangci_seed_once_preserved_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """Seed-once .golangci.yml is NOT overwritten when it already exists on reproduce."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest)
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest)
 
     # Edit .golangci.yml to simulate user customisation.
     golangci = dest / ".golangci.yml"
@@ -184,11 +184,11 @@ def test_golangci_seed_once_preserved_on_reproduce(
 
 
 def test_go_mod_seed_once_preserved_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """go.mod is _skip_if_exists: if present before reproduce, it is preserved."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest)
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest)
 
     # Simulate go.mod having been created (real init would call `go mod init`).
     go_mod = dest / "go.mod"
@@ -202,11 +202,11 @@ def test_go_mod_seed_once_preserved_on_reproduce(
 
 
 def test_cmd_main_go_seed_once_preserved_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_go: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_go: TemplateRepo, tmp_path: Path
 ) -> None:
     """cmd/<name>/main.go is _skip_if_exists: edits survive reproduce."""
     dest = tmp_path / "proj"
-    _init_base_go(clerk_mod_base, clerk_mod_go, dest, app_kind="cli")
+    _init_base_go(bailiff_mod_base, bailiff_mod_go, dest, app_kind="cli")
 
     main_go = dest / "cmd" / "mygoapp" / "main.go"
     assert main_go.is_file(), "cmd stub missing before reproduce"
@@ -225,7 +225,10 @@ def test_no_secret_questions() -> None:
     from pathlib import Path
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "clerk-mod-go" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-go"
+        / "copier.yml"
     )
     text = copier_yml.read_text()
     lines = text.splitlines()

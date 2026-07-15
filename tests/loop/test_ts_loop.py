@@ -1,6 +1,6 @@
-"""spec 011 T007: clerk-mod-ts loop tests.
+"""spec 011 T007: bailiff-mod-ts loop tests.
 
-Init [clerk-mod-base, clerk-mod-ts] and assert:
+Init [bailiff-mod-base, bailiff-mod-ts] and assert:
 - run_after edge sequences base before ts;
 - project_name threaded from base into the ts overlay;
 - package.json stub marker present (task-output lifecycle);
@@ -24,8 +24,8 @@ from typing import Any
 
 import pytest
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import (
     _BUN_STUB_TASKS,
     _PNPM_STUB_TASKS,
@@ -56,18 +56,18 @@ def _digest(path: Path) -> str:
 
 
 @pytest.fixture
-def clerk_mod_ts_bun(tmp_path: Path) -> TemplateRepo:
-    """clerk-mod-ts with bun pkg manager, biome linter, tasks stubbed offline."""
+def bailiff_mod_ts_bun(tmp_path: Path) -> TemplateRepo:
+    """bailiff-mod-ts with bun pkg manager, biome linter, tasks stubbed offline."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-ts", tmp_path / "clerk-mod-ts-bun", _BUN_STUB_TASKS
+        "bailiff-mod-ts", tmp_path / "bailiff-mod-ts-bun", _BUN_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_ts_pnpm(tmp_path: Path) -> TemplateRepo:
-    """clerk-mod-ts with pnpm pkg manager, tasks stubbed offline."""
+def bailiff_mod_ts_pnpm(tmp_path: Path) -> TemplateRepo:
+    """bailiff-mod-ts with pnpm pkg manager, tasks stubbed offline."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-ts", tmp_path / "clerk-mod-ts-pnpm", _PNPM_STUB_TASKS
+        "bailiff-mod-ts", tmp_path / "bailiff-mod-ts-pnpm", _PNPM_STUB_TASKS
     )
 
 
@@ -77,17 +77,17 @@ def clerk_mod_ts_pnpm(tmp_path: Path) -> TemplateRepo:
 
 
 def test_base_ts_ordered_and_threaded(
-    clerk_mod_base: TemplateRepo, clerk_mod_ts_bun: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
 ) -> None:
     """SC-002: [base, ts] applies base first, threads project_name, creates outputs."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj"
     # Mis-order input (ts first) — run_after must reorder.
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "js_pkg_manager"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -102,7 +102,9 @@ def test_base_ts_ordered_and_threaded(
             },
         ),
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -119,11 +121,11 @@ def test_base_ts_ordered_and_threaded(
     assert (dest / "docs").is_dir(), "base docs/ scaffold missing"
 
     # ts preflight stub marker written by the stub task.
-    assert (dest / ".clerk-ts-preflight").is_file(), "ts preflight stub marker missing"
+    assert (dest / ".bailiff-ts-preflight").is_file(), "ts preflight stub marker missing"
 
     # answers files committed for both layers.
-    af_base_path = dest / ".copier-answers.clerk-mod-base.yml"
-    af_ts_path = dest / ".copier-answers.clerk-mod-ts.yml"
+    af_base_path = dest / ".copier-answers.bailiff-mod-base.yml"
+    af_ts_path = dest / ".copier-answers.bailiff-mod-ts.yml"
     assert af_base_path.is_file(), "base answers file missing"
     assert af_ts_path.is_file(), "ts answers file missing"
 
@@ -133,7 +135,7 @@ def test_base_ts_ordered_and_threaded(
     assert af_ts["project_name"] == "mytsapp", "project_name not threaded base→ts"
     assert af_ts["js_pkg_manager"] == "bun"
     assert af_ts["ts_linter"] == "biome"
-    assert clerk_mod_ts_bun.url in af_ts["_src_path"]
+    assert bailiff_mod_ts_bun.url in af_ts["_src_path"]
 
     # Managed: tsconfig.json present and has ES2022 + strict markers.
     tsconfig_path = dest / "tsconfig.json"
@@ -159,31 +161,31 @@ def test_base_ts_ordered_and_threaded(
 
 
 def test_ordering_run_after_edge(
-    clerk_mod_base: TemplateRepo, clerk_mod_ts_bun: TemplateRepo
+    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo
 ) -> None:
-    """run_after: [clerk-mod-base] sequences base before ts regardless of input order."""
-    from clerk import ordering
+    """run_after: [bailiff-mod-base] sequences base before ts regardless of input order."""
+    from bailiff import ordering
 
     recs = [
-        _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name"]),
-        _record("demo/clerk-mod-base", clerk_mod_base, ["project_name"]),
+        _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name"]),
+        _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
     ]
     plan = ordering.layer_plan(recs)
     order = [r.full_id.rsplit("/", 1)[-1] for r, _ in plan]
-    assert order == ["clerk-mod-base", "clerk-mod-ts"], f"edge not honoured: {order}"
+    assert order == ["bailiff-mod-base", "bailiff-mod-ts"], f"edge not honoured: {order}"
 
 
 def test_ts_eslint_prettier_variant(
-    clerk_mod_base: TemplateRepo, clerk_mod_ts_bun: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
 ) -> None:
     """ts_linter=eslint-prettier renders eslint/prettier configs, biome.json is empty."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "ts_linter"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "ts_linter"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "eslint-prettier",
@@ -197,7 +199,9 @@ def test_ts_eslint_prettier_variant(
             },
         ),
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "eslintapp",
                 "org": "acme",
@@ -230,16 +234,18 @@ def test_ts_eslint_prettier_variant(
 
 
 def test_managed_configs_byte_identical_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_ts_bun: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
 ) -> None:
     """Managed configs (tsconfig.json, biome.json) are byte-identical after reproduce."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -249,7 +255,7 @@ def test_managed_configs_byte_identical_on_reproduce(
             },
         ),
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "js_pkg_manager"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -288,16 +294,18 @@ def test_managed_configs_byte_identical_on_reproduce(
 
 
 def test_edited_package_json_preserved_on_reproduce(
-    clerk_mod_base: TemplateRepo, clerk_mod_ts_bun: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
 ) -> None:
     """Seed-once: edited package.json is NOT overwritten on reproduce (_skip_if_exists)."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "mytsapp",
                 "org": "acme",
@@ -307,7 +315,7 @@ def test_edited_package_json_preserved_on_reproduce(
             },
         ),
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "js_pkg_manager"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -352,21 +360,23 @@ def test_edited_package_json_preserved_on_reproduce(
     ],
 )
 def test_test_runner_variants(
-    clerk_mod_base: TemplateRepo,
-    clerk_mod_ts_bun: TemplateRepo,
+    bailiff_mod_base: TemplateRepo,
+    bailiff_mod_ts_bun: TemplateRepo,
     tmp_path: Path,
     test_runner: str,
     expect_vitest: bool,
     expect_playwright: bool,
 ) -> None:
     """Managed vitest.config.ts / playwright.config.ts rendered correctly per test_runner."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / f"proj-{test_runner}"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "tstest",
                 "org": "acme",
@@ -376,7 +386,7 @@ def test_test_runner_variants(
             },
         ),
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "test_runner"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "test_runner"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -432,18 +442,20 @@ def test_test_runner_variants(
 
 
 def test_test_runner_variants_reproduce(
-    clerk_mod_base: TemplateRepo,
-    clerk_mod_ts_bun: TemplateRepo,
+    bailiff_mod_base: TemplateRepo,
+    bailiff_mod_ts_bun: TemplateRepo,
     tmp_path: Path,
 ) -> None:
     """Managed vitest.config.ts is byte-identical after reproduce (test_runner=vitest-node)."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_ts_bun.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj-vn-reproduce"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "tstest",
                 "org": "acme",
@@ -453,7 +465,7 @@ def test_test_runner_variants_reproduce(
             },
         ),
         (
-            _record("demo/clerk-mod-ts", clerk_mod_ts_bun, ["project_name", "test_runner"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "test_runner"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -485,7 +497,10 @@ def test_no_secret_questions() -> None:
     import yaml
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "clerk-mod-ts" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
     )
     assert copier_yml.exists(), f"copier.yml not found at {copier_yml}"
     raw = yaml.safe_load(copier_yml.read_text()) or {}
@@ -503,7 +518,10 @@ def test_yarn_jest_not_offered() -> None:
     import yaml
 
     copier_yml = (
-        Path(__file__).resolve().parent.parent.parent / "templates" / "clerk-mod-ts" / "copier.yml"
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
     )
     raw = yaml.safe_load(copier_yml.read_text()) or {}
 

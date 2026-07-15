@@ -1,4 +1,4 @@
-# Implementation Plan: clerk agentic-ecosystem module — `clerk-mod-apm` (spec 007)
+# Implementation Plan: bailiff agentic-ecosystem module — `bailiff-mod-apm` (spec 007)
 
 **Branch**: `007-clarify-apm-scope` | **Date**: 2026-07-13 | **Spec**: [spec.md](./spec.md)
 
@@ -15,18 +15,18 @@ template tree).
 
 ## Summary
 
-Spec 007 ships **one** copier template — `clerk-mod-apm` — that wires an APM
+Spec 007 ships **one** copier template — `bailiff-mod-apm` — that wires an APM
 dependency layer into a generated project. Scope was narrowed by the 2026-07-13
 clarification (Q1): **v1 is APM only.** MCP config, the SpecKit bridge, and
-steering/ADR scaffolding are each deferred to their own future `clerk-mod-*` modules
+steering/ADR scaffolding are each deferred to their own future `bailiff-mod-*` modules
 with their own specs and are NOT part of 007.
 
-The delivery is **pure template + task content** — no new `src/clerk/` module, no new
-`scripts/clerk.py` verb (Principle I / C-11). The existing spec-003 ordering engine
-and spec-010 invocation surface drive `clerk-mod-apm` identically to any other layer.
+The delivery is **pure template + task content** — no new `src/bailiff/` module, no new
+`scripts/bailiff.py` verb (Principle I / C-11). The existing spec-003 ordering engine
+and spec-010 invocation surface drive `bailiff-mod-apm` identically to any other layer.
 The template is authored with the spec-008b authoring tooling already on `main`:
-`just new-module name=clerk-mod-apm` scaffolds a contract-complete stub under
-`templates/clerk-mod-apm/`, and `scripts/check_modules.py` is the lint the module MUST
+`just new-module name=bailiff-mod-apm` scaffolds a contract-complete stub under
+`templates/bailiff-mod-apm/`, and `scripts/check_modules.py` is the lint the module MUST
 pass (answers-file `.jinja`, README, CHANGELOG, three-way registration parity,
 published-label immutability).
 
@@ -49,7 +49,7 @@ and NOT asserted byte-identical (exactly Constitution III's process-deterministi
 model).
 
 Independence (Q5): 007 does **not** depend on spec 009 and is not a prerequisite of
-it. `clerk-mod-apm` is built and integration-tested against a **minimal stub base
+it. `bailiff-mod-apm` is built and integration-tested against a **minimal stub base
 layer**; ordering is computed at reproduce time by the spec-003 engine from
 `when:false` edges. Any real adjacency to a future project-setup module is declared by
 *that* module, not baked into 007.
@@ -66,10 +66,10 @@ invokes the APM CLI via `uv run apm==X.Y.Z` (exact command + apm.yml catalogue-s
 key to be confirmed against APM docs — see Residual Open Items).
 
 **Authoring tooling (prerequisite, spec 008b — present on `main`, NOT on this branch)**:
-- `_meta/module-template/` + `just new-module name=clerk-mod-apm` — dogfooded copier
-  scaffolder that lays down `templates/clerk-mod-apm/` with the answers-file `.jinja`,
+- `_meta/module-template/` + `just new-module name=bailiff-mod-apm` — dogfooded copier
+  scaffolder that lays down `templates/bailiff-mod-apm/` with the answers-file `.jinja`,
   `README.md`, `CHANGELOG.md`, a stub `copier.yml`, and the three-way registration
-  edits (`cog.toml [monorepo.packages.clerk-mod-apm]`, `catalog-sources.toml`).
+  edits (`cog.toml [monorepo.packages.bailiff-mod-apm]`, `catalog-sources.toml`).
 - `scripts/check_modules.py` (`just check-modules`) — the module contract lint the
   finished template MUST pass.
   This tooling landed on `main` via PR #22; the 007 implementation branch rebases onto
@@ -85,7 +85,7 @@ key to be confirmed against APM docs — see Residual Open Items).
 
 **Testing**: hermetic, offline. Reuse the spec-003 conftest fixture-builder pattern
 (`tests/conftest.py::build_template_repo`, `multi_template_set`) to construct a local
-git `clerk-mod-apm` fixture + a **minimal stub base layer** providing the threaded
+git `bailiff-mod-apm` fixture + a **minimal stub base layer** providing the threaded
 `project_name`. The network-calling install `_task` is stubbed in fixtures (a no-op
 shell command that writes a deterministic marker) so tests stay offline; a real APM
 install is out of the hermetic set.
@@ -93,8 +93,8 @@ install is out of the hermetic set.
 **Target Platform**: developer workstations + CI (macOS/Linux). The `_task` must be a
 portable shell command.
 
-**Project Type**: a `clerk-mod-*` copier template in the authoring monorepo under
-`templates/clerk-mod-apm/`. No new Python package, no new CLI surface.
+**Project Type**: a `bailiff-mod-*` copier template in the authoring monorepo under
+`templates/bailiff-mod-apm/`. No new Python package, no new CLI surface.
 
 **Performance**: none special. Render is fast; the pinned APM install `_task` may take
 seconds over the network — acceptable and documented.
@@ -119,12 +119,12 @@ the (separate) implementation step.*
 
 | Principle | Gate | How this plan satisfies it |
 |---|---|---|
-| I — Skills + templates + minimal glue | PASS | 007 is PURE TEMPLATE CONTENT under `templates/clerk-mod-apm/`. No new `src/clerk/` module, no new `scripts/clerk.py` verb, no new tool. The APM install is a copier `_task`; package selection is a runtime-injected copier answer. **C-11 confirmed: there is no copier gap** — questions + a rendered `apm.yml` + a trust-gated `_task` cover the whole capability; the module is authored via the existing `_meta/module-template` dogfood and linted by `check_modules.py` (authoring plane reuses the consumer plane, ADR-0006). |
+| I — Skills + templates + minimal glue | PASS | 007 is PURE TEMPLATE CONTENT under `templates/bailiff-mod-apm/`. No new `src/bailiff/` module, no new `scripts/bailiff.py` verb, no new tool. The APM install is a copier `_task`; package selection is a runtime-injected copier answer. **C-11 confirmed: there is no copier gap** — questions + a rendered `apm.yml` + a trust-gated `_task` cover the whole capability; the module is authored via the existing `_meta/module-template` dogfood and linted by `check_modules.py` (authoring plane reuses the consumer plane, ADR-0006). |
 | II — Two-phase boundary | PASS | Phase 1 (agent): determine the APM package list from user input + project requirements, inject it via `--data`, present it, obtain trust consent, author the run-spec. Phase 2 (deterministic): `run_copy` renders `apm.yml` and runs the pinned install `_task`. The agent is NEVER in the reproduce path. The empty-set refusal (Q4) is a phase-1 precondition + a template-side guard, both deterministic. |
 | III — Faithful, agent-free reproduce | PASS | `apm.yml` re-renders byte-identically from committed answers + pinned commit. The install `_task` re-runs at reproduce under trust (Constitution III: `_tasks` run at both init and reproduce). `apm.lock.yaml` is **task-generated external state** — regenerated by the pinned task, NOT asserted byte-identical (Q3). This is Constitution III's explicit "process-deterministic, not byte-identical-in-the-world" carve-out, not a violation. |
 | IV — Prefer CLI + static config | PASS | Template uses static `copier.yml` questions + Jinja rendering; discovery reads `when:false` edges statically (existing `discovery.py`). No `Template`/`Worker` adapter introduced. |
-| V — Determinism via pinning; trust by source | PASS | Source trusted via `settings.yml` before `_tasks` run; clerk refuses at exit 3 otherwise (`runner._require_trust_if_action_taking`). The install `_task` pins the APM tool version (`uv run apm==X.Y.Z`, FR-009). `today`/`project_name` are threaded answers, not wall-clock; no `jinja2_time`/random filters (VI/C-05). |
-| VI — Template-author contract | PASS | `clerk-mod-apm` ships `{{ _copier_conf.answers_file }}.jinja`, clean PEP 440 tags (fan-out strips the monorepo `clerk-mod-apm-vX.Y.Z` prefix, ADR-0006), declares `depends_on` as a `when:false` hidden answer, uses the NEW `_migrations` format, and declares **no `secret:` question**. Enforced by `check_modules.py` (answers-file, README, CHANGELOG, three-way parity, published-label immutability). The runtime-injected package list has **no frozen `choices:`**, so published-label immutability does not bind it (consistent with Q2). |
+| V — Determinism via pinning; trust by source | PASS | Source trusted via `settings.yml` before `_tasks` run; bailiff refuses at exit 3 otherwise (`runner._require_trust_if_action_taking`). The install `_task` pins the APM tool version (`uv run apm==X.Y.Z`, FR-009). `today`/`project_name` are threaded answers, not wall-clock; no `jinja2_time`/random filters (VI/C-05). |
+| VI — Template-author contract | PASS | `bailiff-mod-apm` ships `{{ _copier_conf.answers_file }}.jinja`, clean PEP 440 tags (fan-out strips the monorepo `bailiff-mod-apm-vX.Y.Z` prefix, ADR-0006), declares `depends_on` as a `when:false` hidden answer, uses the NEW `_migrations` format, and declares **no `secret:` question**. Enforced by `check_modules.py` (answers-file, README, CHANGELOG, three-way parity, published-label immutability). The runtime-injected package list has **no frozen `choices:`**, so published-label immutability does not bind it (consistent with Q2). |
 | VII — Hardening per-step | PASS | DoD (this spec's own): render test (correct `apm.yml` per injected set; ≥ 1 catalogue present), byte-identical reproduce test for `apm.yml`, trust-refusal test (exit 3 on untrusted source), empty-set refusal test, multi-layer ordering + `project_name` threading test against a stub base, standalone test, and `check_modules.py` compliance. No adapter → no drift test. |
 | VIII — Documented, dry-run-validated handoff | PASS | The run-spec is the standard spec-003 multi-template shape (one `answers` block per layer, `apm_packages` as a `--data` list). Validation reuses copier `--pretend`. The `_task`, the injected-list convention, and the lock-file variance are documented in `contracts/agentic-module.md` and SKILL.md. No pydantic/JSON-Schema. |
 
@@ -151,7 +151,7 @@ specs/007-agentic-module/
 ### Template (authoring monorepo)
 
 ```text
-templates/clerk-mod-apm/                        # scaffolded by `just new-module`
+templates/bailiff-mod-apm/                        # scaffolded by `just new-module`
 ├── copier.yml                                   # Questions + _tasks + when:false edge
 │                                                #   - apm_packages: runtime-injected LIST
 │                                                #     answer (persisted; no frozen choices)
@@ -171,19 +171,19 @@ templates/clerk-mod-apm/                        # scaffolded by `just new-module
 ```
 
 Registration edits made by `just new-module` (verified by `check_modules.py`):
-`cog.toml` gains `[monorepo.packages.clerk-mod-apm]`; `catalog-sources.toml` gains a
-`[[sources]]` url for `clerk-mod-apm`.
+`cog.toml` gains `[monorepo.packages.bailiff-mod-apm]`; `catalog-sources.toml` gains a
+`[[sources]]` url for `bailiff-mod-apm`.
 
 ### Source code changes
 
-**None.** This spec adds no `src/clerk/` code and no `scripts/clerk.py` verb. The
+**None.** This spec adds no `src/bailiff/` code and no `scripts/bailiff.py` verb. The
 ordering, discovery, catalog, runner, and trust machinery is reused unchanged. The
 existing `init`/`reproduce` surface drives the new template identically to any other.
 
 ### Skill + documentation changes
 
 ```text
-skills/clerk/SKILL.md          # EXTEND (FR-010): document the clerk-mod-apm step —
+skills/bailiff/SKILL.md          # EXTEND (FR-010): document the bailiff-mod-apm step —
                                #   when to include it, that the agent builds the
                                #   runtime-injected apm_packages list (user may
                                #   override), the ≥1-package precondition + empty-set
@@ -196,7 +196,7 @@ skills/clerk/SKILL.md          # EXTEND (FR-010): document the clerk-mod-apm ste
 
 ```text
 tests/
-├── conftest.py                        # EXTEND: clerk-mod-apm fixture (local git) +
+├── conftest.py                        # EXTEND: bailiff-mod-apm fixture (local git) +
 │                                       #   minimal stub base layer providing project_name.
 │                                       #   Install _task stubbed to a deterministic no-op
 │                                       #   so the hermetic suite stays offline.
@@ -206,7 +206,7 @@ tests/
     ├── test_apm_reproduce.py          # US2 — apm.yml byte-identical; lock is external
     │                                   #   state (not asserted byte-identical).
     ├── test_apm_trust.py              # US1 — untrusted source refuses at exit 3.
-    └── test_apm_ordering.py           # US1/US2 — [stub_base, clerk-mod-apm] composes as
+    └── test_apm_ordering.py           # US1/US2 — [stub_base, bailiff-mod-apm] composes as
                                         #   a layer; project_name threads; reproduce
                                         #   recomputes order (spec-003 engine).
 ```

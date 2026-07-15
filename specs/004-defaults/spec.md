@@ -1,4 +1,4 @@
-# Feature Specification: clerk global per-template defaults
+# Feature Specification: bailiff global per-template defaults
 
 **Feature Branch**: `004-defaults`
 
@@ -9,7 +9,7 @@
 **Input**: Roadmap spec 004 (Global per-template defaults), governed by the
 constitution (I, II, V) and ADR-0005. Consumes spec 003's multi-layer init path
 (`runner.init_many`) and the path-resolution pattern established in spec 002
-(`src/clerk/catalog.py`).
+(`src/bailiff/catalog.py`).
 
 ## Overview
 
@@ -19,27 +19,27 @@ the same values — their name, email, GitHub org, preferred license — on ever
 run, even when those answers never change.
 
 Spec 004 removes that friction. A user populates a YAML defaults file at
-`~/.config/clerk/defaults.yml` (env-overridable), assigning values keyed by
-template name or template question. When clerk drives a `copier copy`, it selects
+`~/.config/bailiff/defaults.yml` (env-overridable), assigning values keyed by
+template name or template question. When bailiff drives a `copier copy`, it selects
 the keys relevant to that template's questions and passes them as `user_defaults=`
 — copier's own soft-default mechanism — so the values pre-fill the prompt while
-remaining overridable. No change to precedence; no new mechanism; no clerk artifact
+remaining overridable. No change to precedence; no new mechanism; no bailiff artifact
 written into any generated project.
 
-The feature is a small addition to `runner.py` and a new `src/clerk/defaults.py`
+The feature is a small addition to `runner.py` and a new `src/bailiff/defaults.py`
 module that mirrors `catalog.py` in structure: the same `platformdirs` path, the
 same env-override pattern.
 
 ## Motivating decisions
 
 1. **`user_defaults=`, not `data=`.** `data=` hard-skips the prompt (and is only
-   correct for values clerk truly fixes, such as the injected `today`). `user_defaults=`
+   correct for values bailiff truly fixes, such as the injected `today`). `user_defaults=`
    pre-fills and remains overridable — exactly what a user-config default should do.
    Verified precedence (ADR-0005, constitution Additional Constraints):
    `data=` > answers-file last > `user_defaults=` > `settings.yml defaults:` >
    `copier.yml default`.
 
-2. **Per-template key selection, not a global blob.** clerk selects only the keys
+2. **Per-template key selection, not a global blob.** bailiff selects only the keys
    relevant to the current template's questions before passing `user_defaults=`.
    A key in the defaults file that does not appear in a template's questions is
    silently ignored (no error — portability). This gives per-template scoping without
@@ -47,14 +47,14 @@ same env-override pattern.
 
 3. **YAML at platformdirs path, env-overridable, aligned to ADR-0005.** ADR-0005
    named the file `defaults.yml`; this spec uses **YAML** for consistency with
-   clerk's other YAML configs (`settings.yml`, catalog answers, trust store) and
+   bailiff's other YAML configs (`settings.yml`, catalog answers, trust store) and
    with PyYAML already being a project dependency (used in `runner.py`,
    `discovery.py`, `trust.py`). The resolved decision: **`defaults.yml`
-   at `~/.config/clerk/defaults.yml`** (same `user_config_path("clerk")` base as
-   `catalog.toml`), overridable via `CLERK_DEFAULTS_PATH`. The filename and format
+   at `~/.config/bailiff/defaults.yml`** (same `user_config_path("bailiff")` base as
+   `catalog.toml`), overridable via `BAILIFF_DEFAULTS_PATH`. The filename and format
    align with ADR-0005 — no deviation; see Q-004a below.
 
-4. **Optionally fold copier `settings.yml defaults:`.** ADR-0005 permits clerk to
+4. **Optionally fold copier `settings.yml defaults:`.** ADR-0005 permits bailiff to
    load copier's native `settings.yml defaults:` and fold well-known fields
    (`user_name`, `user_email`) into the `user_defaults` dict as a final fallback.
    This gives users copier's cross-tool convention for free. Spec 004 includes this
@@ -66,9 +66,9 @@ same env-override pattern.
    from the defaults file. Spec 005 handles secret injection. This invariant must be
    enforced by the key-selection step.
 
-6. **No clerk artifact written into the generated project** (spec 010 invariant). The
-   defaults file is user-side config; clerk passes its values as runtime `user_defaults=`
-   and they flow through to the answers file as normal copier answers — no clerk-
+6. **No bailiff artifact written into the generated project** (spec 010 invariant). The
+   defaults file is user-side config; bailiff passes its values as runtime `user_defaults=`
+   and they flow through to the answers file as normal copier answers — no bailiff-
    authored file is committed to the project.
 
 ## User Scenarios & Testing
@@ -132,14 +132,14 @@ them in `defaults.yml`.
 **Independent Test**: create a test `settings.yml` with `defaults: {user_name:
 "Turing"}`; assert that a template asking `user_name` sees it pre-filled via the
 merged `user_defaults`; assert that `defaults.yml` key wins over `settings.yml` key
-if both are present (YAML defaults file takes priority as a clerk-managed config).
+if both are present (YAML defaults file takes priority as a bailiff-managed config).
 
 **Acceptance Scenarios**:
 1. **Given** `settings.yml` has `defaults: {user_name: "Turing"}` and `defaults.yml`
    is absent or does not mention `user_name`, **When** `init`, **Then** `user_name`
    is pre-filled as `Turing`.
 2. **Given** both `defaults.yml` and `settings.yml` supply `user_name`, **Then**
-   `defaults.yml` value wins (clerk's own config takes priority over copier's flat
+   `defaults.yml` value wins (bailiff's own config takes priority over copier's flat
    global).
 
 ### US4 — Missing or empty defaults file is silently no-op (Priority: P1)
@@ -157,7 +157,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
 - **All keys filtered as secrets**: `user_defaults={}` is passed; no error.
 - **Malformed YAML in defaults file**: `DefaultsError` with a clear path + reason;
   init refuses rather than silently using an empty dict.
-- **`CLERK_DEFAULTS_PATH` points at a nonexistent file**: treated as absent (no
+- **`BAILIFF_DEFAULTS_PATH` points at a nonexistent file**: treated as absent (no
   error) unless the path is explicitly set AND the file is expected to exist (flag
   for Open Questions).
 - **`user_defaults=` for a key copier considers hidden (`when:false`)**: copier
@@ -172,15 +172,15 @@ file; assert no error is raised and copier receives no `user_defaults`.
 
 ### Functional Requirements
 
-- **FR-001**: clerk MUST read a defaults YAML file from `~/.config/clerk/defaults.yml`
-  (resolved via `user_config_path("clerk", appauthor=False)`) or from the path in
-  `CLERK_DEFAULTS_PATH`. A missing file MUST be treated as an empty defaults dict
+- **FR-001**: bailiff MUST read a defaults YAML file from `~/.config/bailiff/defaults.yml`
+  (resolved via `user_config_path("bailiff", appauthor=False)`) or from the path in
+  `BAILIFF_DEFAULTS_PATH`. A missing file MUST be treated as an empty defaults dict
   (no error). A malformed YAML file MUST raise `DefaultsError`.
 - **FR-002**: The precedence ladder MUST be preserved: `data=` (hard override) >
   answers-file last > `user_defaults=` (soft default from this file) > `settings.yml
-  defaults:` > `copier.yml default`. clerk MUST NOT break this by using `data=`
+  defaults:` > `copier.yml default`. bailiff MUST NOT break this by using `data=`
   for user defaults.
-- **FR-003**: clerk MUST select only the keys relevant to the current template's
+- **FR-003**: bailiff MUST select only the keys relevant to the current template's
   questions (from `discovery.Discovery.questions`) before building the
   `user_defaults=` dict. Keys present in the defaults file but absent from the
   template's questions MUST be silently discarded.
@@ -188,12 +188,12 @@ file; assert no error is raised and copier receives no `user_defaults`.
   read statically from `copier.yml`) MUST be excluded from the `user_defaults=` dict.
   Hidden questions (`when:false`, used for dependency edges) SHOULD also be excluded
   to avoid confusing copier.
-- **FR-005**: If copier's `settings.yml defaults:` is present, clerk SHOULD merge
+- **FR-005**: If copier's `settings.yml defaults:` is present, bailiff SHOULD merge
   it as a lower-priority fallback behind the `defaults.yml` values: the merged
   dict is `{**settings_defaults, **yaml_defaults}` (yaml_defaults wins on collision). This
   enrichment MUST be best-effort: if `copier.load_settings()` fails for any reason,
-  clerk continues with only the YAML defaults (no error).
-- **FR-006**: clerk MUST NOT write any defaults-related file into the generated
+  bailiff continues with only the YAML defaults (no error).
+- **FR-006**: bailiff MUST NOT write any defaults-related file into the generated
   project. The defaults file is user-side config only (spec 010 invariant).
 - **FR-007**: The defaults injection MUST apply both to the single-template path
   (`runner.init`) and to each layer of the multi-template path (`runner.init_many`),
@@ -212,7 +212,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
   keys (minus secrets, minus hidden `when:false` keys). Output: a subset dict.
 - **`user_defaults=`**: copier's soft-default parameter to `run_copy`. It sits third
   in the precedence ladder (after `data=` and the previous answers file).
-- **`DefaultsError`**: a new `ClerkError` subclass for malformed YAML or other
+- **`DefaultsError`**: a new `BailiffError` subclass for malformed YAML or other
   config-read failures.
 
 ## Success Criteria
@@ -240,14 +240,14 @@ file; assert no error is raised and copier receives no `user_defaults`.
 - Persisting newly-collected answers back to the defaults file (an explicit
   "save this as a default" verb could be spec 004+1 — deferred).
 - Defaults for the `update` path (spec 006 — out of scope here).
-- The `CLERK_DEFAULTS_PATH` env var raising an error on a nonexistent path (policy
+- The `BAILIFF_DEFAULTS_PATH` env var raising an error on a nonexistent path (policy
   deferred to Open Questions).
 
 ## Open Questions
 
 - **Q-004a — ADR-0005 format alignment**: ADR-0005 names the defaults file
   `defaults.yml`. This spec uses `defaults.yml` (YAML) — **aligned to ADR-0005**,
-  for consistency with clerk's other YAML configs (`settings.yml`, catalog answers,
+  for consistency with bailiff's other YAML configs (`settings.yml`, catalog answers,
   trust store) and with PyYAML already a project dependency (imported by `runner.py`,
   `discovery.py`, `trust.py`). No deviation from the ADR; no format reconciliation
   needed. ADR-0005 Consequences section may optionally note the file is YAML.
@@ -258,7 +258,7 @@ file; assert no error is raised and copier receives no `user_defaults`.
   best-effort (avoids coupling to copier's internal settings load path; gracefully
   degrades if a copier upgrade changes the API).
 
-- **Q-004c — `CLERK_DEFAULTS_PATH` on nonexistent file**: should `CLERK_DEFAULTS_PATH`
+- **Q-004c — `BAILIFF_DEFAULTS_PATH` on nonexistent file**: should `BAILIFF_DEFAULTS_PATH`
   pointing at a missing file be silently treated as absent (same as the default path
   missing), or raise an error (the user explicitly named a file that doesn't exist)?
   Lean: **raise `DefaultsError`** when the env var is explicitly set to a path that
@@ -281,8 +281,8 @@ file; assert no error is raised and copier receives no `user_defaults`.
 - Constitution V (determinism — user defaults are user-visible answers and appear in
   the committed answers file, so reproduce is not affected; the defaults file is
   user-side config, not project state).
-- ADR-0005 (the governing decision — clerk reads its own config, selects relevant
+- ADR-0005 (the governing decision — bailiff reads its own config, selects relevant
   keys, passes as `user_defaults=`; file format is YAML, aligned with ADR-0005).
 - Constraints: C-11 (the defaults helper is a small extension of the existing runner
-  seam; no new copier surface); spec 010 invariant (no clerk artifact in the
+  seam; no new copier surface); spec 010 invariant (no bailiff artifact in the
   generated project).

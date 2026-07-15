@@ -1,4 +1,4 @@
-# Implementation Plan: clerk template fan-out + authoring lifecycle (spec 008b)
+# Implementation Plan: bailiff template fan-out + authoring lifecycle (spec 008b)
 
 **Branch**: `008b-fanout-authoring` | **Date**: 2026-07-10 | **Spec**: [spec.md](./spec.md)
 
@@ -7,7 +7,7 @@
 > ### IMPLEMENTATION BLOCKED ON SPEC 009
 >
 > This plan is complete and reviewable. Implementation MUST NOT begin until spec 009
-> delivers real `clerk-mod-*` modules under `templates/`. The scaffolder, linter, and
+> delivers real `bailiff-mod-*` modules under `templates/`. The scaffolder, linter, and
 > fan-out pipeline built here have nothing to exercise until 009 populates `templates/`.
 
 ---
@@ -32,22 +32,22 @@ code. The deliverables are:
 ## Technical context
 
 **Language**: bash (fan-out job steps), Python 3.11+ (check_modules.py,
-generate_catalog.py reusing `src/clerk/discovery.py`).
+generate_catalog.py reusing `src/bailiff/discovery.py`).
 
 **New Python deps**: none — check_modules and generate_catalog reuse existing
 `discovery.discover()`, `packaging`, `pyyaml`. No new application code; these
-are scripts in `scripts/`, not new modules in `src/clerk/`.
+are scripts in `scripts/`, not new modules in `src/bailiff/`.
 
 **CI platform**: GitHub Actions.
 
-**Auth**: `actions/create-github-app-token` (org App `clerk-fanout`; `contents:write`
+**Auth**: `actions/create-github-app-token` (org App `bailiff-fanout`; `contents:write`
 + `administration:write`). App credentials stored as org-level Actions secrets.
 
 **Testing strategy**: Because this spec is CI bash + template content:
 - Unit-testable parts: `check_modules.py` (import and call directly with fixture
   dirs); `generate_catalog.py` (mock `git ls-remote`; assert JSON shape).
 - CI-only parts: the fan-out workflow and GitHub Pages deploy are integration-only —
-  tested against a staging `copier-clerk-staging` org or via a mock `gh` binary.
+  tested against a staging `bailiff-io-staging` org or via a mock `gh` binary.
 - The scaffolder is a copier meta-template — tested by rendering it and running
   `check_modules` on the output (must pass immediately).
 
@@ -59,7 +59,7 @@ Shell could iterate `templates/*/` and call a Python one-liner. A Python script
 is cleaner here because it reuses `discovery.discover()` directly (no subprocess
 overhead, handles DiscoveryError uniformly) and the three-way parity check reads
 both a TOML file (cog.toml) and possibly a separate catalog-sources file. Python
-wins on parsability; the script stays in `scripts/` (not `src/clerk/`) because it
+wins on parsability; the script stays in `scripts/` (not `src/bailiff/`) because it
 is a build-time tool, not application logic.
 
 ### generate_catalog.py vs shell
@@ -125,8 +125,8 @@ real tags → real catalog) requires 009.
 ### Phase 5: `.github/workflows/release.yml` + GitHub App (BLOCKED ON 009)
 
 The release workflow can be authored before 009, but it cannot be integration-tested
-until at least one real `clerk-mod-*` module exists. The GitHub App (`clerk-fanout`)
-must be created and installed in the `copier-clerk` org by a maintainer.
+until at least one real `bailiff-mod-*` module exists. The GitHub App (`bailiff-fanout`)
+must be created and installed in the `bailiff-io` org by a maintainer.
 
 ### Phase 6: GitHub Pages hosting (BLOCKED ON 009 end-to-end)
 

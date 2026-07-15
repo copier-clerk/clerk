@@ -18,15 +18,15 @@ layer inherits the upstream answer without hardcoding which layer supplied it (F
 
 **CRITICAL**: shared accreting files are NOT built by runtime accumulation across layers. With the
 ordering tie-break = lexicographic basename (`ordering.py:11`) and every layer `run_after:
-[clerk-mod-base]`, a later-sorting layer CANNOT reliably read an earlier one's answer via the
+[bailiff-mod-base]`, a later-sorting layer CANNOT reliably read an earlier one's answer via the
 `init_many` accumulator, and two managed writers to one file overwrite (not append). The proven,
-buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, help: "clerk
+buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, help: "bailiff
 **injects** this"): the **phase-1 agent freezes a UNION answer** and injects it via `--data`, and a
 **single designated module writes the file**.
 
 - **`mise_tools`** is a frozen union answer (yaml, default `[]`): the phase-1 agent, knowing the whole
   selection, injects the full `[tools]` set (e.g. `{python: "3.13", node: "22", ...}`) via `--data`.
-- **`clerk-mod-base` is the single writer** of `.mise.toml` (**managed** render from `mise_tools`).
+- **`bailiff-mod-base` is the single writer** of `.mise.toml` (**managed** render from `mise_tools`).
   Language/tool modules do NOT each write `.mise.toml`; they merely contribute their token to the
   frozen `mise_tools` union the agent assembles (exactly as they contribute to `gitignore_stack`).
 - The module's FIRST `_task` is the preflight: `command -v mise >/dev/null || { echo "install mise:
@@ -48,7 +48,7 @@ buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, 
 - Per language: `uv init` (python), `bun init`/`pnpm init` (ts, per `js_pkg_manager`), `cargo new`
   (rust, `--lib` when lib), `go mod init` (go), `cdk init app --language=` (cdk). Adding deps later
   (package-add) = native `add` command, never manifest edits.
-- Config clerk owns and the tool does NOT generate stays a **managed** byte-identical render
+- Config bailiff owns and the tool does NOT generate stays a **managed** byte-identical render
   (`.tflint.hcl`, `.cfnlintrc.yaml`, CI files, ruff config beyond init, `.mise.toml`).
 - NEVER an irreversible action at scaffold (no `cdk bootstrap`/`deploy`, `terraform apply`,
   `sam deploy`; `gh repo create` only behind the public-repo consent gate).
@@ -62,11 +62,11 @@ ordering). Resolved by freezing both up front:
 - **`hook_manager`** (str, `[pre-commit,lefthook,none]=pre-commit`) and **`hook_blocks`** (yaml union,
   default `[]`) are BOTH frozen by the phase-1 agent and injected via `--data`. The agent knows the
   whole selection, so it assembles the union of language hook blocks and the chosen manager up front.
-- **`clerk-mod-precommit` is the single writer** of the hook config file: `.pre-commit-config.yaml`
+- **`bailiff-mod-precommit` is the single writer** of the hook config file: `.pre-commit-config.yaml`
   (pre-commit), `lefthook.yml` (lefthook), or nothing (`none`) — rendered from `hook_manager` +
   `hook_blocks` + its own base hooks. Language modules do NOT write the hook file; they contribute
   their block to the frozen `hook_blocks` union.
-- `clerk-mod-justfile`'s `lint` recipe reads the frozen `hook_manager` to emit the right invocation.
+- `bailiff-mod-justfile`'s `lint` recipe reads the frozen `hook_manager` to emit the right invocation.
 - When `hook_manager=none`, no hook file is written and `hook_blocks` is inert.
 - `install_hooks` task is **init-only-guarded** (FR-012a).
 
@@ -77,14 +77,14 @@ Same fix as §2 and §4:
 - **`quality_languages`** (yaml, default `[]`) is a frozen union answer injected by the phase-1 agent via
   `--data`. The agent assembles the set of active language identifiers (e.g. `["python", "typescript"]`)
   from the full module selection.
-- **`clerk-mod-quality` is the single writer** of `.agents/hooks/quality-languages` — a **managed** render
+- **`bailiff-mod-quality` is the single writer** of `.agents/hooks/quality-languages` — a **managed** render
   from `quality_languages`. Language modules do NOT each write this file; they contribute their language
   token to the frozen `quality_languages` union the agent assembles.
 - When `quality_languages` is empty (no language modules selected), the file is omitted.
 
 ## 6. Agent-frozen `--data` facts (FR-010)
 
-- `clerk-mod-ci` and `clerk-mod-stack-adr` sort BEFORE language layers (alphabetical basename
+- `bailiff-mod-ci` and `bailiff-mod-stack-adr` sort BEFORE language layers (alphabetical basename
   tie-break), so they CANNOT read language answers via the run-order accumulator. The phase-1 agent
   MUST inject their sizing facts directly as frozen `--data` answers: `ci_languages` + per-language
   facts (manager, version, image, test command) + `ci_model` for CI; stack pins/framework/rationale

@@ -41,10 +41,10 @@ _cm = _load_check_modules()
 
 _PATH = os.environ.get("PATH", "/usr/bin:/bin")
 _GIT_ENV = {
-    "GIT_AUTHOR_NAME": "clerk-test",
-    "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-    "GIT_COMMITTER_NAME": "clerk-test",
-    "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+    "GIT_AUTHOR_NAME": "bailiff-test",
+    "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+    "GIT_COMMITTER_NAME": "bailiff-test",
+    "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_SYSTEM": "/dev/null",
     "PATH": _PATH,
@@ -123,7 +123,7 @@ def _make_catalog_sources(repo_root: Path, names: list[str]) -> None:
     lines = []
     for name in names:
         lines.append("[[sources]]")
-        lines.append(f'url = "https://github.com/copier-clerk/{name}.git"')
+        lines.append(f'url = "https://github.com/bailiff-io/{name}.git"')
         lines.append("")
     (repo_root / "catalog-sources.toml").write_text("\n".join(lines))
 
@@ -153,8 +153,8 @@ def mono(tmp_path: Path) -> Path:
 
 
 def test_valid_module_exits_zero(mono: Path) -> None:
-    _make_module(mono / "templates", "clerk-mod-base")
-    _make_cog_toml(mono, ["clerk-mod-base"])
+    _make_module(mono / "templates", "bailiff-mod-base")
+    _make_cog_toml(mono, ["bailiff-mod-base"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
@@ -167,14 +167,14 @@ def test_valid_module_exits_zero(mono: Path) -> None:
 
 
 def test_missing_answers_file_fails(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-bad", add_answers_file=False)
-    _make_cog_toml(mono, ["clerk-mod-bad"])
+    _make_module(mono / "templates", "bailiff-mod-bad", add_answers_file=False)
+    _make_cog_toml(mono, ["bailiff-mod-bad"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-bad" in captured.err
+    assert "bailiff-mod-bad" in captured.err
     assert "answers-file" in captured.err
 
 
@@ -184,28 +184,28 @@ def test_missing_answers_file_fails(mono: Path, capsys) -> None:
 
 
 def test_missing_readme_fails(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-noreadme", add_readme=False)
-    _make_cog_toml(mono, ["clerk-mod-noreadme"])
+    _make_module(mono / "templates", "bailiff-mod-noreadme", add_readme=False)
+    _make_cog_toml(mono, ["bailiff-mod-noreadme"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-noreadme" in captured.err
+    assert "bailiff-mod-noreadme" in captured.err
     assert "README" in captured.err
 
 
 def test_changelog_without_separator_fails(mono: Path, capsys) -> None:
     """A CHANGELOG lacking cog's `- - -` separator fails (would break cog bump)."""
-    mod = _make_module(mono / "templates", "clerk-mod-nosep")
+    mod = _make_module(mono / "templates", "bailiff-mod-nosep")
     (mod / "CHANGELOG.md").write_text("# Changelog\n\n## [Unreleased]\n")  # no separator
-    _make_cog_toml(mono, ["clerk-mod-nosep"])
+    _make_cog_toml(mono, ["bailiff-mod-nosep"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-nosep" in captured.err
+    assert "bailiff-mod-nosep" in captured.err
     assert "separator" in captured.err
 
 
@@ -215,7 +215,7 @@ def test_changelog_without_separator_fails(mono: Path, capsys) -> None:
 
 
 def test_module_not_in_cog_fails(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-orphan")
+    _make_module(mono / "templates", "bailiff-mod-orphan")
     # cog.toml lists nothing
     _make_cog_toml(mono, [])
 
@@ -223,7 +223,7 @@ def test_module_not_in_cog_fails(mono: Path, capsys) -> None:
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-orphan" in captured.err
+    assert "bailiff-mod-orphan" in captured.err
     assert "cog.toml" in captured.err
 
 
@@ -233,15 +233,15 @@ def test_module_not_in_cog_fails(mono: Path, capsys) -> None:
 
 
 def test_ghost_in_cog_fails(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-real")
+    _make_module(mono / "templates", "bailiff-mod-real")
     # cog.toml lists an extra ghost module
-    _make_cog_toml(mono, ["clerk-mod-real", "clerk-mod-ghost"])
+    _make_cog_toml(mono, ["bailiff-mod-real", "bailiff-mod-ghost"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-ghost" in captured.err
+    assert "bailiff-mod-ghost" in captured.err
 
 
 # ---------------------------------------------------------------------------
@@ -263,9 +263,9 @@ def test_empty_templates_exits_zero(mono: Path) -> None:
 
 
 def test_three_way_parity_all_present(mono: Path) -> None:
-    _make_module(mono / "templates", "clerk-mod-x")
-    _make_cog_toml(mono, ["clerk-mod-x"])
-    _make_catalog_sources(mono, ["clerk-mod-x"])
+    _make_module(mono / "templates", "bailiff-mod-x")
+    _make_cog_toml(mono, ["bailiff-mod-x"])
+    _make_catalog_sources(mono, ["bailiff-mod-x"])
 
     with patch.object(_cm, "_REPO_ROOT", mono):
         result = _cm.check_modules(mono / "templates")
@@ -273,8 +273,8 @@ def test_three_way_parity_all_present(mono: Path) -> None:
 
 
 def test_three_way_parity_missing_catalog(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-x")
-    _make_cog_toml(mono, ["clerk-mod-x"])
+    _make_module(mono / "templates", "bailiff-mod-x")
+    _make_cog_toml(mono, ["bailiff-mod-x"])
     # catalog-sources.toml exists but doesn't list the module
     _make_catalog_sources(mono, [])
 
@@ -282,7 +282,7 @@ def test_three_way_parity_missing_catalog(mono: Path, capsys) -> None:
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-x" in captured.err
+    assert "bailiff-mod-x" in captured.err
     assert "catalog-sources.toml" in captured.err
 
 
@@ -292,13 +292,13 @@ def test_three_way_parity_missing_catalog(mono: Path, capsys) -> None:
 
 
 def test_label_immutability_unchanged_passes(mono: Path) -> None:
-    _make_module(mono / "templates", "clerk-mod-y", copier_yml=_CHOICES_COPIER_YML)
-    _make_cog_toml(mono, ["clerk-mod-y"])
+    _make_module(mono / "templates", "bailiff-mod-y", copier_yml=_CHOICES_COPIER_YML)
+    _make_cog_toml(mono, ["bailiff-mod-y"])
 
     # Simulate a published tag existing; tagged copier.yml has same choices
     with (
         patch.object(_cm, "_REPO_ROOT", mono),
-        patch.object(_cm, "_git_tags_for_module", return_value=["clerk-mod-y-v1.0.0"]),
+        patch.object(_cm, "_git_tags_for_module", return_value=["bailiff-mod-y-v1.0.0"]),
         patch.object(
             _cm,
             "_copier_yml_at_ref",
@@ -312,13 +312,13 @@ def test_label_immutability_unchanged_passes(mono: Path) -> None:
 
 
 def test_label_immutability_changed_fails(mono: Path, capsys) -> None:
-    _make_module(mono / "templates", "clerk-mod-z", copier_yml=_CHOICES_COPIER_YML)
-    _make_cog_toml(mono, ["clerk-mod-z"])
+    _make_module(mono / "templates", "bailiff-mod-z", copier_yml=_CHOICES_COPIER_YML)
+    _make_cog_toml(mono, ["bailiff-mod-z"])
 
     # Tagged version had different choices
     with (
         patch.object(_cm, "_REPO_ROOT", mono),
-        patch.object(_cm, "_git_tags_for_module", return_value=["clerk-mod-z-v1.0.0"]),
+        patch.object(_cm, "_git_tags_for_module", return_value=["bailiff-mod-z-v1.0.0"]),
         patch.object(
             _cm,
             "_copier_yml_at_ref",
@@ -330,5 +330,5 @@ def test_label_immutability_changed_fails(mono: Path, capsys) -> None:
         result = _cm.check_modules(mono / "templates")
     assert result == 1
     captured = capsys.readouterr()
-    assert "clerk-mod-z" in captured.err
+    assert "bailiff-mod-z" in captured.err
     assert "label" in captured.err.lower() or "mutation" in captured.err

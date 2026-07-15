@@ -1,10 +1,10 @@
-"""Unit tests for src/clerk/_preflight.py (spec 008, T004).
+"""Unit tests for src/bailiff/_preflight.py (spec 008, T004).
 
 Hermetic / stdlib-only: monkeypatches importlib.util.find_spec,
 importlib.metadata.version, and shutil.which to simulate dep presence,
 absence, and version mismatches without actually touching the environment.
 
-Also validates that the PEP 723 header in scripts/clerk.py matches
+Also validates that the PEP 723 header in scripts/bailiff.py matches
 _preflight.REQUIRED_DEPS / PEP723_DEPS (FR-005 equality test).
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from clerk._preflight import (
+from bailiff._preflight import (
     PEP723_DEPS,
     REQUIRED_DEPS,
     DepIssue,
@@ -31,7 +31,7 @@ from clerk._preflight import (
     report,
 )
 
-SCRIPTS_CLERK = Path(__file__).resolve().parents[2] / "scripts" / "clerk.py"
+SCRIPTS_BAILIFF = Path(__file__).resolve().parents[2] / "scripts" / "bailiff.py"
 
 
 # ---------------------------------------------------------------------------
@@ -310,22 +310,22 @@ class TestReport:
 class TestHelpAndDoctorWithMissingDeps:
     """Verify FR-004: --help and doctor exit cleanly even without third-party deps."""
 
-    def _run_clerk(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def _run_bailiff(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(SCRIPTS_CLERK), *args],
+            [sys.executable, str(SCRIPTS_BAILIFF), *args],
             capture_output=True,
             text=True,
         )
 
     def test_help_exits_zero(self) -> None:
         """--help should always exit 0 (argparse handles it before preflight)."""
-        result = self._run_clerk("--help")
+        result = self._run_bailiff("--help")
         assert result.returncode == 0
-        assert "clerk.py" in result.stdout
+        assert "bailiff.py" in result.stdout
 
     def test_doctor_all_present(self) -> None:
         """doctor exits 0 when all deps are present (dev venv)."""
-        result = self._run_clerk("doctor")
+        result = self._run_bailiff("doctor")
         assert result.returncode == 0
         assert "Ready" in result.stdout
 
@@ -340,14 +340,14 @@ class TestPep723HeaderConsistency:
 
     def _parse_pep723_deps(self) -> list[str]:
         """Extract the dependencies list from the # /// script header."""
-        text = SCRIPTS_CLERK.read_text()
+        text = SCRIPTS_BAILIFF.read_text()
         # Match the block between `# /// script` and `# ///`
         match = re.search(
             r"^# /// script\n(.*?)^# ///$",
             text,
             re.MULTILINE | re.DOTALL,
         )
-        assert match, "PEP 723 header block not found in scripts/clerk.py"
+        assert match, "PEP 723 header block not found in scripts/bailiff.py"
         block = match.group(1)
         # Extract the dependencies = [...] list
         dep_match = re.search(

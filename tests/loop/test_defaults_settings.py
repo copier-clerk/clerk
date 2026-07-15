@@ -3,7 +3,7 @@
 Tests:
 - SC-001 (settings.yml): user_name from copier settings.yml pre-fills when
   defaults.yml is absent or does not mention the key.
-- SC-002 (toml wins): clerk's defaults.yml beats copier's settings.yml on collision.
+- SC-002 (toml wins): bailiff's defaults.yml beats copier's settings.yml on collision.
 - Graceful degradation: load_settings raising does not break init.
 """
 
@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo, build_template_repo
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ from tests.conftest import TemplateRepo, build_template_repo
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-    monkeypatch.setenv("CLERK_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
+    monkeypatch.setenv("BAILIFF_DEFAULTS_PATH", str(tmp_path / "defaults.yml"))
 
 
 def _write_defaults(tmp_path: Path, content: str) -> None:
@@ -90,7 +90,7 @@ def test_settings_yml_defaults_pre_fill(user_name_template: TemplateRepo, tmp_pa
 
 
 def test_defaults_yml_beats_settings_yml(user_name_template: TemplateRepo, tmp_path: Path) -> None:
-    """clerk's defaults.yml key wins over copier's settings.yml on the same key."""
+    """bailiff's defaults.yml key wins over copier's settings.yml on the same key."""
     trust.add_trust(user_name_template.url)
     _write_defaults(tmp_path, "user_name: Babbage\n")
 

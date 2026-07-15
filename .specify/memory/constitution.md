@@ -8,7 +8,7 @@ process-deterministic carve-out, to sanction spec 011's native-command scaffoldi
          (uv/bun/cargo/go/cdk init) under a pinned mise toolchain — process-
          deterministic, version-pinned, NOT byte-identical — the same category as the
          existing LICENSE/gitnr/apm-lock outputs. The byte-identical guarantee is
-         scoped to MANAGED renders (config clerk owns). Faithful + agent-free intent
+         scoped to MANAGED renders (config bailiff owns). Faithful + agent-free intent
          UNCHANGED; only the task-output boundary is spelled out.
 Reconciled in the same change (per governance: amend the principle with the change
 that relies on it):
@@ -17,7 +17,7 @@ that relies on it):
   - specs/011-deopinionated-module-family/{spec,plan}.md — FR-019 gate (no 011 module
     releases until this amendment + ADR-0007 land).
   - specs/007-agentic-module/spec.md — amended in the same 011 work (apm folds into
-    clerk-mod-agentic; apm FRs migrate).
+    bailiff-mod-agentic; apm FRs migrate).
 Unchanged in substance: I, II, IV, V, VI, VII, VIII.
 Prior roadmap-only bump 2.1.0 → 2.2.0 (2026-07-14, spec 009 de-opinionation Q8/Q9) was
 recorded in the roadmap; the constitution text was untouched then and is now at 2.3.0.
@@ -34,12 +34,12 @@ in the change that relies on them (governance: amend the principle in the same P
          agent-free reproduce (the principle's intent) is unchanged; only the
          ordering MECHANISM is corrected. Rationale rewritten to match.
   - I.   Glue enumeration: drop "per-project reproduce recipes"; state the glue is
-         one bundled script `scripts/clerk.py` (./scripts/clerk.py / uv run), and
-         that there is NO `[project.scripts] clerk` console entry (was implicit in
-         "no uvx clerk"; now explicit for spec 010).
+         one bundled script `scripts/bailiff.py` (./scripts/bailiff.py / uv run), and
+         that there is NO `[project.scripts] bailiff` console entry (was implicit in
+         "no uvx bailiff"; now explicit for spec 010).
 Reconciled in the same change:
   - docs/decisions/0001-copier-as-engine.md — reproduce no longer cites a generated
-    `just reproduce`; names `copier recopy` directly / `scripts/clerk.py`.
+    `just reproduce`; names `copier recopy` directly / `scripts/bailiff.py`.
   - specs/010-delivery-reshape/spec.md — single bundled script shape; Q-010b resolved.
   - .specify/memory/roadmap.md — spec-003 Outcome, C-01/C-03, Vision de-frozen.
 Unchanged in substance: II, IV, V, VI, VII, VIII.
@@ -48,14 +48,14 @@ PRIOR SYNC IMPACT REPORT (v1.0.0 → 2.0.0)
 ==================
 Version change: 1.0.0 → 2.0.0
 Bump rationale: MAJOR — the project's nature was redefined after a YAGNI review.
-clerk is NOT a published Python tool; it is a skills bundle + a copier template
+bailiff is NOT a published Python tool; it is a skills bundle + a copier template
 family + a little deterministic glue. This redefines Principle I, replaces the
 Principle VIII pydantic-seam mandate, and softens Principles II and IV (the
 deprecated-surface adapter becomes conditional, not a standing requirement).
 
 Modified principles:
-  - I.   "Conductor, Not a Scaffolder" → "clerk Is Skills + Templates + Minimal Glue"
-         (redefined: no published package / no uvx clerk premise)
+  - I.   "Conductor, Not a Scaffolder" → "bailiff Is Skills + Templates + Minimal Glue"
+         (redefined: no published package / no uvx bailiff premise)
   - II.  "Two-Phase Boundary, CLI Seam" → "Two-Phase Boundary; the Skill Conducts,
          Deterministic Helpers Execute" (seam is skill↔helper/CLI-of-copier, not a
          packaged pydantic API)
@@ -73,7 +73,7 @@ Removed sections: none (VIII repurposed, not deleted).
 Templates requiring updates:
   ✅ .specify/memory/constitution.md (this file)
   ✅ .specify/memory/roadmap.md — revised in the same change (lean model)
-  ✅ specs/001-clerk-vertical-slice/{spec,plan}.md — rewritten to lean shape
+  ✅ specs/001-bailiff-vertical-slice/{spec,plan}.md — rewritten to lean shape
   ⚠  .specify/templates/plan-template.md — Constitution Check reads this file
      dynamically; no edit needed
   ✅ README.md / pyproject.toml — reproduce + trust + "never runs tasks" claims
@@ -82,38 +82,38 @@ Templates requiring updates:
 Follow-up TODOs: none deferred.
 -->
 
-# clerk Constitution
+# bailiff Constitution
 
-clerk is an agentic conductor for [copier](https://copier.readthedocs.io). copier
-is the deterministic render + reproduce engine; clerk decides *what* to render,
+bailiff is an agentic conductor for [copier](https://copier.readthedocs.io). copier
+is the deterministic render + reproduce engine; bailiff decides *what* to render,
 authors the *inputs*, and — where copier alone cannot coordinate — computes the
 small deterministic facts (ordering, dependency edges, defaults) needed to drive
-it. clerk is delivered as **an agent skill + a family of copier templates + a
+it. bailiff is delivered as **an agent skill + a family of copier templates + a
 little deterministic glue**, not as a standalone application. Every principle
 below is source-verified against copier 9.16.0 and derives from the architecture
 decisions in `docs/decisions/`, which are binding.
 
 ## Core Principles
 
-### I. clerk Is Skills + Templates + Minimal Glue
+### I. bailiff Is Skills + Templates + Minimal Glue
 
-clerk is, in order of weight: (1) **an agent skill** — the `SKILL.md` procedure
+bailiff is, in order of weight: (1) **an agent skill** — the `SKILL.md` procedure
 that conducts the non-deterministic work; (2) **a family of copier templates**
-(`clerk-mod-*`) — the actual reusable product; and (3) **minimal deterministic
+(`bailiff-mod-*`) — the actual reusable product; and (3) **minimal deterministic
 glue** — small helpers and scripts for the few things copier and an agent cannot
 do directly (dependency-edge parsing, topological ordering — recomputed at
 reproduce time, not frozen into the project — writing/reading defaults, and
 dry-run validation). This glue is bundled with the skill as a single script
-(`scripts/clerk.py`), run `./scripts/clerk.py` / `uv run scripts/clerk.py`. clerk
+(`scripts/bailiff.py`), run `./scripts/bailiff.py` / `uv run scripts/bailiff.py`. bailiff
 is NOT a published general-purpose application: there is no `[project.scripts]
-clerk` console entry, no `uvx clerk` PyPI tool, and glue MUST NOT grow into a
+bailiff` console entry, no `uvx bailiff` PyPI tool, and glue MUST NOT grow into a
 re-implementation of what copier already provides. New glue is justified only by a
 capability copier lacks (chiefly cross-template coordination); when in doubt,
 prefer a copier invocation, a
 template feature, or a documented agent step over new code.
 
 Rationale: an audit of the full roadmap found that copier already owns the whole
-single-template lifecycle; clerk's durable value is the conducting skill, the
+single-template lifecycle; bailiff's durable value is the conducting skill, the
 templates, and a thin sliver of coordination logic — not a wrapper around copier's
 CLI.
 
@@ -147,7 +147,7 @@ the whole topo-sorted with a stable, documented tie-break — NOT frozen into a
 committed per-project recipe. Because the pins are identical, the recomputed edges
 and order are identical, so reproduce is deterministic and needs no agent; and
 because it derives solely from committed copier state, it depends on no
-clerk-authored file a user might forget to commit. `_tasks` run at both init and
+bailiff-authored file a user might forget to commit. `_tasks` run at both init and
 reproduce; migrations are update-only. Reproduce is process-deterministic (same
 pinned inputs → same commands), not necessarily byte-identical in the world,
 because tasks may touch external state. **Task-output includes native-tool-generated
@@ -157,13 +157,13 @@ is task-output in exactly the sense LICENSE (`gh api`), `.gitignore` (`gitnr`), 
 `apm.lock.yaml` (`apm install`) already are: process-deterministic and version-pinned,
 NOT asserted byte-identical, and reproduced by re-running the guarded task, not by a
 byte/drift test. The byte-identical guarantee holds for **managed** renders (config
-clerk owns and the tool does not generate); the per-file boundary is drawn in
+bailiff owns and the tool does not generate); the per-file boundary is drawn in
 [[0007-native-command-scaffolding]].
 
-Rationale: faithful reproduce is clerk's headline guarantee and the reason the
+Rationale: faithful reproduce is bailiff's headline guarantee and the reason the
 pinning discipline exists; recomputing the order from committed answers + pinned
 fetches keeps reproduce deterministic and agent-free while committing NO
-clerk-specific artifact into the project — the earlier "freeze a recipe into the
+bailiff-specific artifact into the project — the earlier "freeze a recipe into the
 project" mechanism is superseded because a committed recipe is one more file that
 can drift from, or be omitted alongside, the answers files that are the true state.
 
@@ -190,13 +190,13 @@ templates), which is a later concern, not a day-one mandate.
 
 Because `_tasks` run at reproduce, byte-stability holds only as far as inputs are
 pinned: template `#ref`, the copier version, `apm.lock`, and tool versions.
-FORBIDDEN in clerk-authored templates: `jinja2_time` (`{% now %}`) and the random
+FORBIDDEN in bailiff-authored templates: `jinja2_time` (`{% now %}`) and the random
 filters. The current date MUST be injected as an answer (e.g. `--data today=…`)
 and referenced as `{{ today }}`, so it freezes into the answers file. Trust MUST
 be configured via copier `settings.yml` `trust:` (a prefix matching the raw
-pre-expansion URL — so clerk MUST use fully-expanded `https://` URLs for both
+pre-expansion URL — so bailiff MUST use fully-expanded `https://` URLs for both
 fetch and trust storage), NEVER blanket `unsafe=True`. The deterministic phase
-MUST NEVER write trust: it surfaces copier's trust refusal (or clerk's own
+MUST NEVER write trust: it surfaces copier's trust refusal (or bailiff's own
 `UntrustedSource`), and trust is recorded only by an explicit consent action.
 Unattended reproduce/CI never prompts and MUST fail loudly if trust is absent.
 
@@ -206,7 +206,7 @@ non-interactive path.
 
 ### VI. Template-Author Contract (Enforced at Discovery)
 
-Every clerk-consumable template MUST: (a) ship a
+Every bailiff-consumable template MUST: (a) ship a
 `{{ _copier_conf.answers_file }}.jinja` file — VERIFIED: without it copier writes
 NO `.copier-answers.yml` and the project is unreproducible; discovery MUST detect
 its absence (statically) and refuse; (b) be one git repo = one template with clean
@@ -216,7 +216,7 @@ dependency edges as `when: false` hidden answers (`depends_on` / `run_after` /
 `_migrations` format (the `before`/`after` dict form is deprecated). Published
 version labels are treated as immutable.
 
-**Secrets (spec 005):** clerk-authored templates (`clerk-mod-*`, examples) MUST
+**Secrets (spec 005):** bailiff-authored templates (`bailiff-mod-*`, examples) MUST
 NOT declare `secret: true` questions. Scaffolding generates files and structure —
 credentials are virtually never needed. Secrets belong in the **generated
 project's runtime config** (a template-authored `.env.example` + docs) or are
@@ -224,7 +224,7 @@ read from the **ambient environment** by tasks (e.g. `GH_TOKEN`, like the
 existing LICENSE task). A `_task` that needs a token reads it from the env —
 never a copier answer, never persisted, never agent-visible (Constitution II).
 Enforcement: a contract lint (`tests/loop/test_secrets_policy.py`) reusing
-`discovery.secret_questions` fails any in-repo clerk template that declares a
+`discovery.secret_questions` fails any in-repo bailiff template that declares a
 secret question.
 
 Rationale: these are copier's real, verified constraints; enforcing (a) and

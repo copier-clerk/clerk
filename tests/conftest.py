@@ -1,4 +1,4 @@
-"""Hermetic test fixtures for clerk.
+"""Hermetic test fixtures for bailiff.
 
 Every fixture builds a throwaway **local git template repo** in a tmp dir — a
 faithful stand-in for a remote source that keeps the suite offline (SC-007).
@@ -53,10 +53,10 @@ def _git(repo: Path, *args: str) -> None:
         # Deterministic, identity-independent commits so fixtures never depend on
         # the developer's global git config.
         env={
-            "GIT_AUTHOR_NAME": "clerk-test",
-            "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-            "GIT_COMMITTER_NAME": "clerk-test",
-            "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+            "GIT_AUTHOR_NAME": "bailiff-test",
+            "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+            "GIT_COMMITTER_NAME": "bailiff-test",
+            "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_SYSTEM": "/dev/null",
             "PATH": _PATH,
@@ -134,10 +134,10 @@ _BASE_OUT = "name={{ project_name }} org={{ org }} license={{ license }} date={{
 def base_template(tmp_path: Path) -> TemplateRepo:
     """The exemplar-shaped template: identity questions + a hermetic git-init task.
 
-    Stands in for `clerk-template-example` in hermetic tests.
+    Stands in for `bailiff-template-example` in hermetic tests.
     """
     return build_template_repo(
-        tmp_path / "clerk-mod-base",
+        tmp_path / "bailiff-mod-base",
         files={
             "copier.yml": _BASE_COPIER_YML,
             "template/README.md.jinja": "# {{ project_name }}\n\n{{ description }}\n",
@@ -163,14 +163,14 @@ def secret_edge_template(tmp_path: Path) -> TemplateRepo:
           default: ""
         depends_on:
           type: yaml
-          default: ["clerk-mod-base"]
+          default: ["bailiff-mod-base"]
           when: false
 
         _subdirectory: template
         """
     )
     return build_template_repo(
-        tmp_path / "clerk-mod-secret",
+        tmp_path / "bailiff-mod-secret",
         files={
             "copier.yml": copier_yml,
             "template/out.txt.jinja": "name={{ project_name }}\n",
@@ -189,7 +189,7 @@ def no_answers_file_template(tmp_path: Path) -> TemplateRepo:
         """
     )
     return build_template_repo(
-        tmp_path / "clerk-mod-broken",
+        tmp_path / "bailiff-mod-broken",
         files={
             "copier.yml": copier_yml,
             "template/out.txt.jinja": "name={{ project_name }}\n",
@@ -350,7 +350,7 @@ def _make_record(full_id: str, repo: TemplateRepo):  # returns TemplateRecord (i
     Imported lazily to avoid the circular-at-module-load issue (catalog imports
     discovery which is fine, but this helper is only needed at runtime).
     """
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     return TemplateRecord(
         full_id=full_id,
@@ -738,10 +738,10 @@ def make_multi_run_spec(
 
 
 # --------------------------------------------------------------------------- #
-# spec 009 Phase 0: clerk-mod-base + clerk-mod-python module fixtures          #
+# spec 009 Phase 0: bailiff-mod-base + bailiff-mod-python module fixtures          #
 #                                                                             #
 # These build hermetic local git repos from the REAL authored templates under #
-# templates/clerk-mod-{base,python}/, but swap the network/tool `_tasks`       #
+# templates/bailiff-mod-{base,python}/, but swap the network/tool `_tasks`       #
 # (gitnr/gh/uv preflight) for deterministic OFFLINE stubs so the suite stays   #
 # hermetic (Constitution VII / T016 / T023). All RENDERED content (dir         #
 # scaffold, AGENTS.md, pyproject.toml, answers file) is copied verbatim — only #
@@ -751,7 +751,7 @@ def make_multi_run_spec(
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _MODULES_DIR = _REPO_ROOT / "templates"
 
-# Offline stub tasks for clerk-mod-base: reproduce the task OUTPUTS deterministically
+# Offline stub tasks for bailiff-mod-base: reproduce the task OUTPUTS deterministically
 # without touching the network or requiring gitnr/gh. Mirrors the real tasks'
 # lifecycle: .gitignore + LICENSE are task-output (guarded/idempotent), git init +
 # optional commit run last. The `test -f` / `git init` idempotency guards match the
@@ -761,7 +761,7 @@ _BASE_STUB_TASKS = dedent(
     _tasks:
       # Stub gitnr: write a deterministic .gitignore marker recording the stack.
       - >-
-        test -f .clerk-base-init-done ||
+        test -f .bailiff-base-init-done ||
         test -f .gitignore ||
         printf '# stub gitignore\\nstack={{ gitignore_stack | join(",") }}\\n' > .gitignore
       # Stub gh LICENSE fetch: guarded, idempotent, offline.
@@ -781,22 +781,22 @@ _BASE_STUB_TASKS = dedent(
         true
         {% endif %}
       # Sentinel: marks tree as init-done so gitnr stub skips on reproduce.
-      - "test -f .clerk-base-init-done || touch .clerk-base-init-done"
+      - "test -f .bailiff-base-init-done || touch .bailiff-base-init-done"
       - command: >-
-          git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false add -A &&
-          git -c user.name=clerk -c user.email=clerk@localhost -c commit.gpgsign=false commit
-          -qm "Initial project scaffold (clerk-mod-base)"
+          git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false add -A &&
+          git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false commit
+          -qm "Initial project scaffold (bailiff-mod-base)"
         when: "{{ initial_commit and run_git_init }}"
     """
 )
 
 
-# Offline stub tasks for clerk-mod-python (uv variant, spec 011 / v1.0.0).
+# Offline stub tasks for bailiff-mod-python (uv variant, spec 011 / v1.0.0).
 # Stubs out the mise preflight, mise install (init-only-guarded sentinel), and
 # the native uv init (TASK-OUTPUT: writes a minimal stub pyproject.toml if not
 # already present, matching the guarded `test -f pyproject.toml ||` lifecycle).
 def _python_stub_tasks(pkg_manager: str = "uv") -> str:
-    """Generate offline stub tasks for clerk-mod-python.
+    """Generate offline stub tasks for bailiff-mod-python.
 
     Stubs mise preflight sentinel + native init (uv/pdm).  The project name is
     threaded from the frozen ``project_name`` answer, matching the real init guard.
@@ -818,7 +818,7 @@ def _python_stub_tasks(pkg_manager: str = "uv") -> str:
     )
     return (
         "_tasks:\n"
-        "  - \"printf 'mise-preflight-ok\\n' > .clerk-python-mise-installed\"\n"
+        "  - \"printf 'mise-preflight-ok\\n' > .bailiff-python-mise-installed\"\n"
         "  - >-\n"
         f"    test -f pyproject.toml ||\n"
         f"    {_pyproject_printf}\n"
@@ -828,7 +828,7 @@ def _python_stub_tasks(pkg_manager: str = "uv") -> str:
 # Pre-built stub strings — used by fixtures so each fixture call doesn't rebuild.
 _PYTHON_STUB_TASKS = _python_stub_tasks("uv")
 
-# Offline stub tasks for clerk-mod-apm (spec 007 / T010): swap the real network
+# Offline stub tasks for bailiff-mod-apm (spec 007 / T010): swap the real network
 # `uvx --from apm-cli==<ver> apm install` for a deterministic OFFLINE no-op. The
 # preflight writes a marker; the guarded "install" writes a stub apm.lock.yaml
 # from the frozen apm_packages so the suite exercises the real lifecycle
@@ -838,7 +838,7 @@ _PYTHON_STUB_TASKS = _python_stub_tasks("uv")
 _APM_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'apm-preflight-ok\\n' > .clerk-apm-preflight"
+      - "printf 'apm-preflight-ok\\n' > .bailiff-apm-preflight"
       - command: >-
           printf 'lockfile_version: stub\\napm_version: {{ apm_cli_version }}\\n'
           > apm.lock.yaml
@@ -850,59 +850,59 @@ _APM_STUB_TASKS = dedent(
 # PDM variant stub — same lifecycle, different pkg_manager label in sentinel content.
 _PDM_STUB_TASKS = _python_stub_tasks("pdm")
 
-# Offline stub tasks for clerk-mod-typescript (bun variant).
+# Offline stub tasks for bailiff-mod-typescript (bun variant).
 _BUN_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'bun-preflight-ok\\n' > .clerk-ts-preflight"
+      - "printf 'bun-preflight-ok\\n' > .bailiff-ts-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-typescript (pnpm variant).
+# Offline stub tasks for bailiff-mod-typescript (pnpm variant).
 _PNPM_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'pnpm-preflight-ok\\n' > .clerk-ts-preflight"
+      - "printf 'pnpm-preflight-ok\\n' > .bailiff-ts-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-rust: the cargo new preflight is a no-op marker.
+# Offline stub tasks for bailiff-mod-rust: the cargo new preflight is a no-op marker.
 _CARGO_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'cargo-preflight-ok\\n' > .clerk-rust-preflight"
+      - "printf 'cargo-preflight-ok\\n' > .bailiff-rust-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-go: the go mod init preflight is a no-op marker.
+# Offline stub tasks for bailiff-mod-go: the go mod init preflight is a no-op marker.
 _GO_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'go-preflight-ok\\n' > .clerk-go-preflight"
+      - "printf 'go-preflight-ok\\n' > .bailiff-go-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-terraform: the terraform/tofu init preflight is a no-op marker.
+# Offline stub tasks for bailiff-mod-terraform: the terraform/tofu init preflight is a no-op marker.
 _TERRAFORM_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'terraform-preflight-ok\\n' > .clerk-terraform-preflight"
+      - "printf 'terraform-preflight-ok\\n' > .bailiff-terraform-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-terraform (opentofu variant).
+# Offline stub tasks for bailiff-mod-terraform (opentofu variant).
 _TOFU_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'tofu-preflight-ok\\n' > .clerk-terraform-preflight"
+      - "printf 'tofu-preflight-ok\\n' > .bailiff-terraform-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-cdk: the cdk init preflight is a no-op marker.
+# Offline stub tasks for bailiff-mod-cdk: the cdk init preflight is a no-op marker.
 _CDK_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'cdk-preflight-ok\\n' > .clerk-cdk-preflight"
+      - "printf 'cdk-preflight-ok\\n' > .bailiff-cdk-preflight"
     """
 )
 
@@ -910,11 +910,11 @@ _CDK_STUB_TASKS = dedent(
 _AWS_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'aws-preflight-ok\\n' > .clerk-aws-preflight"
+      - "printf 'aws-preflight-ok\\n' > .bailiff-aws-preflight"
     """
 )
 
-# Offline stub tasks for clerk-mod-cloudformation: preserve the SEED-ONCE
+# Offline stub tasks for bailiff-mod-cloudformation: preserve the SEED-ONCE
 # parameter-seeding loop (offline, no AWS) and stub the opt-in validate task
 # with a conditional marker so aws_validate=true/false tests both work.
 _CFN_STUB_TASKS = dedent(
@@ -930,7 +930,7 @@ _CFN_STUB_TASKS = dedent(
         > "{{ placement_dir }}/parameters/${env}.json";
         done
       # Stub aws validate-template: write marker only when aws_validate=true.
-      - command: "printf 'aws-preflight-ok\\\\n' > .clerk-aws-preflight"
+      - command: "printf 'aws-preflight-ok\\\\n' > .bailiff-aws-preflight"
         when: "{{ aws_validate }}"
     """
 )
@@ -939,7 +939,7 @@ _CFN_STUB_TASKS = dedent(
 _GH_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'gh-preflight-ok\\n' > .clerk-gh-preflight"
+      - "printf 'gh-preflight-ok\\n' > .bailiff-gh-preflight"
     """
 )
 
@@ -947,7 +947,7 @@ _GH_STUB_TASKS = dedent(
 _CLAUDE_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'claude-preflight-ok\\n' > .clerk-claude-preflight"
+      - "printf 'claude-preflight-ok\\n' > .bailiff-claude-preflight"
     """
 )
 
@@ -955,7 +955,7 @@ _CLAUDE_STUB_TASKS = dedent(
 _MISE_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'mise-preflight-ok\\n' > .clerk-mise-preflight"
+      - "printf 'mise-preflight-ok\\n' > .bailiff-mise-preflight"
     """
 )
 
@@ -963,7 +963,7 @@ _MISE_STUB_TASKS = dedent(
 _PRECOMMIT_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'pre-commit-preflight-ok\\n' > .clerk-precommit-preflight"
+      - "printf 'pre-commit-preflight-ok\\n' > .bailiff-precommit-preflight"
     """
 )
 
@@ -971,7 +971,7 @@ _PRECOMMIT_STUB_TASKS = dedent(
 _LEFTHOOK_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'lefthook-preflight-ok\\n' > .clerk-precommit-preflight"
+      - "printf 'lefthook-preflight-ok\\n' > .bailiff-precommit-preflight"
     """
 )
 
@@ -1013,56 +1013,58 @@ def _copy_module_with_stub_tasks(
 
 
 @pytest.fixture
-def clerk_mod_base(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-base template as a hermetic repo (tasks stubbed offline)."""
+def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-base template as a hermetic repo (tasks stubbed offline)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-base", tmp_path / "clerk-mod-base", _BASE_STUB_TASKS
+        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_python(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-python template as a hermetic repo (uv/mise tasks stubbed)."""
+def bailiff_mod_python(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-python template as a hermetic repo (uv/mise tasks stubbed)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-python", tmp_path / "clerk-mod-python", _PYTHON_STUB_TASKS
+        "bailiff-mod-python", tmp_path / "bailiff-mod-python", _PYTHON_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_python_pdm(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-python template with python_pkg_manager=pdm tasks stubbed."""
+def bailiff_mod_python_pdm(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-python template with python_pkg_manager=pdm tasks stubbed."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-python", tmp_path / "clerk-mod-python-pdm", _PDM_STUB_TASKS
+        "bailiff-mod-python", tmp_path / "bailiff-mod-python-pdm", _PDM_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_go(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-go template as a hermetic repo (go preflight stubbed).
+def bailiff_mod_go(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-go template as a hermetic repo (go preflight stubbed).
 
     spec 011 T008: renders the real Go overlay surface; the native `go mod init`
     task is replaced with a deterministic offline stub that writes a marker, keeping
     the suite hermetic (no go toolchain required).
     """
-    return _copy_module_with_stub_tasks("clerk-mod-go", tmp_path / "clerk-mod-go", _GO_STUB_TASKS)
+    return _copy_module_with_stub_tasks(
+        "bailiff-mod-go", tmp_path / "bailiff-mod-go", _GO_STUB_TASKS
+    )
 
 
 @pytest.fixture
-def clerk_mod_apm(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-apm template as a hermetic repo (apm install stubbed offline).
+def bailiff_mod_apm(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-apm template as a hermetic repo (apm install stubbed offline).
 
     spec 007 / T010: renders the real apm.yml surface; the network `apm install`
     task is replaced with a deterministic offline stub that writes a marker and a
     stub apm.lock.yaml (external state) from the frozen apm_packages.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-apm", tmp_path / "clerk-mod-apm", _APM_STUB_TASKS
+        "bailiff-mod-apm", tmp_path / "bailiff-mod-apm", _APM_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_rust(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-rust template as a hermetic repo (cargo new stubbed offline).
+def bailiff_mod_rust(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-rust template as a hermetic repo (cargo new stubbed offline).
 
     spec 011: renders the real rust surface; the `cargo new` task is replaced with a
     deterministic offline stub that writes a marker so the suite stays hermetic
@@ -1070,16 +1072,16 @@ def clerk_mod_rust(tmp_path: Path) -> TemplateRepo:
     verbatim; only the task side-effects are stubbed.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-rust", tmp_path / "clerk-mod-rust", _CARGO_STUB_TASKS
+        "bailiff-mod-rust", tmp_path / "bailiff-mod-rust", _CARGO_STUB_TASKS
     )
 
 
 # Minimal STUB base layer (spec 007 Q5 / FR-007): provides the threaded
-# project_name for [stub_base, clerk-mod-apm] multi-layer tests WITHOUT a hard
-# dependency on clerk-mod-base. It is a plain identity template with a hermetic
+# project_name for [stub_base, bailiff-mod-apm] multi-layer tests WITHOUT a hard
+# dependency on bailiff-mod-base. It is a plain identity template with a hermetic
 # git-init task and the answers-file marker, mirroring the exemplar shape.
 #
-# It declares run_before: [clerk-mod-apm] so the spec-003 engine sequences it
+# It declares run_before: [bailiff-mod-apm] so the spec-003 engine sequences it
 # BEFORE the apm layer (threading project_name forward). Per Q5, the adjacency is
 # declared by the BASE (the module that needs it), never baked into 007's edges.
 _APM_STUB_BASE_YML = dedent(
@@ -1099,7 +1101,7 @@ _APM_STUB_BASE_YML = dedent(
       when: false
     run_before:
       type: yaml
-      default: ["clerk-mod-apm"]
+      default: ["bailiff-mod-apm"]
       when: false
     _subdirectory: template
     _tasks:
@@ -1108,7 +1110,7 @@ _APM_STUB_BASE_YML = dedent(
 )
 
 
-# Offline stub tasks for clerk-mod-package-add: the path-traversal guard is
+# Offline stub tasks for bailiff-mod-package-add: the path-traversal guard is
 # preserved verbatim (SEC-001 — exit 1 on bad input), the monorepo gate is
 # preserved, but native tool calls (bun/pnpm/uv/cargo/go) are replaced with a
 # deterministic marker write. This keeps the guard logic hermetically testable
@@ -1126,21 +1128,22 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
           name="{{ name }}";
           dir="{{ dir }}";
-          err() { echo "clerk-mod-package-add: $1" >&2; exit 1; };
+          err() { echo "pkg-add: $1" >&2; exit 1; };
           [ -z "$name" ] && err "name must not be empty";
           [ -z "$dir" ] && err "dir must not be empty";
-          printf '%s' "$name" | grep -qE '(^$|/|\\\\|\\.\\.|^\\.$)' && err "name '${name}' contains unsafe path component";
-          printf '%s' "$dir" | grep -qE '(\\\\|/\\.\\./|/\\.\\.$|^\\.\\./|^\\.$|^\\.\\.$)' && err "dir '${dir}' contains unsafe path component";
+          printf '%s' "$name" | grep -qE '(^$|/|\\|\\.\\.|^\\.$)' && err "name unsafe";
+          printf '%s' "$dir" | grep -qE '(\\|/\\.\\./)' && err "dir unsafe";
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
           if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
           mkdir -p "{{ dir.rstrip('/') }}/{{ name }}";
-          printf 'package-add-ok lang={{ lang }} name={{ name }}\\n' > .clerk-package-add-preflight
+          printf 'package-add-ok lang={{ lang }} name={{ name }}\\n'
+          > .bailiff-package-add-preflight
     """
 )
 
-# clerk-mod-stack-adr has no native-tool tasks (pure template, no tool prerequisite).
+# bailiff-mod-stack-adr has no native-tool tasks (pure template, no tool prerequisite).
 # The stub is a no-op marker so _copy_module_with_stub_tasks has a non-empty block
 # to append (the regex only strips if _tasks already exists in copier.yml).
 _STACK_ADR_STUB_TASKS = dedent(
@@ -1151,59 +1154,59 @@ _STACK_ADR_STUB_TASKS = dedent(
 
 
 @pytest.fixture
-def clerk_mod_package_add(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-package-add template as a hermetic repo (native tools stubbed).
+def bailiff_mod_package_add(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-package-add template as a hermetic repo (native tools stubbed).
 
     SEC-001: path-traversal guard is preserved in the stub so tests can assert
     guard rejection with zero side effects. Native add/init calls replaced with
     a deterministic marker write (offline-safe).
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-package-add",
-        tmp_path / "clerk-mod-package-add",
+        "bailiff-mod-package-add",
+        tmp_path / "bailiff-mod-package-add",
         _PACKAGE_ADD_STUB_TASKS,
     )
 
 
 @pytest.fixture
-def clerk_mod_cdk(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-cdk template as a hermetic repo (cdk init stubbed offline)."""
+def bailiff_mod_cdk(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-cdk template as a hermetic repo (cdk init stubbed offline)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-cdk", tmp_path / "clerk-mod-cdk", _CDK_STUB_TASKS
+        "bailiff-mod-cdk", tmp_path / "bailiff-mod-cdk", _CDK_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_cloudformation(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-cloudformation template with AWS tasks stubbed offline.
+def bailiff_mod_cloudformation(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-cloudformation template with AWS tasks stubbed offline.
 
     The CFN-specific stub preserves the parameter-seeding loop (SEED-ONCE, test -f
     guarded) and replaces only the aws validate-template call with a conditional
     marker so aws_validate=true/false tests both work without AWS credentials.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-cloudformation",
-        tmp_path / "clerk-mod-cloudformation",
+        "bailiff-mod-cloudformation",
+        tmp_path / "bailiff-mod-cloudformation",
         _CFN_STUB_TASKS,
     )
 
 
 @pytest.fixture
-def clerk_mod_stack_adr(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-stack-adr template as a hermetic repo (no-op tasks stub).
+def bailiff_mod_stack_adr(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-stack-adr template as a hermetic repo (no-op tasks stub).
 
     spec 011 T013: pure template module; no network or tool tasks to stub.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-stack-adr", tmp_path / "clerk-mod-stack-adr", _STACK_ADR_STUB_TASKS
+        "bailiff-mod-stack-adr", tmp_path / "bailiff-mod-stack-adr", _STACK_ADR_STUB_TASKS
     )
 
 
 @pytest.fixture
 def apm_stub_base(tmp_path: Path) -> TemplateRepo:
-    """A minimal stub base layer that threads project_name into clerk-mod-apm (Q5)."""
+    """A minimal stub base layer that threads project_name into bailiff-mod-apm (Q5)."""
     return build_template_repo(
-        tmp_path / "clerk-mod-stub-base",
+        tmp_path / "bailiff-mod-stub-base",
         files={
             "copier.yml": _APM_STUB_BASE_YML,
             "template/base_out.txt.jinja": "base={{ project_name }}\n",
@@ -1212,29 +1215,29 @@ def apm_stub_base(tmp_path: Path) -> TemplateRepo:
 
 
 @pytest.fixture
-def clerk_mod_precommit(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-precommit template as a hermetic repo (install task stubbed).
+def bailiff_mod_precommit(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-precommit template as a hermetic repo (install task stubbed).
 
     pre-commit install / lefthook install are replaced with a deterministic
-    offline stub that writes a marker file (.clerk-precommit-preflight) so tests
+    offline stub that writes a marker file (.bailiff-precommit-preflight) so tests
     never require the hook manager binary on PATH. The rendered hook config
     (.pre-commit-config.yaml or lefthook.yml) is copied verbatim — only the
     side-effecting install task is stubbed.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-precommit", tmp_path / "clerk-mod-precommit", _PRECOMMIT_STUB_TASKS
+        "bailiff-mod-precommit", tmp_path / "bailiff-mod-precommit", _PRECOMMIT_STUB_TASKS
     )
 
 
 @pytest.fixture
-def clerk_mod_precommit_lefthook(tmp_path: Path) -> TemplateRepo:
-    """clerk-mod-precommit with the lefthook install task stubbed offline."""
+def bailiff_mod_precommit_lefthook(tmp_path: Path) -> TemplateRepo:
+    """bailiff-mod-precommit with the lefthook install task stubbed offline."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-precommit", tmp_path / "clerk-mod-precommit-lh", _LEFTHOOK_STUB_TASKS
+        "bailiff-mod-precommit", tmp_path / "bailiff-mod-precommit-lh", _LEFTHOOK_STUB_TASKS
     )
 
 
-# Offline stub tasks for clerk-mod-agentic (spec 011): swap the real network/tool
+# Offline stub tasks for bailiff-mod-agentic (spec 011): swap the real network/tool
 # tasks (mise preflight, uvx/apm install, claude plugin install) for deterministic
 # OFFLINE no-ops. Stubs write markers so tests can assert task execution paths
 # without requiring live CLI tools or network access. The rendered template
@@ -1243,10 +1246,10 @@ def clerk_mod_precommit_lefthook(tmp_path: Path) -> TemplateRepo:
 _AGENTIC_STUB_TASKS = dedent(
     """\
     _tasks:
-      - "printf 'mise-preflight-ok\\n' > .clerk-agentic-preflight"
-      - command: "printf 'uvx-preflight-ok\\n' >> .clerk-agentic-preflight"
+      - "printf 'mise-preflight-ok\\n' > .bailiff-agentic-preflight"
+      - command: "printf 'uvx-preflight-ok\\n' >> .bailiff-agentic-preflight"
         when: "{{ install_via_apm }}"
-      - command: "printf 'claude-plugin-install-ok\\n' > .clerk-claude-plugin-install"
+      - command: "printf 'claude-plugin-install-ok\\n' > .bailiff-claude-plugin-install"
         when: "{{ native_marketplace and 'claude' in agentic_targets
           and agentic_plugins | length > 0 }}"
       - command: >-
@@ -1258,13 +1261,13 @@ _AGENTIC_STUB_TASKS = dedent(
 
 
 @pytest.fixture
-def clerk_mod_agentic(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-agentic template as a hermetic repo (all tasks stubbed offline).
+def bailiff_mod_agentic(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-agentic template as a hermetic repo (all tasks stubbed offline).
 
     spec 011 / T014: renders the real per-target config surface; the network/tool
     tasks (mise/uvx preflight, claude plugin install, apm install) are replaced with
     deterministic offline stubs that write markers so tests can assert execution paths.
     """
     return _copy_module_with_stub_tasks(
-        "clerk-mod-agentic", tmp_path / "clerk-mod-agentic", _AGENTIC_STUB_TASKS
+        "bailiff-mod-agentic", tmp_path / "bailiff-mod-agentic", _AGENTIC_STUB_TASKS
     )

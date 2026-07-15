@@ -6,13 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-import clerk
+import bailiff
 
-_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "bailiff.py"
 
 
 def test_version_is_set() -> None:
-    assert clerk.__version__
+    assert bailiff.__version__
 
 
 def test_script_help_exits_0() -> None:
@@ -23,7 +23,7 @@ def test_script_help_exits_0() -> None:
         text=True,
     )
     assert result.returncode == 0
-    assert "clerk.py" in result.stdout
+    assert "bailiff.py" in result.stdout
 
 
 def test_script_version_flag() -> None:
@@ -34,4 +34,4 @@ def test_script_version_flag() -> None:
         text=True,
     )
     assert result.returncode == 0
-    assert clerk.__version__ in result.stdout
+    assert bailiff.__version__ in result.stdout

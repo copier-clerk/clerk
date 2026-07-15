@@ -1,6 +1,6 @@
-"""spec 011 T006: clerk-mod-python v1.0.0 loop tests.
+"""spec 011 T006: bailiff-mod-python v1.0.0 loop tests.
 
-Contract: specs/011-deopinionated-module-family/contracts/clerk-mod-python.md
+Contract: specs/011-deopinionated-module-family/contracts/bailiff-mod-python.md
 
 Covers:
   - init [base, python] uv/3.13/src: ruff.toml MANAGED, pyproject present (task-output),
@@ -21,8 +21,8 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 
@@ -53,16 +53,18 @@ def _digest(path: Path) -> str:
 
 
 def test_base_python_init_uv_src(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """[base, python] uv/3.13/src: ruff.toml managed, pyproject present, mise sentinel."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -73,8 +75,8 @@ def test_base_python_init_uv_src(
         ),
         (
             _record(
-                "demo/clerk-mod-python",
-                clerk_mod_python,
+                "demo/bailiff-mod-python",
+                bailiff_mod_python,
                 ["project_name", "python_version", "python_pkg_manager", "python_layout"],
             ),
             {
@@ -102,7 +104,7 @@ def test_base_python_init_uv_src(
     assert 'requires-python = ">=3.13"' in pyproject_text, "python_version not in pyproject"
 
     # Init-only-guard sentinel written (mise install ran).
-    assert (dest / ".clerk-python-mise-installed").is_file(), "mise sentinel missing"
+    assert (dest / ".bailiff-python-mise-installed").is_file(), "mise sentinel missing"
 
     # MANAGED: ruff.toml present and contains the configured values.
     ruff_toml = dest / "ruff.toml"
@@ -119,7 +121,7 @@ def test_base_python_init_uv_src(
     assert '"ANN"' not in ruff_text, "strict ANN rule present in standard profile"
 
     # Answers files recorded.
-    af_py = yaml.safe_load((dest / ".copier-answers.clerk-mod-python.yml").read_text())
+    af_py = yaml.safe_load((dest / ".copier-answers.bailiff-mod-python.yml").read_text())
     assert af_py["python_version"] == "3.13"
     assert af_py["python_pkg_manager"] == "uv"
     assert af_py["python_layout"] == "src"
@@ -134,16 +136,18 @@ def test_base_python_init_uv_src(
 
 
 def test_reproduce_ruff_managed_pyproject_preserved(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """reproduce: ruff.toml byte-identical (MANAGED); pyproject present but not regenerated."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -154,8 +158,8 @@ def test_reproduce_ruff_managed_pyproject_preserved(
         ),
         (
             _record(
-                "demo/clerk-mod-python",
-                clerk_mod_python,
+                "demo/bailiff-mod-python",
+                bailiff_mod_python,
                 ["project_name", "python_version", "python_pkg_manager"],
             ),
             {
@@ -192,20 +196,22 @@ def test_reproduce_ruff_managed_pyproject_preserved(
 
 
 def test_pyproject_seed_once_not_clobbered(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """SEED-ONCE: hand-edited pyproject.toml is preserved on reproduce."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license"]),
+            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license"]),
             {"project_name": "myapp", "org": "acme", "license": "mit", "layout": "single"},
         ),
         (
-            _record("demo/clerk-mod-python", clerk_mod_python, ["project_name", "python_version"]),
+            _record(
+                "demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]
+            ),
             {"python_pkg_manager": "uv", "python_version": "3.13", "python_layout": "src"},
         ),
     ]
@@ -228,13 +234,13 @@ def test_pyproject_seed_once_not_clobbered(
 # --------------------------------------------------------------------------- #
 
 
-def test_standalone_renders_with_defaults(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_standalone_renders_with_defaults(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
     """Standalone init (no base layer) renders ruff.toml and pyproject with default values."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",
@@ -257,7 +263,7 @@ def test_standalone_renders_with_defaults(clerk_mod_python: TemplateRepo, tmp_pa
     assert (dest / "pyproject.toml").is_file()
 
     # Mise sentinel written.
-    assert (dest / ".clerk-python-mise-installed").is_file()
+    assert (dest / ".bailiff-python-mise-installed").is_file()
 
 
 # --------------------------------------------------------------------------- #
@@ -265,13 +271,13 @@ def test_standalone_renders_with_defaults(clerk_mod_python: TemplateRepo, tmp_pa
 # --------------------------------------------------------------------------- #
 
 
-def test_ruff_strict_profile_adds_rules(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_ruff_strict_profile_adds_rules(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
     """ruff_rule_profile=strict adds ANN, RUF, PERF, C4, PT to the lint select list."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",
@@ -297,15 +303,15 @@ def test_ruff_strict_profile_adds_rules(clerk_mod_python: TemplateRepo, tmp_path
 
 
 def test_ruff_target_version_threaded_from_python_version(
-    clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """ruff target-version is threaded from python_version (not hardcoded)."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     for version, expected in [("3.11", "py311"), ("3.12", "py312"), ("3.14", "py314")]:
         dest = tmp_path / f"proj_{version}"
         spec = runner.RunSpec(
-            source=clerk_mod_python.url,
+            source=bailiff_mod_python.url,
             dest=str(dest),
             answers={
                 "python_version": version,
@@ -326,14 +332,14 @@ def test_ruff_target_version_threaded_from_python_version(
 
 
 def test_pdm_variant_pyproject_and_sentinel(
-    clerk_mod_python_pdm: TemplateRepo, tmp_path: Path
+    bailiff_mod_python_pdm: TemplateRepo, tmp_path: Path
 ) -> None:
     """pdm variant: pyproject.toml present (task-output stub), mise sentinel written."""
-    trust.add_trust(clerk_mod_python_pdm.url)
+    trust.add_trust(bailiff_mod_python_pdm.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python_pdm.url,
+        source=bailiff_mod_python_pdm.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "pdm",
@@ -345,7 +351,7 @@ def test_pdm_variant_pyproject_and_sentinel(
     runner.init(spec, today="2026-07-13")
 
     assert (dest / "pyproject.toml").is_file(), "pyproject.toml missing (pdm variant)"
-    assert (dest / ".clerk-python-mise-installed").is_file(), "mise sentinel missing (pdm)"
+    assert (dest / ".bailiff-python-mise-installed").is_file(), "mise sentinel missing (pdm)"
     assert (dest / "ruff.toml").is_file(), "ruff.toml missing (pdm variant)"
 
 
@@ -354,13 +360,13 @@ def test_pdm_variant_pyproject_and_sentinel(
 # --------------------------------------------------------------------------- #
 
 
-def test_add_tests_true_creates_scaffold(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_add_tests_true_creates_scaffold(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
     """add_tests=true: tests/test_example.py (seed-once) and pytest.ini (managed) created."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",
@@ -378,13 +384,13 @@ def test_add_tests_true_creates_scaffold(clerk_mod_python: TemplateRepo, tmp_pat
     assert "testpaths = tests" in (dest / "pytest.ini").read_text(), "pytest.ini missing testpaths"
 
 
-def test_add_tests_false_no_scaffold(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_add_tests_false_no_scaffold(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
     """add_tests=false (default): tests/ and pytest.ini are NOT created."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",
@@ -402,13 +408,15 @@ def test_add_tests_false_no_scaffold(clerk_mod_python: TemplateRepo, tmp_path: P
     )
 
 
-def test_add_tests_seed_once_not_clobbered(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_add_tests_seed_once_not_clobbered(
+    bailiff_mod_python: TemplateRepo, tmp_path: Path
+) -> None:
     """SEED-ONCE: tests/test_example.py is not overwritten on reproduce."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",
@@ -424,7 +432,7 @@ def test_add_tests_seed_once_not_clobbered(clerk_mod_python: TemplateRepo, tmp_p
     custom_content = "# custom test\ndef test_real():\n    assert 1 + 1 == 2\n"
     example.write_text(custom_content)
 
-    # Single-layer reproduce: the module has a run_after:clerk-mod-base edge so
+    # Single-layer reproduce: the module has a run_after:bailiff-mod-base edge so
     # reproduce_many would fail on a standalone project (no base answers file).
     # runner.reproduce drives the single answers file directly.
     # runner.init (single-layer) writes .copier-answers.yml, not the multi-layer name.
@@ -435,13 +443,13 @@ def test_add_tests_seed_once_not_clobbered(clerk_mod_python: TemplateRepo, tmp_p
     )
 
 
-def test_add_tests_pytest_ini_managed(clerk_mod_python: TemplateRepo, tmp_path: Path) -> None:
+def test_add_tests_pytest_ini_managed(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
     """MANAGED: pytest.ini is byte-identical after reproduce."""
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_python.url,
+        source=bailiff_mod_python.url,
         dest=str(dest),
         answers={
             "python_pkg_manager": "uv",

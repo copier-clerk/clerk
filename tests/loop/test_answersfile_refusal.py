@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from clerk import discovery, runner, trust
-from clerk.errors import NotReproducibleError
+from bailiff import discovery, runner, trust
+from bailiff.errors import NotReproducibleError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -46,14 +46,14 @@ def test_init_refuses_non_reproducible_template(
 
 
 # ---------------------------------------------------------------------------
-# T016: scripts/clerk.py discover reports reproducible:false; init exits 1
+# T016: scripts/bailiff.py discover reports reproducible:false; init exits 1
 # ---------------------------------------------------------------------------
 
 
-def test_clerk_script_discover_reports_not_reproducible(
+def test_bailiff_script_discover_reports_not_reproducible(
     no_answers_file_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py discover emits reproducible:false for a template without answers-file."""
+    """scripts/bailiff.py discover emits reproducible:false for a template without answers-file."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -70,10 +70,10 @@ def test_clerk_script_discover_reports_not_reproducible(
     assert payload["reproducible"] is False
 
 
-def test_clerk_script_init_exits_1_for_non_reproducible_template(
+def test_bailiff_script_init_exits_1_for_non_reproducible_template(
     no_answers_file_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init exits 1 (ClerkError) for a template that can't record answers."""
+    """scripts/bailiff.py init exits 1 (BailiffError) for a template that can't record answers."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -97,6 +97,6 @@ def test_clerk_script_init_exits_1_for_non_reproducible_template(
         text=True,
         env=env,
     )
-    # NotReproducibleError → ClerkError → exit 1
+    # NotReproducibleError → BailiffError → exit 1
     assert result.returncode == 1
     assert not (dest / "out.txt").exists()

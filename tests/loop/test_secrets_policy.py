@@ -1,6 +1,6 @@
-"""SC-001 / SC-002: clerk-authored templates must not declare secret questions.
+"""SC-001 / SC-002: bailiff-authored templates must not declare secret questions.
 
-Phase-1 policy lint (T001) — runs discovery over in-repo clerk-authored templates
+Phase-1 policy lint (T001) — runs discovery over in-repo bailiff-authored templates
 and asserts no secret questions are declared.  A fixture template that violates
 the policy fails the same check.
 
@@ -15,29 +15,29 @@ from textwrap import dedent
 
 import pytest
 
-from clerk import discovery
+from bailiff import discovery
 from tests.conftest import build_template_repo
 
 # ---------------------------------------------------------------------------
-# Phase 1: policy lint over in-repo clerk-authored templates (T001 / SC-001)
+# Phase 1: policy lint over in-repo bailiff-authored templates (T001 / SC-001)
 # ---------------------------------------------------------------------------
 
-# Discover all clerk-authored template roots in this repo.  Any directory that
+# Discover all bailiff-authored template roots in this repo.  Any directory that
 # contains a copier.yml/.yaml at its root (excluding specs/ and .specify/) is a
 # candidate; we further restrict to known first-party paths.
 _REPO_ROOT = Path(__file__).parent.parent.parent
-# Cover both the disposable example AND the shipped clerk-mod-* modules under
-# templates/ (spec 009 SC-007 / T031): no clerk-authored template may declare a
+# Cover both the disposable example AND the shipped bailiff-mod-* modules under
+# templates/ (spec 009 SC-007 / T031): no bailiff-authored template may declare a
 # secret question.
-_CLERK_TEMPLATE_DIRS: list[Path] = sorted(
+_BAILIFF_TEMPLATE_DIRS: list[Path] = sorted(
     p.parent
     for p in [*_REPO_ROOT.glob("examples/*/copier.yml"), *_REPO_ROOT.glob("templates/*/copier.yml")]
 )
 
 
-@pytest.mark.parametrize("template_dir", _CLERK_TEMPLATE_DIRS, ids=lambda p: p.name)
-def test_clerk_authored_template_has_no_secret_questions(template_dir: Path) -> None:
-    """A clerk-authored template must not declare any secret: true questions (FR-001 / SC-001)."""
+@pytest.mark.parametrize("template_dir", _BAILIFF_TEMPLATE_DIRS, ids=lambda p: p.name)
+def test_bailiff_authored_template_has_no_secret_questions(template_dir: Path) -> None:
+    """A bailiff-authored template must not declare any secret: true questions (FR-001 / SC-001)."""
     # discovery.discover() requires a fetchable git source; read the copier.yml
     # directly for the policy check — no network, no git clone needed.
     import yaml
@@ -58,7 +58,7 @@ def test_clerk_authored_template_has_no_secret_questions(template_dir: Path) -> 
 
     violations = per_question + [k for k in list_form if k not in per_question]
     assert violations == [], (
-        f"clerk-authored template {template_dir.name!r} declares secret question(s): "
+        f"bailiff-authored template {template_dir.name!r} declares secret question(s): "
         f"{violations!r}. "
         f"Secrets belong in the generated project's runtime config (.env.example + docs), "
         f"not in copier answers. See specs/005-secrets/contracts/secrets.md for the pattern."
@@ -79,7 +79,7 @@ def test_fixture_with_secret_question_fails_policy(tmp_path: Path) -> None:
         """
     )
     repo = build_template_repo(
-        tmp_path / "bad-clerk-template",
+        tmp_path / "bad-bailiff-template",
         files={
             "copier.yml": copier_yml,
             "template/out.txt.jinja": "name={{ project_name }}\n",

@@ -1,4 +1,4 @@
-# Contract — clerk-mod-ci-github + clerk-mod-ci-gitlab (NEW; TWO modules)
+# Contract — bailiff-mod-ci-github + bailiff-mod-ci-gitlab (NEW; TWO modules)
 
 Split into two modules per critique R3 (they share almost no render — a single host-branched module
 was the "conditional explosion" the IaC split rejected). BOTH built in 011. Each is a pure managed
@@ -17,13 +17,13 @@ render (ZERO `_tasks`), sized from agent-frozen `--data`. References [_cross-cut
 | ci_lang_facts | yaml | {} | AGENT-FROZEN — per-lang manager/version/image/test cmd |
 | monorepo_tool | str | none / none | turborepo/nx/pnpm-workspace for monorepo-affected |
 | default_branch | str | "{{ default_branch }}" | literal ref |
-| run_after | yaml when:false | [clerk-mod-base] | sizing via --data, not run-order |
+| run_after | yaml when:false | [bailiff-mod-base] | sizing via --data, not run-order |
 
 **Fail-loud guard (critique R4)**: when the module is selected with `ci_languages==[]` AND
 `monorepo_tool==none`, emit a rendered warning comment AND a no-op job that echoes the misuse (NOT a
 silent empty file). A human standalone run or an agent that forgot to inject languages is then visible.
 
-## clerk-mod-ci-github
+## bailiff-mod-ci-github
 - **Output**: `.github/workflows/ci.yml` (managed render).
 - Models: minimal = ONE job, no gate (gate suppressed regardless of ci_required_gate); standard =
   parallel per-language jobs + explicit fan-in gate job; optimized = standard + dorny/paths-filter +
@@ -34,7 +34,7 @@ silent empty file). A human standalone run or an agent that forgot to inject lan
   mismatch — reconcile). No `:latest`. `concurrency: cancel-in-progress` when ci_concurrency_cancel.
 - Extra question: `merge_queue_org_confirmed` (bool, false) — the agent sets it only with a real signal.
 
-## clerk-mod-ci-gitlab
+## bailiff-mod-ci-gitlab
 - **Output**: `.gitlab-ci.yml` (managed render).
 - Extra question: `gitlab_tier [free, premium_ultimate]=free`.
 - Models: minimal = ONE job, multi-command script (NOT two needs-chained jobs); standard = parallel jobs,
@@ -55,7 +55,7 @@ Coverage step emitted when the language's `test_runner != none`.
 
 ## Notes
 - MI-1 (pin auto-updater) SHOULD land before/with the second host to bound rotating-pin maintenance.
-- Each module fanned out as its own mirror (`clerk-mod-ci-github`, `clerk-mod-ci-gitlab`).
+- Each module fanned out as its own mirror (`bailiff-mod-ci-github`, `bailiff-mod-ci-gitlab`).
 
 ## Tests
 For EACH module: render all 5 models with a 2-language ci_languages fact → **validate with the host's

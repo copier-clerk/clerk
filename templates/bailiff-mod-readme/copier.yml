@@ -1,0 +1,93 @@
+# copier.yml — bailiff-mod-readme
+#
+# Seeds README.md into the project — SEED-ONCE (`_skip_if_exists`): never clobbers
+# user edits on reproduce. Two styles: static-skeleton (deterministic render from
+# frozen facts) or agent-draft (render `readme_body` verbatim from a pre-generated
+# frozen answer injected via --data — no agent invocation in the reproduce path).
+#
+# Threads project_name/description/stack from bailiff-mod-base via copier's default
+# "{{ <key> }}" mechanism (FR-010). run_after: [bailiff-mod-base].
+#
+# Contract: ships template/{{ _copier_conf.answers_file }}.jinja; no secret: questions;
+# no tasks (pure render, no network/tool dependency).
+
+# Threaded from base via copier's default: "{{ project_name }}" mechanism.
+# Standalone fallback: renders empty when no upstream base supplied it.
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from bailiff-mod-base)."
+
+# One-line description threaded from base.
+description:
+  type: str
+  default: "{{ description }}"
+  help: "One-line project description (threaded from bailiff-mod-base)."
+
+# Stack summary threaded from base (or supplied directly). Used in static-skeleton
+# to describe the tech stack in the README.
+stack:
+  type: str
+  default: "{{ stack }}"
+  help: "Stack summary (e.g. 'Python/FastAPI/uv'), threaded from upstream answers."
+
+# README style: static-skeleton renders deterministically from frozen facts;
+# agent-draft renders the frozen `readme_body` verbatim (agent writes it once,
+# reproduce replays the frozen answer — no agent in reproduce path).
+readme_style:
+  type: str
+  choices:
+    - static-skeleton
+    - agent-draft
+  default: agent-draft
+  help: "README generation style: 'static-skeleton' (deterministic from facts) or 'agent-draft' (verbatim body from --data)."
+
+# Explicit consent gate: only asked when agent-draft is selected so the user
+# acknowledges the draft before it is written to disk.
+confirm_readme_draft:
+  type: bool
+  default: false
+  when: "{{ readme_style == 'agent-draft' }}"
+  help: "Confirm the agent-generated README draft looks correct before writing."
+
+# Pre-generated README body injected by the phase-1 agent via --data (FR-010).
+# Rendered verbatim when readme_style=agent-draft; ignored when static-skeleton.
+# Default empty so standalone runs produce a clearly-incomplete placeholder rather
+# than silently writing nothing.
+readme_body:
+  type: str
+  default: ""
+  when: "{{ readme_style == 'agent-draft' }}"
+  help: "Pre-generated README body (agent-frozen via --data; rendered verbatim in agent-draft style)."
+
+# `today` injected by bailiff at init and frozen into the recorded answers (FR-007).
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# README.md is SEED-ONCE: seeded once at init, never clobbered on reproduce so
+# user edits are preserved. On a fresh-checkout reproduce it does not yet exist
+# so it still renders (Constitution III holds).
+_skip_if_exists:
+  - README.md

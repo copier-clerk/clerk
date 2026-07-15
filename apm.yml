@@ -1,9 +1,9 @@
-name: clerk
+name: bailiff
 version: 0.1.0
 description: >-
-  An agentic conductor for copier. The clerk fills in the paperwork
+  An agentic conductor for copier. The bailiff fills in the paperwork
   (per-module answer files); copier makes the copies. Reproduce is agent-free.
-  This apm.yml declares the project-scoped agentic layer used to BUILD clerk
+  This apm.yml declares the project-scoped agentic layer used to BUILD bailiff
   (spec-driven workflow, structure/toolchain steering, dependency + secret
   scanning). The global layer provides the always-on packages (coder,
   challenger, verify, sniff, debate, handover, etc.).
@@ -13,33 +13,33 @@ target: claude,codex
 includes: auto
 
 # ---------------------------------------------------------------------------
-# Marketplace — clerk as a distributable skill (spec 008)
+# Marketplace — bailiff as a distributable skill (spec 008)
 #
 # Build both a Claude and Codex marketplace artifact from one config:
 #   just pack          → apm pack --marketplace=claude,codex
 #   just release       → vendor → check-vendor → apm pack (release-gated)
 #
 # Consumer install (Claude):
-#   apm marketplace add copier-clerk/clerk
+#   apm marketplace add bailiff-io/bailiff
 #
 # Consumer install (Codex):
-#   apm marketplace add --marketplace=codex copier-clerk/clerk
+#   apm marketplace add --marketplace=codex bailiff-io/bailiff
 # ---------------------------------------------------------------------------
 marketplace:
   owner:
-    name: copier-clerk
-    url: https://github.com/copier-clerk
+    name: bailiff-io
+    url: https://github.com/bailiff-io
   build:
     tagPattern: "v{version}"  # default version-range resolution for consumers
   outputs:
     claude: {}  # → .claude-plugin/marketplace.json
     codex: {}   # → .agents/plugins/marketplace.json (requires category: on every package)
   packages:
-    - name: clerk
+    - name: bailiff
       description: >-
         Agentic conductor for copier — a skill + bundled deterministic scripts.
         Inspects templates, authors run-specs, drives init and faithful reproduce.
-      source: ./packages/clerk   # local-path: clerk ships itself, not a remote tag
+      source: ./packages/bailiff   # local-path: bailiff ships itself, not a remote tag
       version: 0.1.0
       category: Productivity     # REQUIRED when outputs includes codex (apm pack hard-errors without it)
       license: Apache-2.0        # REQUIRED to avoid SBOM NOASSERTION
@@ -50,10 +50,10 @@ dependencies:
     # mcp-speckit-memory dependency was dropped upstream and is intentionally
     # NOT used here).
     - srobroek/agentic-packages/packages/speckit#>=5.0.0 <6.0.0
-    # Opt-in steering documenting clerk's own conventions for contributors.
+    # Opt-in steering documenting bailiff's own conventions for contributors.
     - srobroek/agentic-packages/packages/steering-project-structure#>=1.0.0 <2.0.0
     - srobroek/agentic-packages/packages/steering-toolchain-defaults#>=2.0.0 <3.0.0
-    # Clerk carries a real dependency tree (copier + transitive deps); scan it.
+    # Bailiff carries a real dependency tree (copier + transitive deps); scan it.
     - srobroek/agentic-packages/packages/dep-audit#>=1.0.0 <2.0.0
     # Secret scanning skill (complements the pre-commit gitleaks hook).
     - srobroek/agentic-packages/packages/secrets-scan#>=1.0.0 <2.0.0

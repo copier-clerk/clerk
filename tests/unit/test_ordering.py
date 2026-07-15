@@ -1,4 +1,4 @@
-"""Unit tests for clerk.ordering — pure DAG/sort functions (spec 003 / T007).
+"""Unit tests for bailiff.ordering — pure DAG/sort functions (spec 003 / T007).
 
 Covers: build_dag normalization (depends_on, run_after, run_before→inverted edge),
 topo_sort determinism + stable tie-break (basename) + order-independence,
@@ -12,9 +12,9 @@ import random
 
 import pytest
 
-from clerk.catalog import TemplateRecord
-from clerk.errors import OrderingError
-from clerk.ordering import answers_file_name, build_dag, topo_sort
+from bailiff.catalog import TemplateRecord
+from bailiff.errors import OrderingError
+from bailiff.ordering import answers_file_name, build_dag, topo_sort
 
 # ---------------------------------------------------------------------------
 # Helpers

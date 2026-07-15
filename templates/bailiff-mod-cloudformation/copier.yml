@@ -1,0 +1,126 @@
+# copier.yml — bailiff-mod-cloudformation
+#
+# CloudFormation / SAM infrastructure overlay (spec 011, contract iac.md).
+# RENDER-ORIENTED: CFN is declarative YAML — no native tool init, no `sam init`.
+# Lifecycle:
+#   SEED-ONCE — template.yaml (copier-rendered, _skip_if_exists);
+#               parameters/<env>.json per environment_names (task-seeded, guarded).
+#   MANAGED   — .cfnlintrc.yaml (byte-identical on reproduce).
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions; edges are when:false hidden answers.
+
+# --- Mode -------------------------------------------------------------------
+# raw = plain CloudFormation YAML; sam = adds SAM Transform + commented Globals.
+mode:
+  type: str
+  choices:
+    - raw
+    - sam
+  default: raw
+  help: "CloudFormation mode: raw (plain CFN) or sam (AWS SAM transform)."
+
+# --- Stack description -------------------------------------------------------
+stack_description:
+  type: str
+  default: ""
+  help: "One-line description for the CloudFormation stack (written into template.yaml)."
+
+# --- Environment names -------------------------------------------------------
+# One parameters/<env>.json file is task-seeded per entry with a test -f guard.
+environment_names:
+  type: yaml
+  default:
+    - dev
+    - prod
+  help: "List of environment names; a parameters/<env>.json is seeded for each."
+
+# --- cfn-lint configuration --------------------------------------------------
+cfnlint_version:
+  type: str
+  default: ""
+  help: "Pin cfn-lint to this version in .cfnlintrc.yaml (empty = no pin, uses 1.53.0 default)."
+
+cfnlint_ignore_rules:
+  type: yaml
+  default: []
+  help: "cfn-lint rule IDs to suppress in .cfnlintrc.yaml (e.g. [W3002, E3001])."
+
+# --- OPT-IN validation -------------------------------------------------------
+# When true, a trust-gated `aws cloudformation validate-template` task runs at
+# init. Requires valid AWS credentials on the runner — disabled by default so
+# the module works offline.
+aws_validate:
+  type: bool
+  default: false
+  help: "Run 'aws cloudformation validate-template' at init (requires AWS credentials)."
+
+# --- placement_dir -----------------------------------------------------------
+# Where the CFN artifacts land relative to the project root. Default:
+# infrastructure (conventional); use '.' for a standalone IaC repo.
+placement_dir:
+  type: str
+  default: infrastructure
+  help: "Directory under the project root where CloudFormation artifacts are placed."
+
+# `today` is injected by bailiff at init and frozen into the recorded answers;
+# never sourced from jinja2_time (Constitution V).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Capability tags (spec 013 — engine enforces warn-only exclusion) --------
+_bailiff_provides:
+  - iac-tool
+_bailiff_exclusive: true
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+run_after:
+  type: yaml
+  default: []
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# Template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# --- SEED-ONCE rendered files (FR-005a) -----------------------------------------------
+# template.yaml is project-owned after init: the team edits it freely.
+# Re-rendering would clobber real infrastructure definitions.
+# NOTE: parameters/<env>.json files are seeded by the task loop below (test -f guards),
+# not by copier's _skip_if_exists, because their names are dynamically derived from
+# environment_names (copier cannot render N files from a list at template time).
+_skip_if_exists:
+  - "{{ placement_dir }}/template.yaml"
+
+# --- Trust-gated tasks -------------------------------------------------------
+# 1. Seed per-env parameter files with test -f guards (SEED-ONCE, offline).
+# 2. OPT-IN: aws validate-template (requires credentials + network).
+_tasks:
+  # Seed parameters/<env>.json for every environment in environment_names.
+  # test -f guard makes each write SEED-ONCE: existing files are never overwritten.
+  # Shell loop iterates the space-separated env list rendered by Jinja.
+  - >-
+    mkdir -p "{{ placement_dir }}/parameters" &&
+    for env in {{ environment_names | join(" ") }}; do
+    test -f "{{ placement_dir }}/parameters/${env}.json" ||
+    printf '[{\n  "ParameterKey": "Environment",\n  "ParameterValue": "%s"\n}]\n' "${env}"
+    > "{{ placement_dir }}/parameters/${env}.json";
+    done
+
+  # OPT-IN: aws validate-template (requires credentials + network).
+  # The template file path is relative to the project root so the CLI finds it.
+  - command: >-
+      aws cloudformation validate-template
+      --template-body file://{{ placement_dir }}/template.yaml
+    when: "{{ aws_validate }}"

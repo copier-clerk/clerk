@@ -1,11 +1,11 @@
-# Release + fan-out pipeline for the clerk authoring monorepo
+# Release + fan-out pipeline for the bailiff authoring monorepo
 # (spec 008b / ADR-0006 / contracts/fanout.md).
 #
 # One job, run on push to main. Steps (contracts/fanout.md "CI release job"):
 #   1. cog bump --auto        -> per-module <name>-vX.Y.Z tags + CHANGELOG commits (local)
 #   2. git push --follow-tags -> monorepo release finalized BEFORE any fan-out
 #   3. detect changed modules -> git tag --points-at HEAD | grep -E '^.+-v[0-9]'
-#   4. fan-out each changed module (scripts/fanout_module.sh) to copier-clerk/<name>
+#   4. fan-out each changed module (scripts/fanout_module.sh) to bailiff-io/<name>
 #   5. regenerate catalog.json, commit + push (skip if no diff) — served directly
 #      from the public repo via raw.githubusercontent.com (no GitHub Pages)
 #   6. gh release create per changed module with the cog changelog body
@@ -14,19 +14,19 @@
 # so a fan-out failure after step 2 can be recovered by re-running from step 3.
 #
 # ── MAINTAINER MANUAL SETUP REQUIRED (one-time) ──────────────────────────────
-# This workflow CANNOT run until a maintainer with copier-clerk org-admin does:
-#   1. Create the org-owned GitHub App "clerk-fanout" (see docs/runbooks/fanout-release.md)
+# This workflow CANNOT run until a maintainer with bailiff-io org-admin does:
+#   1. Create the org-owned GitHub App "bailiff-fanout" (see docs/runbooks/fanout-release.md)
 #      with repository Contents:write + ORGANIZATION Administration:write (the
 #      create-new-repo grant is org-level, not repo-level); install it on the
-#      copier-clerk org (all repositories).
+#      bailiff-io org (all repositories).
 #   2. Store the App credentials as org-level Actions secrets/vars:
-#        - secret CLERK_FANOUT_APP_ID       (the App ID)
-#        - secret CLERK_FANOUT_PRIVATE_KEY  (the App private key, PEM)
-#   3. Arm the workflow: set variable CLERK_FANOUT_ARMED=true (see runbook).
-# The job is guarded by `if: vars.CLERK_FANOUT_ARMED == 'true'`, so until it is
+#        - secret BAILIFF_FANOUT_APP_ID       (the App ID)
+#        - secret BAILIFF_FANOUT_PRIVATE_KEY  (the App private key, PEM)
+#   3. Arm the workflow: set variable BAILIFF_FANOUT_ARMED=true (see runbook).
+# The job is guarded by `if: vars.BAILIFF_FANOUT_ARMED == 'true'`, so until it is
 # armed it is SKIPPED cleanly on every push (no red failures at the token step).
 # NOTE: catalog.json is served directly from this PUBLIC repo via raw git
-# (https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json) — no
+# (https://raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json) — no
 # GitHub Pages setup is required.
 # ─────────────────────────────────────────────────────────────────────────────
 name: release
@@ -48,11 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     # ARMING GUARD: stays dormant until a maintainer completes the one-time org
     # setup (App + secrets, see header) and sets org/repo variable
-    # CLERK_FANOUT_ARMED=true. Without this, the job would fail on EVERY push to
+    # BAILIFF_FANOUT_ARMED=true. Without this, the job would fail on EVERY push to
     # main at the token step. Once armed, it runs normally. (Set via:
-    # `gh variable set CLERK_FANOUT_ARMED --org copier-clerk --body true` or the
+    # `gh variable set BAILIFF_FANOUT_ARMED --org bailiff-io --body true` or the
     # repo Settings → Variables UI.)
-    if: vars.CLERK_FANOUT_ARMED == 'true'
+    if: vars.BAILIFF_FANOUT_ARMED == 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,15 +70,15 @@ jobs:
         run: uv sync --dev
 
       # Mint a short-lived org App token for cross-repo writes + repo auto-create
-      # (T013). Scoped to the copier-clerk org: repo Contents:write pushes to the
-      # clerk-mod-* mirrors, org Administration:write auto-creates a missing mirror.
+      # (T013). Scoped to the bailiff-io org: repo Contents:write pushes to the
+      # bailiff-mod-* mirrors, org Administration:write auto-creates a missing mirror.
       # Requires the org-level secrets documented in the header + runbook.
-      - name: Mint clerk-fanout App token
+      - name: Mint bailiff-fanout App token
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.CLERK_FANOUT_APP_ID }}
-          private-key: ${{ secrets.CLERK_FANOUT_PRIVATE_KEY }}
+          app-id: ${{ secrets.BAILIFF_FANOUT_APP_ID }}
+          private-key: ${{ secrets.BAILIFF_FANOUT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           permission-contents: write
           # ORG-level administration (creating a new repo is an org action, not
@@ -109,8 +109,8 @@ jobs:
       - name: Cog bump changed modules
         run: |
           set -euo pipefail
-          git config user.name "clerk-fanout[bot]"
-          git config user.email "clerk-fanout[bot]@users.noreply.github.com"
+          git config user.name "bailiff-fanout[bot]"
+          git config user.email "bailiff-fanout[bot]@users.noreply.github.com"
           cog bump --auto
 
       # Step 2: finalize the monorepo release BEFORE any fan-out.
@@ -164,8 +164,8 @@ jobs:
         run: |
           set -euo pipefail
           uv run scripts/generate_catalog.py
-          git config user.name "clerk-fanout[bot]"
-          git config user.email "clerk-fanout[bot]@users.noreply.github.com"
+          git config user.name "bailiff-fanout[bot]"
+          git config user.email "bailiff-fanout[bot]@users.noreply.github.com"
           git add catalog.json
           # Check the STAGED diff: `git diff --quiet catalog.json` reports "no diff"
           # for an untracked file (which catalog.json is on its first release), so
@@ -194,7 +194,7 @@ jobs:
           done
 
       # ── Catalog hosting: served directly from this PUBLIC repo via raw git ──
-      # https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json
+      # https://raw.githubusercontent.com/bailiff-io/bailiff/main/catalog.json
       # catalog.json was already committed + pushed in "Regenerate catalog.json"
       # (step 5) above, so there is nothing further to publish — no GitHub Pages
       # build, no deploy step, no pages/id-token permissions, no plan requirement.

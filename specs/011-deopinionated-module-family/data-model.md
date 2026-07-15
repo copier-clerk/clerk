@@ -5,8 +5,8 @@ copier questions (answers), file-lifecycle classes, dependency edges, and the fa
 
 ## Entity: Module
 
-A `clerk-mod-*` copier template.
-- **name** (e.g. `clerk-mod-python`) — the `templates/<name>/` dir, the fan-out repo stem, the
+A `bailiff-mod-*` copier template.
+- **name** (e.g. `bailiff-mod-python`) — the `templates/<name>/` dir, the fan-out repo stem, the
   cog package key, the catalog-sources stem. Three-way parity enforced by `check_modules.py`.
 - **questions** — copier questions (see Choice-axis + per-module contracts).
 - **outputs** — each classified: `managed` | `seed-once` | `task-output` (see Lifecycle).
@@ -43,7 +43,7 @@ Version lists are subject to the meta-item CI auto-updater (out of module scope)
 
 ## Entity: File lifecycle class (per output)
 
-- **managed** — clerk owns; re-rendered byte-identically from committed answers (Constitution III
+- **managed** — bailiff owns; re-rendered byte-identically from committed answers (Constitution III
   strong form). Examples: dir `.gitkeep`, `.tflint.hcl`, `.cfnlintrc.yaml`, CI workflow files,
   `.mise.toml`, ruff config beyond tool init, `.copier-answers.yml`.
 - **seed-once** — scaffolded once then project-owned; `_skip_if_exists`. Examples: `AGENTS.md`,
@@ -57,16 +57,16 @@ Version lists are subject to the meta-item CI auto-updater (out of module scope)
 
 `when:false` hidden answers read statically from `copier.yml` (ADR-0003). Cross-module ordering is
 recomputed at reproduce; tie-break alphabetical by basename. Key edges:
-- language/quality/tooling/docs/agentic/iac modules → `run_after: [clerk-mod-base]` (base is root).
-- `clerk-mod-precommit` owns the hook file; the phase-1 agent freezes `hook_manager` + the
+- language/quality/tooling/docs/agentic/iac modules → `run_after: [bailiff-mod-base]` (base is root).
+- `bailiff-mod-precommit` owns the hook file; the phase-1 agent freezes `hook_manager` + the
   `hook_blocks` union up front and injects via `--data` (single writer — the `gitignore_stack`
   pattern; NOT runtime accumulation, which is circular/order-accidental — critique M1).
-- `clerk-mod-base` owns `.mise.toml`, written from the frozen `mise_tools` union (M1).
-- `clerk-mod-quality` owns `.agents/hooks/quality-languages` from the frozen `quality_languages`
+- `bailiff-mod-base` owns `.mise.toml`, written from the frozen `mise_tools` union (M1).
+- `bailiff-mod-quality` owns `.agents/hooks/quality-languages` from the frozen `quality_languages`
   union (M1).
-- `clerk-mod-ci-github`/`clerk-mod-ci-gitlab`, `clerk-mod-stack-adr` sort before language layers →
+- `bailiff-mod-ci-github`/`bailiff-mod-ci-gitlab`, `bailiff-mod-stack-adr` sort before language layers →
   they DON'T read run-order answers; they consume agent-frozen `--data` facts instead.
-- IaC modules: layout-independent overlay, `run_after: [clerk-mod-base]` optional (also standalone).
+- IaC modules: layout-independent overlay, `run_after: [bailiff-mod-base]` optional (also standalone).
 
 ## Entity: Agent-frozen fact / union
 
@@ -84,14 +84,14 @@ behavior. Two flavors:
 
 Per module, three-way parity: `templates/<name>/` dir == `cog.toml [monorepo.packages.<name>]` ==
 `catalog-sources.toml [[sources]]` url stem. `just new-module` creates all three; `check_modules.py`
-verifies. Mirror `copier-clerk/clerk-mod-<name>` pre-created by hand (confirmed public action).
-`clerk-mod-apm` registration is REMOVED and migrated to `clerk-mod-agentic` (catalog regen sequenced
-WITH the apm tombstone — R6). `clerk-mod-org-policy` is NOT registered (dropped — R1). CI registers as
-two entries: `clerk-mod-ci-github` + `clerk-mod-ci-gitlab` (R3).
+verifies. Mirror `bailiff-io/bailiff-mod-<name>` pre-created by hand (confirmed public action).
+`bailiff-mod-apm` registration is REMOVED and migrated to `bailiff-mod-agentic` (catalog regen sequenced
+WITH the apm tombstone — R6). `bailiff-mod-org-policy` is NOT registered (dropped — R1). CI registers as
+two entries: `bailiff-mod-ci-github` + `bailiff-mod-ci-gitlab` (R3).
 
 ## Validation rules (from requirements)
 - No `secret:` question on any module (FR-005 / Constitution VI); secrets-policy lint stays green.
 - Every module passes `check_modules.py` (FR-021) and ships an init+reproduce loop test (FR-022).
-- No new `src/clerk/` code (FR-011 / C-11).
+- No new `src/bailiff/` code (FR-011 / C-11).
 - No irreversible cloud action at scaffold time (FR-009).
 - No 011 module released until Constitution III amended + ADR-0007 landed (FR-019/SC-008).

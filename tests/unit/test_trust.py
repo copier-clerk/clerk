@@ -16,21 +16,21 @@ def settings_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_add_trust_writes_prefix(settings_file: Path) -> None:
-    from clerk import trust
+    from bailiff import trust
 
-    assert trust.add_trust("https://github.com/copier-clerk/") is True
+    assert trust.add_trust("https://github.com/bailiff-io/") is True
     assert settings_file.is_file()
     data = yaml.safe_load(settings_file.read_text())
-    assert data["trust"] == ["https://github.com/copier-clerk/"]
+    assert data["trust"] == ["https://github.com/bailiff-io/"]
 
 
 def test_add_trust_is_idempotent(settings_file: Path) -> None:
-    from clerk import trust
+    from bailiff import trust
 
-    assert trust.add_trust("https://github.com/copier-clerk/") is True
-    assert trust.add_trust("https://github.com/copier-clerk/") is False  # no dupe
+    assert trust.add_trust("https://github.com/bailiff-io/") is True
+    assert trust.add_trust("https://github.com/bailiff-io/") is False  # no dupe
     data = yaml.safe_load(settings_file.read_text())
-    assert data["trust"] == ["https://github.com/copier-clerk/"]
+    assert data["trust"] == ["https://github.com/bailiff-io/"]
 
 
 def test_add_trust_preserves_existing_entries_and_defaults(settings_file: Path) -> None:
@@ -42,18 +42,18 @@ def test_add_trust_preserves_existing_entries_and_defaults(settings_file: Path) 
             }
         )
     )
-    from clerk import trust
+    from bailiff import trust
 
-    trust.add_trust("https://github.com/copier-clerk/clerk-mod-base")
+    trust.add_trust("https://github.com/bailiff-io/bailiff-mod-base")
     data = yaml.safe_load(settings_file.read_text())
     assert "https://github.com/existing/" in data["trust"]
-    assert "https://github.com/copier-clerk/clerk-mod-base" in data["trust"]
+    assert "https://github.com/bailiff-io/bailiff-mod-base" in data["trust"]
     # the unrelated defaults block survives
     assert data["defaults"] == {"user_name": "sjors"}
 
 
 def test_list_trust_reads_back(settings_file: Path) -> None:
-    from clerk import trust
+    from bailiff import trust
 
     trust.add_trust("https://github.com/a/")
     trust.add_trust("https://github.com/b/")
@@ -61,11 +61,11 @@ def test_list_trust_reads_back(settings_file: Path) -> None:
 
 
 def test_is_trusted_prefix_and_exact(settings_file: Path) -> None:
-    from clerk import trust
+    from bailiff import trust
 
-    trust.add_trust("https://github.com/copier-clerk/")  # trailing slash → prefix
+    trust.add_trust("https://github.com/bailiff-io/")  # trailing slash → prefix
     trust.add_trust("https://github.com/solo/one-repo")  # no slash → exact
-    assert trust.is_trusted("https://github.com/copier-clerk/clerk-mod-base") is True
+    assert trust.is_trusted("https://github.com/bailiff-io/bailiff-mod-base") is True
     assert trust.is_trusted("https://github.com/solo/one-repo") is True
     assert trust.is_trusted("https://github.com/solo/other-repo") is False
     assert trust.is_trusted("https://github.com/untrusted/x") is False
@@ -73,7 +73,7 @@ def test_is_trusted_prefix_and_exact(settings_file: Path) -> None:
 
 def test_malformed_settings_not_clobbered(settings_file: Path) -> None:
     settings_file.write_text("just a string, not a mapping\n")
-    from clerk import trust
+    from bailiff import trust
 
     with pytest.raises(ValueError, match="not a mapping"):
-        trust.add_trust("https://github.com/copier-clerk/")
+        trust.add_trust("https://github.com/bailiff-io/")

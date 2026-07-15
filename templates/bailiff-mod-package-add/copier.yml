@@ -1,0 +1,262 @@
+# copier.yml — bailiff-mod-package-add
+#
+# Monorepo-only overlay: scaffolds a new package directory + seed manifest, then
+# registers it in the workspace via the native add command (FR-007). Gated on
+# base answer layout=='monorepo' (run_after: [bailiff-mod-base]).
+#
+# SEC-001: the 4-condition path-traversal guard runs BEFORE any mkdir — dir and
+# name are validated against /, \, .., ., and empty in the preflight task.
+# No secret: questions (Constitution VI / FR-005).
+
+# Note: no _answers_file override — copier's default is used (see bailiff-mod-base
+# for rationale); bailiff passes .copier-answers.bailiff-mod-package-add.yml at
+# multi-template init.
+
+# ---------------------------------------------------------------------------
+# Monorepo gate: reject when base layout is not monorepo (hidden; threaded).
+# ---------------------------------------------------------------------------
+
+# Threaded from base via copier's default threading (FR-010). Standalone fallback
+# renders to 'single' (no base supplied) which means all tasks are no-ops
+# (guarded behind the monorepo check in the task block).
+layout:
+  type: str
+  default: "{{ layout or 'single' }}"
+  choices:
+    - single
+    - monorepo
+  when: false
+
+# ---------------------------------------------------------------------------
+# Questions
+# ---------------------------------------------------------------------------
+
+# New package name — used as the directory basename under `dir`.
+# SEC-001: validated against /, \, .., ., and empty in the preflight task.
+name:
+  type: str
+  help: "New package name (used as the directory basename, e.g. 'api-client')."
+
+# Target language — drives which native init + add command runs.
+lang:
+  type: str
+  choices:
+    - ts
+    - python
+    - go
+    - rust
+  help: "Language of the new package."
+
+# Parent directory for the new package (default: packages/).
+dir:
+  type: str
+  default: "packages/"
+  help: "Parent directory for the new package (default: packages/)."
+
+# JS/TS package manager — threaded from bailiff-mod-base or an upstream layer
+# (FR-010). Dead options (npm, yarn) are not offered (Constitution / FR-002).
+js_pkg_manager:
+  type: str
+  choices:
+    - bun
+    - pnpm
+  default: "{{ js_pkg_manager or 'bun' }}"
+  help: "JS/TS package manager (threaded from bailiff-mod-base)."
+  when: "{{ lang == 'ts' }}"
+
+# Python package manager for the new package.
+python_pkg_manager:
+  type: str
+  choices:
+    - uv
+    - pdm
+  default: uv
+  help: "Python package manager for the new package."
+  when: "{{ lang == 'python' }}"
+
+# Rust edition — only relevant when lang=rust.
+rust_edition:
+  type: str
+  choices:
+    - "2024"
+    - "2021"
+  default: "2024"
+  help: "Rust edition (2024 recommended)."
+  when: "{{ lang == 'rust' }}"
+
+# Agent-injected: resolve sibling pins for cross-package dependency alignment.
+# When true the phase-1 agent pre-resolves version pins; empty = no extra deps.
+resolve_stack:
+  type: bool
+  default: false
+  help: "Let the agent resolve sibling package version pins before scaffolding."
+
+# today is injected by bailiff at init (FR-007 / Constitution V — no jinja2_time).
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# ---------------------------------------------------------------------------
+# Dependency edges (when:false hidden answers — FR-004)
+# ---------------------------------------------------------------------------
+
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# The template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# ---------------------------------------------------------------------------
+# Seed-once files (FR-005a)
+# The manifest produced by the native init is seed-once: once the project edits
+# it we must not clobber their work. The glob covers all four languages:
+#   ts      → package.json
+#   python  → pyproject.toml
+#   go      → go.mod
+#   rust    → Cargo.toml
+# ---------------------------------------------------------------------------
+_skip_if_exists:
+  - "{{ dir.rstrip('/') }}/{{ name }}/package.json"
+  - "{{ dir.rstrip('/') }}/{{ name }}/pyproject.toml"
+  - "{{ dir.rstrip('/') }}/{{ name }}/go.mod"
+  - "{{ dir.rstrip('/') }}/{{ name }}/Cargo.toml"
+
+# ---------------------------------------------------------------------------
+# Trust-gated tasks (FR-007b / SEC-001)
+#
+# Task ordering:
+#   1. Monorepo gate     — abort immediately when layout != monorepo.
+#   2. Path-traversal    — SEC-001: reject name/dir containing /, \, .., .
+#                          or empty. MUST run BEFORE any mkdir (no side effects
+#                          on bad input).
+#   3. Tool preflight    — check the native tool is on PATH.
+#   4. mkdir             — create the package directory.
+#   5. Native init       — init-only-guarded (test -f manifest) so reproduce
+#                          over a populated tree never re-runs the tool.
+#   6. Native add/register — register the new package in the workspace.
+#
+# All tasks are no-ops (via the monorepo guard) when layout != monorepo so the
+# module is safely applied to single-layout projects without side effects.
+# ---------------------------------------------------------------------------
+_tasks:
+  # 1. Monorepo gate — no-op when not monorepo (do not abort, just skip).
+  #    All remaining tasks are also guarded so this is belt-and-suspenders.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then
+        echo "bailiff-mod-package-add: layout='{{ layout }}' (need monorepo) — skipping." >&2;
+        exit 0;
+      fi
+    when: "{{ layout != 'monorepo' }}"
+
+  # 2. Path-traversal guard (SEC-001) — MUST run before any mkdir.
+  #    Rejects: empty name, empty dir, or either containing /, \, .., .
+  #    Exits 1 with a clear message; no directory is created on failure.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      name="{{ name }}";
+      dir="{{ dir }}";
+      err() { echo "bailiff-mod-package-add: $1" >&2; exit 1; };
+      [ -z "$name" ] && err "name must not be empty";
+      [ -z "$dir" ] && err "dir must not be empty";
+      printf '%s' "$name" | grep -qE '(^$|/|\\|\.\.|^\.$)' && err "name '${name}' contains unsafe path component";
+      printf '%s' "$dir" | grep -qE '(\\|/\.\./|/\.\.$|^\.\./|^\.$|^\.\.$)' && err "dir '${dir}' contains unsafe path component";
+      true
+
+  # 3. Tool preflight — language-specific tool must be on PATH.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ lang }}" = "ts" ]; then
+        if [ "{{ js_pkg_manager }}" = "bun" ]; then
+          command -v bun >/dev/null 2>&1 ||
+          { echo "bailiff-mod-package-add: required tool 'bun' not found on PATH." >&2;
+            echo "  bun — https://bun.sh/docs/installation" >&2; exit 1; };
+        else
+          command -v pnpm >/dev/null 2>&1 ||
+          { echo "bailiff-mod-package-add: required tool 'pnpm' not found on PATH." >&2;
+            echo "  pnpm — https://pnpm.io/installation" >&2; exit 1; };
+        fi;
+      elif [ "{{ lang }}" = "python" ]; then
+        if [ "{{ python_pkg_manager }}" = "pdm" ]; then
+          command -v pdm >/dev/null 2>&1 ||
+          { echo "bailiff-mod-package-add: required tool 'pdm' not found on PATH." >&2;
+            echo "  pdm — https://pdm-project.org/en/latest/#installation" >&2; exit 1; };
+        else
+          command -v uv >/dev/null 2>&1 ||
+          { echo "bailiff-mod-package-add: required tool 'uv' not found on PATH." >&2;
+            echo "  uv — https://docs.astral.sh/uv/getting-started/installation/" >&2; exit 1; };
+        fi;
+      elif [ "{{ lang }}" = "rust" ]; then
+        command -v cargo >/dev/null 2>&1 ||
+        { echo "bailiff-mod-package-add: required tool 'cargo' not found on PATH." >&2;
+          echo "  cargo — https://rustup.rs/" >&2; exit 1; };
+      elif [ "{{ lang }}" = "go" ]; then
+        command -v go >/dev/null 2>&1 ||
+        { echo "bailiff-mod-package-add: required tool 'go' not found on PATH." >&2;
+          echo "  go — https://go.dev/doc/install" >&2; exit 1; };
+      fi
+
+  # 4. Create package directory.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      mkdir -p "{{ dir.rstrip('/') }}/{{ name }}"
+
+  # 5. Native init — init-only-guarded so reproduce never re-runs the tool.
+  #    task-output lifecycle: the manifest is produced by the native tool;
+  #    _skip_if_exists (above) makes it seed-once on subsequent runs.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
+      if [ "{{ lang }}" = "ts" ]; then
+        if [ "{{ js_pkg_manager }}" = "bun" ]; then
+          test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && bun init -y);
+        else
+          test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && pnpm init);
+        fi;
+      elif [ "{{ lang }}" = "python" ]; then
+        if [ "{{ python_pkg_manager }}" = "pdm" ]; then
+          test -f "${pkg_dir}/pyproject.toml" || (cd "${pkg_dir}" && pdm init -n);
+        else
+          test -f "${pkg_dir}/pyproject.toml" || (cd "${pkg_dir}" && uv init --name "{{ name }}");
+        fi;
+      elif [ "{{ lang }}" = "rust" ]; then
+        test -f "${pkg_dir}/Cargo.toml" || cargo new --edition "{{ rust_edition }}" "${pkg_dir}";
+      elif [ "{{ lang }}" = "go" ]; then
+        test -f "${pkg_dir}/go.mod" || (cd "${pkg_dir}" && go mod init "{{ name }}");
+      fi
+
+  # 6. Native workspace registration — registers the new package in the monorepo
+  #    workspace so the toolchain can resolve cross-package dependencies (FR-007).
+  #    pnpm/bun: workspace.yaml or package.json workspaces[] is managed by the
+  #    tool itself; uv: uv.lock / pyproject.toml [tool.uv.workspace]; go: go.work.
+  - command: >-
+      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
+      if [ "{{ lang }}" = "ts" ]; then
+        if [ "{{ js_pkg_manager }}" = "pnpm" ]; then
+          pnpm add --workspace "${pkg_dir}" 2>/dev/null || true;
+        else
+          bun add "${pkg_dir}" 2>/dev/null || true;
+        fi;
+      elif [ "{{ lang }}" = "python" ]; then
+        if [ "{{ python_pkg_manager }}" = "uv" ]; then
+          uv add --workspace "${pkg_dir}" 2>/dev/null || true;
+        fi;
+      elif [ "{{ lang }}" = "rust" ]; then
+        cargo add --path "${pkg_dir}" 2>/dev/null || true;
+      elif [ "{{ lang }}" = "go" ]; then
+        if [ -f go.work ]; then go work use "${pkg_dir}" 2>/dev/null || true; fi;
+      fi

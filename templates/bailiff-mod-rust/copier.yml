@@ -1,0 +1,185 @@
+# copier.yml — bailiff-mod-rust
+#
+# Rust language overlay: ports project-setup's lang-rust module as a copier layer
+# that run_after bailiff-mod-base (spec 011). Threads project_name from base; runs
+# cargo new as a trust-gated task (task-output → seed-once Cargo.toml); contributes
+# its token to the AGENT-FROZEN UNION answers (M1): gitignore token → gitignore_stack,
+# rust toolchain → mise_tools, hook block per clippy_stage → hook_blocks.
+#
+# FIX (upstream bug): passes --lib when crate_kind=lib to cargo new.
+# Nextest: mise tools entry + cargo nextest run command; never cargo install per-run.
+#
+# Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
+# NO secret: questions; edges are when:false hidden answers.
+
+# --- Threading & identity (FR-010) -------------------------------------------
+
+# Threaded from base; standalone fallback renders with an empty string (SC-006-style).
+project_name:
+  type: str
+  default: "{{ project_name }}"
+  help: "Project name (threaded from bailiff-mod-base; used as cargo new --name)."
+
+# Threaded from base so the hook writer (bailiff-mod-precommit) can be named here.
+hook_manager:
+  type: str
+  default: "{{ hook_manager | default('pre-commit') }}"
+  choices:
+    - pre-commit
+    - lefthook
+    - none
+  help: "Hook manager (threaded from the phase-1 agent; do not change)."
+
+# --- Rust-specific questions --------------------------------------------------
+
+rust_channel:
+  type: str
+  default: stable
+  choices:
+    - stable
+    - beta
+    - nightly
+    - esp
+  help: "Rust toolchain channel (written into rust-toolchain.toml)."
+
+rust_edition:
+  type: str
+  default: "2024"
+  choices:
+    - "2024"
+    - "2021"
+    - "2018"
+  help: "Rust edition (2015 is dead — not offered). Written into Cargo.toml."
+
+crate_kind:
+  type: str
+  default: bin
+  choices:
+    - bin
+    - lib
+  help: "Crate kind: bin (binary) or lib (library). Passes --lib to cargo new when lib."
+
+test_runner:
+  type: str
+  default: nextest
+  choices:
+    - cargo-test
+    - nextest
+  help: "Test runner. nextest contributes its entry to mise_tools and uses cargo nextest run."
+
+rustfmt_heuristics:
+  type: str
+  default: Max
+  choices:
+    - Default
+    - Max
+    - "Off"
+  help: "rustfmt heuristics_mode. Max keeps max_width=100 with heuristic overrides."
+
+clippy_stage:
+  type: str
+  default: pre-push
+  choices:
+    - pre-push
+    - pre-commit
+  help: "Git hook stage at which clippy runs (contributes its block to hook_blocks)."
+
+# Injectable version pin for the pre-commit-hooks-rust hook rev. Set by the
+# phase-1 agent; empty = no pinned rev rendered (the hook block omits the rev line).
+precommit_rust_rev:
+  type: str
+  default: ""
+  help: "Pinned rev for pre-commit-hooks-rust (injectable; empty = omit rev pin)."
+
+# --- Agent-frozen union answers (M1) -----------------------------------------
+# These are NOT accumulated at runtime — the phase-1 agent freezes and injects
+# the full union via --data. Each module contributes its token description here
+# so the agent knows what to include (see _cross-cutting.md §2-4).
+
+# gitignore_stack token: "Rust" (gitnr short-code). Base is the single writer of
+# .gitignore; this module does NOT write .gitignore itself.
+gitignore_stack:
+  type: yaml
+  default: []
+  help: "bailiff injects this (agent-frozen gitignore stack union). Do not set manually."
+
+# mise_tools token: {rust: "<channel>"} + optional {cargo-nextest: "latest"} when
+# test_runner=nextest. Base is the single writer of .mise.toml.
+mise_tools:
+  type: yaml
+  default: []
+  help: "bailiff injects this (agent-frozen mise tools union). Do not set manually."
+
+# hook_blocks token: the clippy pre-commit-hooks-rust block for the chosen stage.
+# bailiff-mod-precommit is the single writer of the hook config file.
+hook_blocks:
+  type: yaml
+  default: []
+  help: "bailiff injects this (agent-frozen hook blocks union). Do not set manually."
+
+# --- Date (Constitution V) ---------------------------------------------------
+
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+
+run_after:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+depends_on:
+  type: yaml
+  default: []
+  when: false
+
+run_before:
+  type: yaml
+  default: []
+  when: false
+
+# Template body lives under template/ so copier renders only that subtree.
+_subdirectory: template
+
+# --- Seed-once files (FR-005a / ADR-0007) ------------------------------------
+# Cargo.toml is the crate manifest: seeded once by cargo new (task-output), then
+# the project adds/bumps dependencies. _skip_if_exists protects it from being
+# overwritten on reproduce (the init-only guard on the task provides the first
+# line; _skip_if_exists provides the second).
+_skip_if_exists:
+  - Cargo.toml
+  - src/main.rs
+  - src/lib.rs
+
+# --- Trust-gated tasks (FR-007 / ADR-0007 / M3 init-only-guard) -------------
+# Tasks are ordered: preflight → cargo new (init-only-guarded) → sentinel.
+# The cargo new guard (`test -f Cargo.toml || ...`) means reproduce over a
+# populated tree is a no-op — the native tool only runs on a genuinely empty tree.
+# rust-toolchain.toml is MANAGED (byte-identical); Cargo.toml is TASK-OUTPUT then
+# SEED-ONCE (_skip_if_exists above).
+_tasks:
+  # Preflight: verify cargo is on PATH before any consequential step.
+  - >-
+    command -v cargo >/dev/null 2>&1 ||
+    { echo "bailiff-mod-rust: required tool 'cargo' not found on PATH." >&2;
+    echo "  cargo — https://rustup.rs/" >&2;
+    exit 1; }
+  # cargo init: init-only-guarded; passes --lib when crate_kind=lib (FIX: upstream bug).
+  # `cargo init` (NOT `cargo new`) because the dest already contains the base
+  # layer's scaffold — `cargo new .` refuses a non-empty directory (E2E-verified).
+  # Resolver=2 is patched in below via the managed Cargo.toml.jinja seed for the
+  # section the user is expected to keep; but cargo init itself writes a minimal
+  # Cargo.toml that we layer on top via the _skip_if_exists seed file approach.
+  # Note: cargo init always writes src/main.rs (bin) or src/lib.rs (lib). We use
+  # _skip_if_exists so those are preserved on reproduce.
+  - >-
+    test -f Cargo.toml ||
+    cargo init
+    {% if crate_kind == 'lib' %}--lib{% endif %}
+    --name "{{ project_name | default('project', true) | lower | replace(' ', '-') | replace('_', '-') }}"
+    --edition "{{ rust_edition }}"
+    .

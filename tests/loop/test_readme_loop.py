@@ -1,4 +1,4 @@
-"""spec 011 clerk-mod-readme loop tests (T012).
+"""spec 011 bailiff-mod-readme loop tests (T012).
 
 Covers:
 - static-skeleton style: deterministic render from frozen facts (SEED-ONCE).
@@ -6,8 +6,8 @@ Covers:
 - _skip_if_exists: existing README.md is NOT clobbered on reproduce regardless of style.
 - No agent invocation in reproduce path (only frozen answers replayed).
 
-Uses runner.init (single RunSpec) to exercise clerk-mod-readme standalone —
-the run_after: [clerk-mod-base] edge is a runtime ordering hint, not a hard
+Uses runner.init (single RunSpec) to exercise bailiff-mod-readme standalone —
+the run_after: [bailiff-mod-base] edge is a runtime ordering hint, not a hard
 dependency that blocks standalone usage (FR-010 self-containment).
 """
 
@@ -17,22 +17,22 @@ from pathlib import Path
 
 import pytest
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
 
-# clerk-mod-readme is a pure render module with no network/tool tasks.
+# bailiff-mod-readme is a pure render module with no network/tool tasks.
 # The stub is a no-op marker so the fixture pattern stays consistent with the suite.
 _README_STUB_TASKS = """\
 _tasks:
-  - "printf 'readme-preflight-ok\\n' > .clerk-readme-preflight"
+  - "printf 'readme-preflight-ok\\n' > .bailiff-readme-preflight"
 """
 
 
 @pytest.fixture
-def clerk_mod_readme(tmp_path: Path) -> TemplateRepo:
-    """The real clerk-mod-readme template as a hermetic repo (stub tasks)."""
+def bailiff_mod_readme(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-readme template as a hermetic repo (stub tasks)."""
     return _copy_module_with_stub_tasks(
-        "clerk-mod-readme", tmp_path / "clerk-mod-readme", _README_STUB_TASKS
+        "bailiff-mod-readme", tmp_path / "bailiff-mod-readme", _README_STUB_TASKS
     )
 
 
@@ -46,13 +46,13 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_static_skeleton_renders_readme(clerk_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_static_skeleton_renders_readme(bailiff_mod_readme: TemplateRepo, tmp_path: Path) -> None:
     """static-skeleton: README.md is created with project_name and description."""
-    trust.add_trust(clerk_mod_readme.url)
+    trust.add_trust(bailiff_mod_readme.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_readme.url,
+        source=bailiff_mod_readme.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -71,14 +71,14 @@ def test_static_skeleton_renders_readme(clerk_mod_readme: TemplateRepo, tmp_path
 
 
 def test_static_skeleton_seed_once_on_reproduce(
-    clerk_mod_readme: TemplateRepo, tmp_path: Path
+    bailiff_mod_readme: TemplateRepo, tmp_path: Path
 ) -> None:
     """static-skeleton: README.md is NOT clobbered on reproduce (_skip_if_exists)."""
-    trust.add_trust(clerk_mod_readme.url)
+    trust.add_trust(bailiff_mod_readme.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_readme.url,
+        source=bailiff_mod_readme.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -107,14 +107,16 @@ def test_static_skeleton_seed_once_on_reproduce(
 # ---------------------------------------------------------------------------
 
 
-def test_agent_draft_renders_body_verbatim(clerk_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_agent_draft_renders_body_verbatim(
+    bailiff_mod_readme: TemplateRepo, tmp_path: Path
+) -> None:
     """agent-draft: README.md is rendered from frozen readme_body verbatim."""
-    trust.add_trust(clerk_mod_readme.url)
+    trust.add_trust(bailiff_mod_readme.url)
 
     readme_body = "# myapp\n\nThis is the agent-generated README.\n\n## Features\n\n- Fast\n"
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_readme.url,
+        source=bailiff_mod_readme.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -135,18 +137,20 @@ def test_agent_draft_renders_body_verbatim(clerk_mod_readme: TemplateRepo, tmp_p
     assert "## Features" in content, "readme_body structure not preserved"
 
 
-def test_agent_draft_seed_once_on_reproduce(clerk_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_agent_draft_seed_once_on_reproduce(
+    bailiff_mod_readme: TemplateRepo, tmp_path: Path
+) -> None:
     """agent-draft: README.md is NOT clobbered on reproduce (_skip_if_exists).
 
     Reproduce replays the frozen answers (including readme_body) but _skip_if_exists
     means the existing file is never touched — no agent invocation in the reproduce path.
     """
-    trust.add_trust(clerk_mod_readme.url)
+    trust.add_trust(bailiff_mod_readme.url)
 
     readme_body = "# myapp\n\nAgent draft body.\n"
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_readme.url,
+        source=bailiff_mod_readme.url,
         dest=str(dest),
         answers={
             "project_name": "myapp",
@@ -177,15 +181,15 @@ def test_agent_draft_seed_once_on_reproduce(clerk_mod_readme: TemplateRepo, tmp_
 # ---------------------------------------------------------------------------
 
 
-def test_answers_file_recorded(clerk_mod_readme: TemplateRepo, tmp_path: Path) -> None:
+def test_answers_file_recorded(bailiff_mod_readme: TemplateRepo, tmp_path: Path) -> None:
     """Answers file is written and includes the frozen answers."""
     import yaml
 
-    trust.add_trust(clerk_mod_readme.url)
+    trust.add_trust(bailiff_mod_readme.url)
 
     dest = tmp_path / "proj"
     spec = runner.RunSpec(
-        source=clerk_mod_readme.url,
+        source=bailiff_mod_readme.url,
         dest=str(dest),
         answers={
             "project_name": "myproj",
@@ -202,4 +206,4 @@ def test_answers_file_recorded(clerk_mod_readme: TemplateRepo, tmp_path: Path) -
     data = yaml.safe_load(af.read_text())
     assert data["project_name"] == "myproj"
     assert data["readme_style"] == "static-skeleton"
-    assert clerk_mod_readme.url in data["_src_path"]
+    assert bailiff_mod_readme.url in data["_src_path"]

@@ -30,7 +30,7 @@ def test_discovery_does_not_import_declared_extensions(tmp_path) -> None:
     )
 
     # No trust is configured and none is passed — discovery must still succeed.
-    from clerk.discovery import discover
+    from bailiff.discovery import discover
 
     d = discover(repo.url)
 
@@ -50,6 +50,6 @@ def test_discovery_needs_no_trust_settings(tmp_path, monkeypatch) -> None:
             "template/out.txt.jinja": "{{ project_name }}\n",
         },
     )
-    from clerk.discovery import discover
+    from bailiff.discovery import discover
 
     assert discover(repo.url).reproducible is True

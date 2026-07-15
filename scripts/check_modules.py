@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["pyyaml", "packaging"]
 # ///
-"""Module contract linter for the clerk monorepo (spec 008b / FR-006, FR-007).
+"""Module contract linter for the bailiff monorepo (spec 008b / FR-006, FR-007).
 
 Iterates templates/*/ and verifies each module satisfies the full contract:
   - Valid copier.yml with answers-file .jinja present (reproducible=True)
@@ -122,7 +122,7 @@ def _read_cog_packages() -> set[str]:
 def _read_catalog_sources() -> set[str]:
     """Return the set of module names from catalog-sources.toml.
 
-    Each entry in [[sources]] must have a url key ending in clerk-mod-<name>.git.
+    Each entry in [[sources]] must have a url key ending in bailiff-mod-<name>.git.
     Returns empty set if the file does not exist yet.
     """
     src_path = _repo_path("catalog-sources.toml")
@@ -133,7 +133,7 @@ def _read_catalog_sources() -> set[str]:
     names: set[str] = set()
     for entry in data.get("sources", []):
         url = entry.get("url", "")
-        # URL shape: https://github.com/copier-clerk/clerk-mod-<name>.git
+        # URL shape: https://github.com/bailiff-io/bailiff-mod-<name>.git
         if url.endswith(".git"):
             stem = url.rstrip("/").rsplit("/", 1)[-1][:-4]  # strip trailing .git
             names.add(stem)

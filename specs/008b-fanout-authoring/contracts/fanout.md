@@ -1,4 +1,4 @@
-# Contract — clerk template fan-out + authoring lifecycle (spec 008b)
+# Contract — bailiff template fan-out + authoring lifecycle (spec 008b)
 
 This contract documents the observable interfaces, data shapes, CLI steps, and
 config keys that the implementation must satisfy. It is the primary reference for
@@ -18,12 +18,12 @@ fan-out cannot filter, or wrong tag shapes copier cannot parse):
 generate_mono_repository_global_tag = false   # MANDATORY: no umbrella vX.Y.Z in the monorepo
 tag_prefix = "v"                              # MANDATORY: yields <name>-vX.Y.Z
 
-[monorepo.packages.clerk-mod-base]
-path = "templates/clerk-mod-base"
+[monorepo.packages.bailiff-mod-base]
+path = "templates/bailiff-mod-base"
 # ... one entry per module; added by `just new-module`
 
-[monorepo.packages.clerk-mod-python]
-path = "templates/clerk-mod-python"
+[monorepo.packages.bailiff-mod-python]
+path = "templates/bailiff-mod-python"
 ```
 
 **Source-verified behaviour (cog v7)**:
@@ -77,7 +77,7 @@ Step 6  (SUPERSEDED — no separate hosting step)
           Catalog hosting is now raw git off the PUBLIC monorepo: the
           catalog.json committed in Step 5 IS the published catalog. Consumers
           configure the stable raw URL
-          https://raw.githubusercontent.com/copier-clerk/clerk/main/catalog.json
+          https://raw.githubusercontent.com/copier-bailiff/bailiff/main/catalog.json
           The original GitHub Pages deployment was dropped (Pages on a private
           repo needs a paid plan; raw git is simpler and plan-independent).
 
@@ -91,12 +91,12 @@ Step 7  gh release create <name>-vX.Y.Z \
 
 ## Fan-out mechanics (one module)
 
-Input: `NAME` (e.g. `clerk-mod-base`), `VERSION` (e.g. `v1.2.0`), monorepo
+Input: `NAME` (e.g. `bailiff-mod-base`), `VERSION` (e.g. `v1.2.0`), monorepo
 checked out at the release commit, App token available.
 
 ```bash
 # 1. Clone or init the split repo
-TARGET="copier-clerk/clerk-mod-${NAME}"
+TARGET="copier-bailiff/bailiff-mod-${NAME}"
 gh repo create "${TARGET}" --private=false 2>/dev/null || true   # auto-create; idempotent
 git clone "https://x-access-token:${APP_TOKEN}@github.com/${TARGET}.git" /tmp/split
 
@@ -110,7 +110,7 @@ git add -A
 git diff --cached --quiet && echo "no diff, skipping" && exit 0
 
 # 4. Commit + tag + push
-git commit -m "release: ${VERSION} (mirrored from copier-clerk/clerk@${GITHUB_SHA::8})"
+git commit -m "release: ${VERSION} (mirrored from copier-bailiff/bailiff@${GITHUB_SHA::8})"
 git tag -a "${VERSION}" -m "${NAME} ${VERSION}"
 git push origin HEAD --follow-tags
 ```
@@ -129,15 +129,15 @@ git push origin HEAD --follow-tags
 
 ---
 
-## GitHub App token contract (`clerk-fanout`)
+## GitHub App token contract (`bailiff-fanout`)
 
 | Permission | Scope | Reason |
 |---|---|---|
-| `contents:write` | `copier-clerk/clerk-mod-*` repos | push commits + tags |
-| `administration:write` | org `copier-clerk` | auto-create missing repos |
+| `contents:write` | `copier-bailiff/bailiff-mod-*` repos | push commits + tags |
+| `administration:write` | org `copier-bailiff` | auto-create missing repos |
 
 Token is minted per-run via `actions/create-github-app-token` (or equivalent).
-The App is org-owned (`copier-clerk`), auditable, and issues short-lived tokens —
+The App is org-owned (`copier-bailiff`), auditable, and issues short-lived tokens —
 not tied to any individual maintainer.
 
 **Fallback (documented, not chosen)**: a fine-grained PAT with the same two grants
@@ -157,9 +157,9 @@ Generated (not hand-maintained). The catalog subsystem in spec 002 consumes this
   "generated_at": "2026-07-10T14:30:00Z",
   "modules": [
     {
-      "name": "clerk-mod-base",
+      "name": "bailiff-mod-base",
       "description": "Base project scaffold — git, license, README, .gitignore",
-      "source": "https://github.com/copier-clerk/clerk-mod-base.git",
+      "source": "https://github.com/copier-bailiff/bailiff-mod-base.git",
       "latest_version": "v1.2.0",
       "tags": ["v1.0.0", "v1.1.0", "v1.2.0"]
     }
@@ -169,7 +169,7 @@ Generated (not hand-maintained). The catalog subsystem in spec 002 consumes this
 
 **Field semantics**:
 - `source`: fully-expanded `https://` URL (ADR-0002 trust contract; no SSH, no
-  shorthand). This is the value a user adds to their `clerk catalog add` command.
+  shorthand). This is the value a user adds to their `bailiff catalog add` command.
 - `latest_version`: informational display only; the real reproduce pin lives in
   each project's committed `.copier-answers.yml` (ADR-0002). May be absent or
   `null` if a module has been scaffolded but not yet released.
@@ -183,9 +183,9 @@ Generated (not hand-maintained). The catalog subsystem in spec 002 consumes this
 - Filter tags to PEP 440; sort; emit `latest_version` + `tags`.
 - Write `catalog.json` to monorepo root; the release CI job commits it.
 
-**Hosting**: committed to `copier-clerk/clerk` root; served via GitHub
-Pages at a stable URL. No separate catalog repo. clerk consumers configure this URL
-as a catalog source in `~/.config/clerk/catalog.toml`.
+**Hosting**: committed to `copier-bailiff/bailiff` root; served via GitHub
+Pages at a stable URL. No separate catalog repo. bailiff consumers configure this URL
+as a catalog source in `~/.config/bailiff/catalog.toml`.
 
 ---
 

@@ -1,8 +1,8 @@
 ---
-description: "Task list for clerk catalog — user-owned sources, runtime discovery + injection (spec 002)"
+description: "Task list for bailiff catalog — user-owned sources, runtime discovery + injection (spec 002)"
 ---
 
-# Tasks: clerk catalog — user-owned sources, runtime discovery + injection
+# Tasks: bailiff catalog — user-owned sources, runtime discovery + injection
 
 **Input**: Design documents from `specs/002-catalog/`
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md),
@@ -36,11 +36,11 @@ error surfacing) part of this spec's definition-of-done.
 
 ## Phase 1: Setup (dependency + module skeleton)
 
-- [ ] T001 Add the TOML writer: `uv add tomli-w`. Confirm `tomllib` (stdlib) reads and `tomli_w` writes; `uv sync` clean. Decide + document the catalog default path in `src/clerk/catalog.py` docstring: `user_config_path("clerk", appauthor=False)/catalog.toml` with a `CLERK_CATALOG_PATH` env override (mirror `trust.py`'s `settings_path()` pattern) and a `--catalog PATH` CLI override.
-- [ ] T002 Create `src/clerk/catalog.py` skeleton: module docstring (catalog = user-owned TOML of sources, static/deterministic listing, no template code, no committed artifact), imports, and the `catalog_path()` resolver (env → platformdirs default). Add `CatalogError` to `src/clerk/errors.py` (missing/malformed file; unknown/ambiguous full-id).
+- [ ] T001 Add the TOML writer: `uv add tomli-w`. Confirm `tomllib` (stdlib) reads and `tomli_w` writes; `uv sync` clean. Decide + document the catalog default path in `src/bailiff/catalog.py` docstring: `user_config_path("bailiff", appauthor=False)/catalog.toml` with a `BAILIFF_CATALOG_PATH` env override (mirror `trust.py`'s `settings_path()` pattern) and a `--catalog PATH` CLI override.
+- [ ] T002 Create `src/bailiff/catalog.py` skeleton: module docstring (catalog = user-owned TOML of sources, static/deterministic listing, no template code, no committed artifact), imports, and the `catalog_path()` resolver (env → platformdirs default). Add `CatalogError` to `src/bailiff/errors.py` (missing/malformed file; unknown/ambiguous full-id).
 - [ ] T003 [P] Extend `tests/conftest.py` with a **multi-source catalog fixture**: a builder that writes a `catalog.toml` naming ≥2 usable local git template repos (reuse the existing local-git-template fixture builder) plus one **unusable** source (a repo with no PEP 440 tag AND/OR no answers-file `.jinja`). Return the catalog path + the source paths.
 
-**Checkpoint**: `uv sync` clean; `import clerk.catalog` works; `mypy` clean on the skeleton.
+**Checkpoint**: `uv sync` clean; `import bailiff.catalog` works; `mypy` clean on the skeleton.
 
 ---
 
@@ -80,11 +80,11 @@ error surfacing) part of this spec's definition-of-done.
 
 ---
 
-## Phase 5: CLI surface (wire `catalog` verbs onto scripts/clerk.py)
+## Phase 5: CLI surface (wire `catalog` verbs onto scripts/bailiff.py)
 
-- [ ] T013 Extend `scripts/clerk.py`: add a `catalog` subparser group with `init`, `add <source> [--name]`, `remove <source> [--name]`, `list [--json]`, `refresh`, `validate <full-id>...`; all accept `--catalog PATH`. Dispatch to `clerk.catalog`. Reuse the existing error→exit mapping (0 ok / 1 CatalogError|ClerkError / 2 usage). Human table for `list` by default, `--json` for the machine shape.
+- [ ] T013 Extend `scripts/bailiff.py`: add a `catalog` subparser group with `init`, `add <source> [--name]`, `remove <source> [--name]`, `list [--json]`, `refresh`, `validate <full-id>...`; all accept `--catalog PATH`. Dispatch to `bailiff.catalog`. Reuse the existing error→exit mapping (0 ok / 1 CatalogError|BailiffError / 2 usage). Human table for `list` by default, `--json` for the machine shape.
 - [ ] T014 [P] `tests/loop/test_catalog_cli.py` (NEW): subprocess-drive the verbs against the fixture catalog — `init` create-if-absent; `add` on a no-file machine creates it; `add`/`remove` idempotent; `list`/`list --json` shape + determinism (run twice, diff-clean); per-source failure isolation (one bad source, others still list); `validate` exit codes (0 valid / 1 unknown / 1 ambiguous). Use `--catalog <tmp>` to stay hermetic; no writes to the real user config.
-- [ ] T015 [P] `tests/loop/test_catalog_smoke.py` (NEW, marked `network`): a `--catalog` pointing at `copier-clerk/clerk-template-example`; `catalog list` shows it usable with `v1.0.0`. Marked `-m network`, deselected by default.
+- [ ] T015 [P] `tests/loop/test_catalog_smoke.py` (NEW, marked `network`): a `--catalog` pointing at `bailiff-io/bailiff-template-example`; `catalog list` shows it usable with `v1.0.0`. Marked `-m network`, deselected by default.
 
 **Checkpoint**: `uv run pytest -q` green (hermetic); all `catalog` verbs behave per contract.
 
@@ -92,7 +92,7 @@ error surfacing) part of this spec's definition-of-done.
 
 ## Phase 6: SKILL flow (US2/US1 — the agent uses the catalog)
 
-- [ ] T016 [US1] Extend `skills/clerk/SKILL.md`: add a **catalog step** before discovery/selection — (1) ensure a catalog exists (`catalog init`/`add` if the user names new sources; the agent manages it, never hand-waves it); (2) `catalog list` to present the verified templates (full-ids, versions, reproducible flag); (3) collect the user's pick; (4) `catalog validate <full-id>` before init; (5) hand the validated full-id → its resolved source/ref to the existing init step. State plainly: discovery + validation are LLM-free; the *pick* is the agent's judgment (Constitution II). Point references at `specs/002-catalog/contracts/catalog.md`.
+- [ ] T016 [US1] Extend `skills/bailiff/SKILL.md`: add a **catalog step** before discovery/selection — (1) ensure a catalog exists (`catalog init`/`add` if the user names new sources; the agent manages it, never hand-waves it); (2) `catalog list` to present the verified templates (full-ids, versions, reproducible flag); (3) collect the user's pick; (4) `catalog validate <full-id>` before init; (5) hand the validated full-id → its resolved source/ref to the existing init step. State plainly: discovery + validation are LLM-free; the *pick* is the agent's judgment (Constitution II). Point references at `specs/002-catalog/contracts/catalog.md`.
 
 **Checkpoint**: SKILL documents catalog-manage → list → pick → validate → init, matching the real verbs.
 
@@ -101,7 +101,7 @@ error surfacing) part of this spec's definition-of-done.
 ## Phase 7: Reconciliation + quality gate + closeout
 
 - [ ] T017 Reconcile ADR-0003: add a "Superseded in part (spec 002)" note — the repos-collector + selector templates are replaced by the plain catalog file + agent-selection + validation gate; the runtime `--data catalog=` render-scope fact is RETAINED for spec 007. Do NOT rewrite ADR-0002 (honored in full). Keep it a focused amendment, not a rewrite.
-- [ ] T018 Update `.specify/memory/roadmap.md`: mark spec 002 `planned → implemented` with a completion note (catalog = user TOML managed by scripts/clerk.py; deterministic listing; validation gate; ADR-0003 two-template flow superseded); confirm spec-003's dependency reads "consumes 002's validated selection + the hidden depends_on edges".
+- [ ] T018 Update `.specify/memory/roadmap.md`: mark spec 002 `planned → implemented` with a completion note (catalog = user TOML managed by scripts/bailiff.py; deterministic listing; validation gate; ADR-0003 two-template flow superseded); confirm spec-003's dependency reads "consumes 002's validated selection + the hidden depends_on edges".
 - [ ] T019 Full gate on the branch: `uv run ruff check src/ tests/ scripts/ && uv run ruff format --check src/ tests/ scripts/ && uv run mypy && uv run pytest -q`. Add `tomli-w` type handling if mypy needs it. Then `uv run pytest -m network -v` if reachable (else note untested, correctly marked). Confirm existing 001/010 tests still pass (no regression).
 - [ ] T020 Update `README.md`: brief `## Catalog` note — user-owned sources, `catalog` verbs, full-id selection. Then open the PR (title = user-facing changelog entry, no spec IDs; `## Spec Context` body per the hook); push via `dgit push`. Do NOT merge without the user's go-ahead.
 
@@ -127,5 +127,5 @@ error surfacing) part of this spec's definition-of-done.
   (T004–T007/T014).
 - SC-004 — `validate` accepts valid / refuses unknown+ambiguous, LLM-free
   (T011/T012/T014).
-- SC-005 — no clerk artifact in generated projects; no template code in catalog ops
+- SC-005 — no bailiff artifact in generated projects; no template code in catalog ops
   (inherent to static discovery; assert in T014).

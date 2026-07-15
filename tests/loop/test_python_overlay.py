@@ -1,6 +1,6 @@
 """spec 009 US2 #1 / SC-002 (T024): the Python overlay applies after base.
 
-Init [clerk-mod-base, clerk-mod-python] (mis-ordered on input) and assert:
+Init [bailiff-mod-base, bailiff-mod-python] (mis-ordered on input) and assert:
 - base renders before python (the run_after edge is honoured);
 - project_name is threaded from base into the overlay;
 - pyproject.toml is present with the threaded name + pinned requires-python;
@@ -15,8 +15,8 @@ from typing import Any
 import pytest
 import yaml
 
-from clerk import runner, trust
-from clerk.catalog import TemplateRecord
+from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
 
 
@@ -38,22 +38,26 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
 
 
 def test_base_python_ordered_and_threaded(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """SC-002: [base, python] applies base first, threads project_name, seeds pyproject."""
-    trust.add_trust(clerk_mod_base.url)
-    trust.add_trust(clerk_mod_python.url)
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_python.url)
 
     dest = tmp_path / "proj"
     # Mis-order the selection (python first) — the run_after edge must reorder it.
     # Only base carries project_name; python must inherit it via threading (FR-010).
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/clerk-mod-python", clerk_mod_python, ["project_name", "python_version"]),
+            _record(
+                "demo/bailiff-mod-python", bailiff_mod_python, ["project_name", "python_version"]
+            ),
             {"python_version": "3.12"},
         ),
         (
-            _record("demo/clerk-mod-base", clerk_mod_base, ["project_name", "license", "layout"]),
+            _record(
+                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
+            ),
             {
                 "project_name": "myapp",
                 "org": "acme",
@@ -76,10 +80,10 @@ def test_base_python_ordered_and_threaded(
     assert 'requires-python = ">=3.12"' in pyproject, "python_version not pinned"
 
     # Each layer committed its own answers file.
-    af_base = yaml.safe_load((dest / ".copier-answers.clerk-mod-base.yml").read_text())
-    af_py = yaml.safe_load((dest / ".copier-answers.clerk-mod-python.yml").read_text())
-    assert clerk_mod_base.url in af_base["_src_path"]
-    assert clerk_mod_python.url in af_py["_src_path"]
+    af_base = yaml.safe_load((dest / ".copier-answers.bailiff-mod-base.yml").read_text())
+    af_py = yaml.safe_load((dest / ".copier-answers.bailiff-mod-python.yml").read_text())
+    assert bailiff_mod_base.url in af_base["_src_path"]
+    assert bailiff_mod_python.url in af_py["_src_path"]
     # Threaded value landed in the python layer's recorded answers.
     assert af_py["project_name"] == "myapp"
     assert af_py["python_version"] == "3.12"
@@ -90,22 +94,22 @@ def test_base_python_ordered_and_threaded(
 
     # python overlay's mise-install sentinel present (init-only guard stub ran).
     # The module writes no .gitignore of its own (single writer — base's task output).
-    assert (dest / ".clerk-python-mise-installed").is_file()
+    assert (dest / ".bailiff-python-mise-installed").is_file()
 
 
 def test_ordering_recomputed_edge(
-    clerk_mod_base: TemplateRepo, clerk_mod_python: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """The run_after edge sequences base before python regardless of input order.
 
     Verified via the layer plan (same DAG init and reproduce use).
     """
-    from clerk import ordering
+    from bailiff import ordering
 
     recs = [
-        _record("demo/clerk-mod-python", clerk_mod_python, ["project_name"]),
-        _record("demo/clerk-mod-base", clerk_mod_base, ["project_name"]),
+        _record("demo/bailiff-mod-python", bailiff_mod_python, ["project_name"]),
+        _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
     ]
     plan = ordering.layer_plan(recs)
     order = [r.full_id.rsplit("/", 1)[-1] for r, _ in plan]
-    assert order == ["clerk-mod-base", "clerk-mod-python"], f"edge not honoured: {order}"
+    assert order == ["bailiff-mod-base", "bailiff-mod-python"], f"edge not honoured: {order}"

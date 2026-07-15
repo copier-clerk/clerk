@@ -78,7 +78,7 @@ def _catalog(name: str) -> None:
     """Append source entry to catalog-sources.toml."""
     src = Path("catalog-sources.toml")
     text = src.read_text() if src.exists() else ""
-    url = f"https://github.com/copier-clerk/{name}.git"
+    url = f"https://github.com/bailiff-io/{name}.git"
     if url in text:
         return
     entry = f'\n[[sources]]\nurl = "{url}"\n'

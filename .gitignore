@@ -30,8 +30,8 @@ htmlcov/
 # ruff
 .ruff_cache/
 
-# clerk runtime cache (fetched template checkouts, generated catalogs)
-.clerk/.cache/
+# bailiff runtime cache (fetched template checkouts, generated catalogs)
+.bailiff/.cache/
 
 # IDE
 .idea/

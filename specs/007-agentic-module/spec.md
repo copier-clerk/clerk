@@ -1,16 +1,16 @@
-# Feature Specification: clerk agentic-ecosystem module (spec 007)
+# Feature Specification: bailiff agentic-ecosystem module (spec 007)
 
 **Feature Branch**: `007-agentic-module`
 
 **Created**: 2026-07-10
 
-**Status**: Superseded by spec 011 (agentic rollup, 2026-07-14). `clerk-mod-apm` is
-folded into `clerk-mod-agentic`; APM FRs migrate there; `clerk-mod-apm` is tombstoned
+**Status**: Superseded by spec 011 (agentic rollup, 2026-07-14). `bailiff-mod-apm` is
+folded into `bailiff-mod-agentic`; APM FRs migrate there; `bailiff-mod-apm` is tombstoned
 (mirror tombstone is Phase 7 of spec 011 — not authoring work in this task). Hybrid
 resolution recorded below (§ Hybrid Resolution Amendment 2026-07-14).
 
 **Prior status**: Clarified (2026-07-13 session — 5 questions resolved OQ-007-a/b/d/e/f/g;
-OQ-007-c moot for v1; v1 scope = `clerk-mod-apm` only). Ready for `/speckit.plan`.
+OQ-007-c moot for v1; v1 scope = `bailiff-mod-apm` only). Ready for `/speckit.plan`.
 
 **Input**: Roadmap spec 007 (Agentic-ecosystem module — template content), governed
 by the constitution v2.1.0 (Principles I and VI in particular) and ADR-0003. Depends
@@ -22,13 +22,13 @@ this module ships as template + task content, driven by the existing engine.
 
 ## Overview
 
-Spec 007 is clerk's **distinctive value**, as stated in the Vision: agentic-ecosystem
+Spec 007 is bailiff's **distinctive value**, as stated in the Vision: agentic-ecosystem
 wiring that turns a generated project into a ready-to-use agentic toolchain. The
 broader ecosystem spans APM / MCP / SpecKit / ADR scaffolding; **v1 (this spec)
-delivers the APM slice only** — `clerk-mod-apm` — with MCP, SpecKit, and steering/ADR
-deferred to their own later `clerk-mod-*` modules (see Clarifications, Q1). The
+delivers the APM slice only** — `bailiff-mod-apm` — with MCP, SpecKit, and steering/ADR
+deferred to their own later `bailiff-mod-*` modules (see Clarifications, Q1). The
 roadmap frames this as **template content, not tool code**: the wiring is delivered
-inside a copier template (`clerk-mod-apm`) whose questions, `_tasks`, and rendered
+inside a copier template (`bailiff-mod-apm`) whose questions, `_tasks`, and rendered
 files do the work — driven by the existing discover/init/reproduce/ordering machinery
 specs 001/002/003/010 already built.
 
@@ -42,7 +42,7 @@ The module's job, at the highest level:
 1. Determine which APM packages the project needs (the agent decides from user
    input + project requirements; the user may override) and configure ≥ 1 APM
    catalogue source. (v1 is APM-only per the Clarifications below; MCP, SpecKit,
-   and steering/ADR are deferred to their own later `clerk-mod-*` modules.)
+   and steering/ADR are deferred to their own later `bailiff-mod-*` modules.)
 2. Render the corresponding `apm.yml` (package entries + catalogue sources) into
    the generated project.
 3. Where installation must run code (APM install), surface that as a trust-gated
@@ -58,8 +58,8 @@ The module's job, at the highest level:
 ### Session 2026-07-13
 
 - Q: Template architecture & v1 scope (OQ-007-b / OQ-007-f) → A: Split
-  `clerk-mod-*` family; ship `clerk-mod-apm` ONLY in v1. MCP, SpecKit, and
-  steering/ADR each become their own later `clerk-mod-*` specs, not sections of
+  `bailiff-mod-*` family; ship `bailiff-mod-apm` ONLY in v1. MCP, SpecKit, and
+  steering/ADR each become their own later `bailiff-mod-*` specs, not sections of
   one monolith.
 - Q: APM package selection mechanism (OQ-007-a) → A: Runtime injection
   (ADR-0003). The package list is a list-typed answer in the template; the AGENT
@@ -76,13 +76,13 @@ The module's job, at the highest level:
   III's process-deterministic (not byte-identical-in-the-world) model.
 - Q: Empty package selection behaviour (OQ-007-d) → A: Refuse. A zero-package
   selection means the module should not have been included in the layer set at
-  all — `clerk-mod-apm` presupposes ≥ 1 package to install. Treat ≥ 1 package as
+  all — `bailiff-mod-apm` presupposes ≥ 1 package to install. Treat ≥ 1 package as
   the module's PRECONDITION, caught in phase 1 (the skill does not add the module
   when there are no packages); if it is nonetheless reached with an empty set, the
   module MUST refuse with a message telling the user to drop the module rather than
   render an empty `apm.yml`.
 - Q: Relationship to spec 009 (OQ-007-g) → A: Independent — neither is a
-  prerequisite of the other. `clerk-mod-apm` builds and integration-tests against a
+  prerequisite of the other. `bailiff-mod-apm` builds and integration-tests against a
   minimal stub base layer (FR-007); the spec-003 ordering engine computes any
   ordering at reproduce time from `when:false` edges. Any real adjacency (e.g. a
   future project-setup module running before/after apm) is declared as a
@@ -95,10 +95,10 @@ The module's job, at the highest level:
 
 ### D-007-1 — Template content, not tool code (Constitution I, C-11)
 
-The agentic wiring is delivered entirely inside a `clerk-mod-apm` copier template.
-No new `src/clerk/` module, no new `scripts/clerk.py` verb. The existing
+The agentic wiring is delivered entirely inside a `bailiff-mod-apm` copier template.
+No new `src/bailiff/` module, no new `scripts/bailiff.py` verb. The existing
 `init_many` / `reproduce_many` engine drives it identically to any other template
-layer. This is the Principle I mandate: clerk's value is in the templates, not in
+layer. This is the Principle I mandate: bailiff's value is in the templates, not in
 growing the glue.
 
 Deviation from this principle must be justified against C-11: new deterministic code
@@ -126,16 +126,16 @@ runs install commands). This maps naturally to copier's `_tasks`: a shell comman
 gated by copier's trust mechanism (the source must be trusted, via `settings.yml`,
 before `_tasks` run). The user consents at trust-record time (step 3 of the skill
 procedure); reproduce replays the task under the same trust gate. This aligns with
-how `clerk-template-example` handles its `gh api` LICENSE task today.
+how `bailiff-template-example` handles its `gh api` LICENSE task today.
 
 Consequence: a project that includes the APM module MUST have the source trusted;
-clerk refuses at init if trust is absent (exit 3). This is already the behaviour
+bailiff refuses at init if trust is absent (exit 3). This is already the behaviour
 for any template with tasks (see `runner._require_trust_if_action_taking`).
 
 ### D-007-4 — SpecKit bridge and steering/ADR: DEFERRED (Q1, out of v1 scope)
 
 **Deferred per Q1.** SpecKit integration and steering/ADR scaffolding are NOT part
-of `clerk-mod-apm`; each becomes its own later `clerk-mod-*` module with its own
+of `bailiff-mod-apm`; each becomes its own later `bailiff-mod-*` module with its own
 spec. The original rendered-content design is retained here as guidance for those
 future modules: they are rendered static files (config, `.specify/` skeleton, ADR
 template stubs) — not code that runs at reproduce — replayed byte-identically at
@@ -143,7 +143,7 @@ reproduce, with no new trust requirement beyond a module's own `_task` (if any).
 
 ### D-007-5 — This module is ONE layer in a multi-template project
 
-`clerk-mod-apm` declares its `depends_on` edges (at minimum: it must follow any base
+`bailiff-mod-apm` declares its `depends_on` edges (at minimum: it must follow any base
 language layer, so it can reference answers from earlier layers). The spec 003
 ordering engine picks these up automatically. The agent presents it as one entry in
 the catalog selection; ordering is computed by the engine, not by this spec.
@@ -153,8 +153,8 @@ the catalog selection; ordering is computed by the engine, not by this spec.
 ## What is NOT in scope
 
 - **MCP, SpecKit-bridge, and steering/ADR modules (deferred, per Q1):** v1 ships
-  `clerk-mod-apm` ONLY. MCP config, the SpecKit bridge, and steering/ADR
-  scaffolding each become their own later `clerk-mod-*` templates/specs, not
+  `bailiff-mod-apm` ONLY. MCP config, the SpecKit bridge, and steering/ADR
+  scaffolding each become their own later `bailiff-mod-*` templates/specs, not
   sections of this module. This spec's requirements are therefore scoped to the
   APM module alone.
 - Base / language templates (spec 009) — those are the layers this module typically
@@ -175,7 +175,7 @@ the catalog selection; ordering is computed by the engine, not by this spec.
 
 ### US1 — Generate a project with APM wiring (Priority: P1)
 
-A developer selects `clerk-mod-apm` (alongside a base template); clerk applies the
+A developer selects `bailiff-mod-apm` (alongside a base template); bailiff applies the
 layers in order; the generated project contains a complete `apm.yml` with the
 selected package entries and ≥ 1 catalogue source. An APM install task runs
 (trust-gated), writing the resolved `apm.lock.yaml`.
@@ -185,7 +185,7 @@ selected package entries and ≥ 1 catalogue source. An APM install task runs
    selected, **When** `init`, **Then** the generated project contains an `apm.yml`
    with the correct package entries and the `apm.lock.yaml` is written by the task.
 2. **Given** the same selection with the source UNTRUSTED, **When** `init`, **Then**
-   clerk refuses at exit 3, naming the `trust add` command, before writing anything.
+   bailiff refuses at exit 3, naming the `trust add` command, before writing anything.
 
 ### US2 — Reproduce a project with APM wiring (Priority: P1)
 
@@ -203,7 +203,7 @@ byte-identically and the task re-runs (trust-gated).
 ### US3 — Select a specific set of APM packages (Priority: P1)
 
 Two developers on different projects get different `apm.yml` outputs from the same
-`clerk-mod-apm` module, because the agent injects a different package list for each
+`bailiff-mod-apm` module, because the agent injects a different package list for each
 (from each project's requirements; the user may override).
 
 **Acceptance Scenarios**:
@@ -214,18 +214,18 @@ Two developers on different projects get different `apm.yml` outputs from the sa
    baked-in set (Q2 / runtime injection).
 
 > **Note (Q1):** MCP, SpecKit-bridge, and steering/ADR component selection are out
-> of v1 scope — each is a future `clerk-mod-*` module. v1's only user-facing
+> of v1 scope — each is a future `bailiff-mod-*` module. v1's only user-facing
 > variation is the injected APM package set (US3 above).
 
 ### Edge Cases
 
-- **Empty package selection**: `clerk-mod-apm` presupposes ≥ 1 package to install
+- **Empty package selection**: `bailiff-mod-apm` presupposes ≥ 1 package to install
   (Q4 / OQ-007-d). A zero-package selection means the module should not be in the
   layer set at all. Phase 1 (the skill) does not add the module when there are no
   packages; if the module is nonetheless reached with an empty set, it MUST refuse
   with a message telling the user to drop the module — it does NOT render an empty
   `apm.yml`.
-- **APM task fails**: copier surfaces the task failure; clerk translates via
+- **APM task fails**: copier surfaces the task failure; bailiff translates via
   `_translate`. The generated files are already written; the task failure is
   distinct from a render failure.
 - **Source pinning at reproduce**: the APM `_task` install command MAY fetch
@@ -241,7 +241,7 @@ Two developers on different projects get different `apm.yml` outputs from the sa
 
 These are a first draft — subject to revision once open questions are resolved.
 
-- **FR-001**: `clerk-mod-apm` MUST be a valid copier template: ships the
+- **FR-001**: `bailiff-mod-apm` MUST be a valid copier template: ships the
   `{{ _copier_conf.answers_file }}.jinja` file (Constitution VI); has clean PEP 440
   tags; declares `when:false` dependency edges.
 - **FR-002**: The template MUST accept the APM package set as a runtime-injected
@@ -255,7 +255,7 @@ These are a first draft — subject to revision once open questions are resolved
   configured is invalid; if the injected/selected data would yield zero
   catalogues, the module MUST supply a sensible default catalogue rather than
   render an empty catalogue list.
-- **FR-002b**: `clerk-mod-apm` presupposes ≥ 1 APM package (Q4 / OQ-007-d). Phase
+- **FR-002b**: `bailiff-mod-apm` presupposes ≥ 1 APM package (Q4 / OQ-007-d). Phase
   1 (the skill) MUST NOT include the module in the layer set when no packages are
   selected. If the module is reached with an empty package set anyway, it MUST
   refuse with a clear message directing the user to drop the module, rather than
@@ -263,7 +263,7 @@ These are a first draft — subject to revision once open questions are resolved
 - **FR-003**: Rendering with a selected APM package set MUST produce a valid
   `apm.yml` in the generated project containing those package entries and at least
   one catalogue source. (MCP config, `.specify/` skeleton, and steering/ADR
-  scaffolding are out of scope for v1 per Q1; each is a future `clerk-mod-*`
+  scaffolding are out of scope for v1 per Q1; each is a future `bailiff-mod-*`
   module with its own spec.)
 - **FR-004**: APM install (and any other code-executing action) MUST be a `_task`,
   not a render-time side effect, so it is trust-gated and runs at both init and
@@ -292,8 +292,8 @@ These are a first draft — subject to revision once open questions are resolved
 
 ### Key Entities
 
-- **`clerk-mod-apm`**: the copier template. Lives in the `clerk` monorepo under its
-  own directory; fans out to a read-only `copier-clerk/clerk-mod-apm` repo at release
+- **`bailiff-mod-apm`**: the copier template. Lives in the `bailiff` monorepo under its
+  own directory; fans out to a read-only `bailiff-io/bailiff-mod-apm` repo at release
   (spec 008).
 - **`apm.yml`**: the rendered APM configuration file — the primary rendered output.
 - **`apm.lock.yaml`**: written by the APM install `_task`, NOT by the render.
@@ -362,7 +362,7 @@ supplied if none would otherwise be present). Options (A)/(C) below are retained
 for historical context.
 
 **The question**: For the internal APM packages / MCP servers selection, should
-`clerk-mod-apm` use:
+`bailiff-mod-apm` use:
 
 - **(A) Fixed `choices:` in `copier.yml`** — the template bakes in a curated list of
   well-known APM packages and MCP servers. Simple; no injection machinery. Drawback:
@@ -386,7 +386,7 @@ for historical context.
 - (B) reuses ADR-0003's verified mechanism. But it pushes more work onto the agent
   (phase 1) and requires the skill to know where to source the catalog. It also
   means the template cannot be used standalone without the injected data.
-- (C) is pragmatic for v1: bake in the clerk-native packages (speckit, dep-audit,
+- (C) is pragmatic for v1: bake in the bailiff-native packages (speckit, dep-audit,
   secrets-scan, etc.) and let the user add custom ones via a string question.
 
 **Lean (flagged for review)**: (C) or (A) for v1 — simpler template, skill stays
@@ -396,8 +396,8 @@ thin. (B) is a later extensibility concern. Resolve before planning.
 
 ### OQ-007-b — Component scope: what is in v1?  [RESOLVED — Q1, 2026-07-13]
 
-**Resolution**: v1 ships `clerk-mod-apm` ONLY. MCP, SpecKit-bridge, and
-steering/ADR each become their own later `clerk-mod-*` modules with their own
+**Resolution**: v1 ships `bailiff-mod-apm` ONLY. MCP, SpecKit-bridge, and
+steering/ADR each become their own later `bailiff-mod-*` modules with their own
 specs (see also OQ-007-f). APM alone exercises the spec-010 invocation contract
 and spec-003 ordering, which justifies the v1. The table below is retained for
 historical context.
@@ -416,14 +416,14 @@ shipped version?
 **Tradeoffs**:
 - A monolithic "all in one template" is simpler to ship but harder to maintain and
   test in isolation; each category is also independently valuable.
-- Splitting into `clerk-mod-apm`, `clerk-mod-mcp`, `clerk-mod-speckit`,
-  `clerk-mod-steering` lets users mix-and-match and makes each template focused and
+- Splitting into `bailiff-mod-apm`, `bailiff-mod-mcp`, `bailiff-mod-speckit`,
+  `bailiff-mod-steering` lets users mix-and-match and makes each template focused and
   testable. But it multiplies templates and increases the 003-ordering complexity (more
   `depends_on` edges to declare and test).
 - A phased approach: start with APM only, add others as separate templates later.
 
 **Key question for the user**: Is there value in shipping MCP/SpecKit/steering in
-the same release, or does APM alone (the baseline that makes clerk's own toolchain
+the same release, or does APM alone (the baseline that makes bailiff's own toolchain
 self-describing) justify a v1? The spec-010 invocation contract and spec-003 ordering
 would be exercised even by APM alone.
 
@@ -435,8 +435,8 @@ before planning.
 
 ### OQ-007-c — SpecKit bridge depth  [MOOT for v1 — Q1, 2026-07-13]
 
-**Status**: Deferred out of v1 scope. Q1 scoped `clerk-mod-apm` v1 to APM only;
-the SpecKit bridge becomes its own later `clerk-mod-speckit` module, and this
+**Status**: Deferred out of v1 scope. Q1 scoped `bailiff-mod-apm` v1 to APM only;
+the SpecKit bridge becomes its own later `bailiff-mod-speckit` module, and this
 depth question (config-only vs full setup vs hybrid) is deferred to that module's
 own spec. Retained below for that future work.
 
@@ -460,14 +460,14 @@ structure), then rendering it as template content is correct. Resolve at plannin
 
 ### OQ-007-d — Empty selection behaviour  [RESOLVED — Q4, 2026-07-13]
 
-**Resolution**: Refuse. `clerk-mod-apm` presupposes ≥ 1 package; a zero-package
+**Resolution**: Refuse. `bailiff-mod-apm` presupposes ≥ 1 package; a zero-package
 selection means the module should not be in the layer set. Phase 1 does not add
 the module when there are no packages; a module reached with an empty set refuses
 with a "drop the module" message. (The MCP/SpecKit/steering framing below is
 obsolete given Q1 scoped v1 to APM alone.)
 
 **The question**: If a user selects no APM packages, no MCP servers, SpecKit=off,
-steering=off — should `clerk-mod-apm` render nothing? refuse? produce a minimal
+steering=off — should `bailiff-mod-apm` render nothing? refuse? produce a minimal
 scaffold?
 
 Options:
@@ -516,28 +516,28 @@ task side-effects. Resolve before planning.
 
 ### OQ-007-f — One monolithic template vs several focused ones  [RESOLVED — Q1, 2026-07-13]
 
-**Resolution**: Split `clerk-mod-*` family (one focused template per category),
-NOT a monolith. v1 ships `clerk-mod-apm` alone; the rest follow as their own
+**Resolution**: Split `bailiff-mod-*` family (one focused template per category),
+NOT a monolith. v1 ships `bailiff-mod-apm` alone; the rest follow as their own
 modules. The roadmap's singular "an apm copier template" wording is satisfied
-literally by shipping `clerk-mod-apm` first.
+literally by shipping `bailiff-mod-apm` first.
 
 Restates OQ-007-b from the template-architecture angle.
 
-If all four categories (APM/MCP/SpecKit/steering-ADR) ship as ONE `clerk-mod-apm`
+If all four categories (APM/MCP/SpecKit/steering-ADR) ship as ONE `bailiff-mod-apm`
 template:
 
 - Pro: one `depends_on` edge to declare; simpler catalog entry.
 - Con: one big `copier.yml` with many conditional sections; harder to test each
   category independently; a user who only wants MCP gets APM questions too.
 
-If each ships as a separate `clerk-mod-*` template:
+If each ships as a separate `bailiff-mod-*` template:
 
 - Pro: each is focused and independently selectable; existing spec 003 machinery
   handles ordering naturally.
 - Con: more templates to maintain; more fan-out repos (spec 008); more `depends_on`
   edges to get right.
 
-**Lean**: split is architecturally cleaner and fits the `clerk-mod-*` family model
+**Lean**: split is architecturally cleaner and fits the `bailiff-mod-*` family model
 better. The monolith is an expedient shortcut. But the roadmap entry says "an `apm`
 copier template" (singular). Flag for the user.
 
@@ -548,17 +548,17 @@ copier template" (singular). Flag for the user.
 **Resolution**: Independent — neither blocks the other. 007 builds/tests against a
 stub base layer; the 003 engine computes ordering from `when:false` edges at
 reproduce time; any adjacency is declared by the module that needs it. On the
-secondary sub-question: baking the known clerk-native package names into a fixed
+secondary sub-question: baking the known bailiff-native package names into a fixed
 list is NOT the chosen mechanism (Q2 resolved OQ-007-a toward agent runtime
 injection), though the agent MAY seed its suggestions from that known set.
 
-**The question**: Spec 009 ports the project-setup module set as `clerk-mod-*`
-templates. Some of those (e.g. `clerk-mod-precommit`, `clerk-mod-ci`) may naturally
-`depends_on` or `run_before` `clerk-mod-apm`. Is 007 a prerequisite for 009, or can
+**The question**: Spec 009 ports the project-setup module set as `bailiff-mod-*`
+templates. Some of those (e.g. `bailiff-mod-precommit`, `bailiff-mod-ci`) may naturally
+`depends_on` or `run_before` `bailiff-mod-apm`. Is 007 a prerequisite for 009, or can
 they be developed independently?
 
-Also: should `clerk-mod-apm`'s APM packages question include entries for the
-clerk-native packages already in clerk's own `apm.yml` (speckit, dep-audit,
+Also: should `bailiff-mod-apm`'s APM packages question include entries for the
+bailiff-native packages already in bailiff's own `apm.yml` (speckit, dep-audit,
 secrets-scan)? That list is in-repo and known; baking it in is the simplest v1.
 
 **Flag**: ordering dependency between 007 and 009. Resolve before planning.
@@ -584,7 +584,7 @@ secrets-scan)? That list is in-repo and known; baking it in is the simplest v1.
 - Depends on: spec 002 (catalog — module is a catalog entry), spec 003
   (multi-template ordering — module declares edges, engine sequences it), spec 010
   (delivery contract — module is invoked via the existing bundled script surface).
-- Informs: spec 008 (fan-out — module gets a `clerk-mod-apm` read-only repo),
+- Informs: spec 008 (fan-out — module gets a `bailiff-mod-apm` read-only repo),
   spec 009 (project-setup — likely `run_before` or `depends_on` adjacency).
 
 ---
@@ -594,46 +594,46 @@ secrets-scan)? That list is in-repo and known; baking it in is the simplest v1.
 ### Resolution: agentic rollup + APM folded + SpecKit separate
 
 This amendment closes the remaining open questions from the 2026-07-13 clarification
-pass in light of spec 011's `clerk-mod-agentic` rollup decision.
+pass in light of spec 011's `bailiff-mod-agentic` rollup decision.
 
 #### Q1 / OQ-007-b / OQ-007-f: Component scope and architecture
 
 **Final resolution**: Hybrid — agentic rollup + APM folded + SpecKit separate.
 
-- `clerk-mod-agentic` (spec 011) is the agentic rollup module that folds in all APM
+- `bailiff-mod-agentic` (spec 011) is the agentic rollup module that folds in all APM
   FRs and adds multi-target support (claude, codex, opencode, kiro). It supersedes
-  `clerk-mod-apm` at the module level.
-- SpecKit integration remains a separate future `clerk-mod-speckit` module (not part
+  `bailiff-mod-apm` at the module level.
+- SpecKit integration remains a separate future `bailiff-mod-speckit` module (not part
   of the rollup). The split-vs-monolith question from OQ-007-b/f is resolved: the
   family is split, but the APM slice is folded INTO the agentic module rather than
   remaining standalone.
-- `clerk-mod-apm` is tombstoned (mirror repository published as read-only; tombstone
+- `bailiff-mod-apm` is tombstoned (mirror repository published as read-only; tombstone
   work is Phase 7 of spec 011 — a confirmed public action, not authoring in this task).
 
 #### D-007-4: SpecKit bridge and steering/ADR
 
-**Re-confirmed deferred**. SpecKit bridge is its own future `clerk-mod-speckit` module.
-Steering/ADR scaffolding is its own future module. Neither is part of `clerk-mod-agentic`
+**Re-confirmed deferred**. SpecKit bridge is its own future `bailiff-mod-speckit` module.
+Steering/ADR scaffolding is its own future module. Neither is part of `bailiff-mod-agentic`
 v1. This decision is now also reflected in spec 011 FR-019 (governance separation).
 
 #### FR-002b: Blanket empty-set refusal — DROPPED at module level
 
-**Status: DROPPED** at the `clerk-mod-agentic` module level, superseded by R2 (targeted
+**Status: DROPPED** at the `bailiff-mod-agentic` module level, superseded by R2 (targeted
 validator).
 
-The original `clerk-mod-apm` FR-002b required blanket refusal of any empty-package
-selection (module presupposes ≥ 1 package). `clerk-mod-agentic` introduces a legitimate
+The original `bailiff-mod-apm` FR-002b required blanket refusal of any empty-package
+selection (module presupposes ≥ 1 package). `bailiff-mod-agentic` introduces a legitimate
 module-level no-op: `agentic_targets=[]` produces a clean render (only
 `.copier-answers.yml`), which is the correct behaviour for a multi-target rollup module
 where the phase-1 agent may legitimately produce an empty selection.
 
-In its place, R2 (from the `clerk-mod-agentic` contract) provides a **targeted** validator:
+In its place, R2 (from the `bailiff-mod-agentic` contract) provides a **targeted** validator:
 the specific combination `install_via_apm=true + apm_packages==[]` is refused loudly,
 because that combination is a phase-1 mistake (the APM install path was selected but
 produced no packages) — distinct from the legitimate module-level no-op. This preserves
 the spirit of FR-002b (catch misconfiguration) without preventing clean empty-selection
 renders.
 
-The APM FRs (FR-001 through FR-010) are considered migrated to `clerk-mod-agentic`'s
-contract (spec 011 / `templates/clerk-mod-agentic/`) and are no longer authoritative
+The APM FRs (FR-001 through FR-010) are considered migrated to `bailiff-mod-agentic`'s
+contract (spec 011 / `templates/bailiff-mod-agentic/`) and are no longer authoritative
 in this spec 007 document.

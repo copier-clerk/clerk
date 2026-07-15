@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fan-out one released module from the clerk monorepo to its own
+# Fan-out one released module from the bailiff monorepo to its own
 # split repo (spec 008b / ADR-0006 / contracts/fanout.md "Fan-out mechanics").
 #
 # Snapshot-mirror, NOT a history-preserving split: copier only needs the correct
@@ -10,24 +10,24 @@
 # already exists on the remote (so re-running failed steps 3-7 is safe).
 #
 # Inputs (environment):
-#   NAME       module dir name, e.g. clerk-mod-base   (the `<name>` before -vX.Y.Z)
+#   NAME       module dir name, e.g. bailiff-mod-base   (the `<name>` before -vX.Y.Z)
 #   VERSION    clean PEP 440 tag for the split repo, e.g. v1.2.0
 #   APP_TOKEN  GitHub App installation token with contents:write (+ administration:write
-#              for auto-create) on the copier-clerk org
+#              for auto-create) on the bailiff-io org
 # Optional:
 #   MODULE_SRC directory holding the module tree (default: templates/${NAME})
 #   GITHUB_SHA monorepo release commit (for the audit-trail commit message)
-#   TARGET_OWNER  org that owns the split repos (default: copier-clerk)
+#   TARGET_OWNER  org that owns the split repos (default: bailiff-io)
 #
 # Exit codes: 0 = mirrored or nothing to do; non-zero = failure.
 set -euo pipefail
 
-: "${NAME:?NAME is required (module dir name, e.g. clerk-mod-base)}"
+: "${NAME:?NAME is required (module dir name, e.g. bailiff-mod-base)}"
 : "${VERSION:?VERSION is required (clean PEP 440 tag, e.g. v1.2.0)}"
 : "${APP_TOKEN:?APP_TOKEN is required (GitHub App installation token)}"
 
 MODULE_SRC="${MODULE_SRC:-templates/${NAME}}"
-TARGET_OWNER="${TARGET_OWNER:-copier-clerk}"
+TARGET_OWNER="${TARGET_OWNER:-bailiff-io}"
 TARGET="${TARGET_OWNER}/${NAME}"
 REMOTE="https://x-access-token:${APP_TOKEN}@github.com/${TARGET}.git"
 SHORT_SHA="${GITHUB_SHA:0:8}"
@@ -54,7 +54,7 @@ else
   echo "fanout: ${TARGET} missing — attempting auto-create (best effort)…"
   if GH_TOKEN="${APP_TOKEN}" gh api -X POST "/orgs/${TARGET_OWNER}/repos" \
       -f name="${NAME}" -F private=false \
-      -f description="Mirror of copier-clerk/clerk:templates/${NAME} (generated; do not edit)" \
+      -f description="Mirror of bailiff-io/bailiff:templates/${NAME} (generated; do not edit)" \
       >/dev/null 2>&1; then
     echo "fanout: created ${TARGET}"
   elif GH_TOKEN="${APP_TOKEN}" gh api "/repos/${TARGET}" >/dev/null 2>&1; then
@@ -95,8 +95,8 @@ if [[ "${clone_ok}" -ne 1 ]]; then
   echo "fanout: could not clone ${TARGET} after creating it" >&2
   exit 1
 fi
-git -C "${SPLIT}" config user.name "clerk-fanout[bot]"
-git -C "${SPLIT}" config user.email "clerk-fanout[bot]@users.noreply.github.com"
+git -C "${SPLIT}" config user.name "bailiff-fanout[bot]"
+git -C "${SPLIT}" config user.email "bailiff-fanout[bot]@users.noreply.github.com"
 
 if git -C "${SPLIT}" rev-parse --verify --quiet HEAD >/dev/null; then
   BRANCH="$(git -C "${SPLIT}" symbolic-ref --short HEAD)"
@@ -119,7 +119,7 @@ if git -C "${SPLIT}" diff --cached --quiet && \
   echo "fanout: ${TARGET} content unchanged; tagging existing HEAD"
 else
   git -C "${SPLIT}" commit --quiet \
-    -m "release: ${VERSION} (mirrored from ${TARGET_OWNER}/clerk@${SHORT_SHA})"
+    -m "release: ${VERSION} (mirrored from ${TARGET_OWNER}/bailiff@${SHORT_SHA})"
 fi
 
 # 6. Annotated clean tag (guard against a pre-existing local tag) + push.

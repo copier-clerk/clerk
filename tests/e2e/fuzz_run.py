@@ -1,8 +1,8 @@
 """FUZZ category E2E harness: random valid answer generation across 19 modules.
 
 Run via:
-    cd /Users/sjors/personal/dev/clerk
-    CLERK_E2E_ROOT=/tmp/clerk-e2e-fuzz uv run python tests/e2e/fuzz_run.py
+    cd /Users/sjors/personal/dev/bailiff
+    BAILIFF_E2E_ROOT=/tmp/bailiff-e2e-fuzz uv run python tests/e2e/fuzz_run.py
 """
 
 from __future__ import annotations
@@ -13,11 +13,11 @@ import traceback
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-# Ensure both `src/` (clerk package) and repo root (`tests/` package) are importable
+# Ensure both `src/` (bailiff package) and repo root (`tests/` package) are importable
 sys.path.insert(0, str(_REPO / "src"))
 sys.path.insert(0, str(_REPO))
 
-from tests.e2e.harness import ClerkError, run_scenario  # noqa: E402
+from tests.e2e.harness import BailiffError, run_scenario  # noqa: E402
 
 random.seed(42)
 
@@ -26,29 +26,29 @@ random.seed(42)
 # ---------------------------------------------------------------------------
 
 MODULES = [
-    "clerk-mod-agentic",
-    "clerk-mod-apm",
-    "clerk-mod-base",
-    "clerk-mod-cdk",
-    "clerk-mod-ci-github",
-    "clerk-mod-ci-gitlab",
-    "clerk-mod-cloudformation",
-    "clerk-mod-github-repo",
-    "clerk-mod-go",
-    "clerk-mod-justfile",
-    "clerk-mod-package-add",
-    "clerk-mod-precommit",
-    "clerk-mod-python",
-    "clerk-mod-quality",
-    "clerk-mod-readme",
-    "clerk-mod-rust",
-    "clerk-mod-stack-adr",
-    "clerk-mod-terraform",
-    "clerk-mod-ts",
+    "bailiff-mod-agentic",
+    "bailiff-mod-apm",
+    "bailiff-mod-base",
+    "bailiff-mod-cdk",
+    "bailiff-mod-ci-github",
+    "bailiff-mod-ci-gitlab",
+    "bailiff-mod-cloudformation",
+    "bailiff-mod-github-repo",
+    "bailiff-mod-go",
+    "bailiff-mod-justfile",
+    "bailiff-mod-package-add",
+    "bailiff-mod-precommit",
+    "bailiff-mod-python",
+    "bailiff-mod-quality",
+    "bailiff-mod-readme",
+    "bailiff-mod-rust",
+    "bailiff-mod-stack-adr",
+    "bailiff-mod-terraform",
+    "bailiff-mod-ts",
 ]
 
 # All optional modules (everything except base, which is always first)
-OPTIONAL_MODULES = [m for m in MODULES if m != "clerk-mod-base"]
+OPTIONAL_MODULES = [m for m in MODULES if m != "bailiff-mod-base"]
 
 
 def rand_bool(prob_true: float = 0.5) -> bool:
@@ -60,7 +60,7 @@ def rand_choice(choices: list) -> object:
 
 
 def base_answers() -> dict:
-    """Generate random valid answers for clerk-mod-base."""
+    """Generate random valid answers for bailiff-mod-base."""
     project_name = random.choice(["my-project", "test-app", "foo-bar", "alpha"])
     org = random.choice(["acme", "testorg", "myorg"])
     return {
@@ -104,7 +104,7 @@ def base_answers() -> dict:
 
 
 def agentic_answers() -> dict:
-    """Generate random valid answers for clerk-mod-agentic."""
+    """Generate random valid answers for bailiff-mod-agentic."""
     targets = random.sample(["claude", "codex", "opencode", "kiro"], k=random.randint(0, 3))
     install_via_apm = rand_bool(0.2)
     apm_packages = ["srobroek/agentic-packages/packages/speckit#>=5.0.0"] if install_via_apm else []
@@ -123,7 +123,7 @@ def agentic_answers() -> dict:
 
 
 def apm_answers() -> dict:
-    """Generate random valid answers for clerk-mod-apm (requires >= 1 package)."""
+    """Generate random valid answers for bailiff-mod-apm (requires >= 1 package)."""
     return {
         "description": "APM test layer",
         "apm_packages": ["srobroek/agentic-packages/packages/speckit#>=5.0.0"],
@@ -373,25 +373,25 @@ def ts_answers() -> dict:
 
 
 MODULE_ANSWER_GEN = {
-    "clerk-mod-agentic": lambda _base: agentic_answers(),
-    "clerk-mod-apm": lambda _base: apm_answers(),
-    "clerk-mod-base": lambda _base: _base,
-    "clerk-mod-cdk": lambda _base: cdk_answers(),
-    "clerk-mod-ci-github": lambda _base: ci_github_answers(),
-    "clerk-mod-ci-gitlab": lambda _base: ci_gitlab_answers(),
-    "clerk-mod-cloudformation": lambda _base: cloudformation_answers(),
-    "clerk-mod-github-repo": lambda _base: github_repo_answers(),
-    "clerk-mod-go": lambda _base: go_answers(),
-    "clerk-mod-justfile": lambda _base: justfile_answers(),
-    "clerk-mod-package-add": lambda base: package_add_answers(base.get("layout", "single")),
-    "clerk-mod-precommit": lambda _base: precommit_answers(),
-    "clerk-mod-python": lambda _base: python_answers(),
-    "clerk-mod-quality": lambda _base: quality_answers(),
-    "clerk-mod-readme": lambda _base: readme_answers(),
-    "clerk-mod-rust": lambda _base: rust_answers(),
-    "clerk-mod-stack-adr": lambda _base: stack_adr_answers(),
-    "clerk-mod-terraform": lambda _base: terraform_answers(),
-    "clerk-mod-ts": lambda _base: ts_answers(),
+    "bailiff-mod-agentic": lambda _base: agentic_answers(),
+    "bailiff-mod-apm": lambda _base: apm_answers(),
+    "bailiff-mod-base": lambda _base: _base,
+    "bailiff-mod-cdk": lambda _base: cdk_answers(),
+    "bailiff-mod-ci-github": lambda _base: ci_github_answers(),
+    "bailiff-mod-ci-gitlab": lambda _base: ci_gitlab_answers(),
+    "bailiff-mod-cloudformation": lambda _base: cloudformation_answers(),
+    "bailiff-mod-github-repo": lambda _base: github_repo_answers(),
+    "bailiff-mod-go": lambda _base: go_answers(),
+    "bailiff-mod-justfile": lambda _base: justfile_answers(),
+    "bailiff-mod-package-add": lambda base: package_add_answers(base.get("layout", "single")),
+    "bailiff-mod-precommit": lambda _base: precommit_answers(),
+    "bailiff-mod-python": lambda _base: python_answers(),
+    "bailiff-mod-quality": lambda _base: quality_answers(),
+    "bailiff-mod-readme": lambda _base: readme_answers(),
+    "bailiff-mod-rust": lambda _base: rust_answers(),
+    "bailiff-mod-stack-adr": lambda _base: stack_adr_answers(),
+    "bailiff-mod-terraform": lambda _base: terraform_answers(),
+    "bailiff-mod-ts": lambda _base: ts_answers(),
 }
 
 
@@ -404,7 +404,7 @@ def generate_iteration(i: int) -> list[tuple[str, dict]]:
     base_ans = base_answers()
 
     result: list[tuple[str, dict]] = [
-        ("clerk-mod-base", {**base_ans, "project_name": f"fuzz-{i:02d}"})
+        ("bailiff-mod-base", {**base_ans, "project_name": f"fuzz-{i:02d}"})
     ]
     for mod in extra:
         ans = MODULE_ANSWER_GEN[mod](base_ans)
@@ -433,21 +433,21 @@ for i in range(N_ITERATIONS):
     modules_used = [ma[0] for ma in module_answers]
     compact_answers = {ma[0]: ma[1] for ma in module_answers}
 
-    print(f"[{i:02d}] modules={[m.replace('clerk-mod-', '') for m in modules_used]}", flush=True)
+    print(f"[{i:02d}] modules={[m.replace('bailiff-mod-', '') for m in modules_used]}", flush=True)
 
     try:
         dest = run_scenario(scenario, module_answers)
         print(f"      PASS → {dest}", flush=True)
         passed += 1
-    except ClerkError as exc:
+    except BailiffError as exc:
         msg = str(exc)
-        # ClerkError = documented failure mode; classify as design-gap or expected
-        print(f"      ClerkError: {msg[:120]}", flush=True)
-        # Copier validators raise ClerkError; that's acceptable per spec
+        # BailiffError = documented failure mode; classify as design-gap or expected
+        print(f"      BailiffError: {msg[:120]}", flush=True)
+        # Copier validators raise BailiffError; that's acceptable per spec
         # Only record if it looks unexpected
         key = msg[:60]
         pattern_counts.setdefault(key, []).append(i)
-        passed += 1  # ClerkError is a graceful failure, not a crash
+        passed += 1  # BailiffError is a graceful failure, not a crash
     except Exception as exc:  # noqa: BLE001
         tb = traceback.format_exc()
         # Any unhandled exception = finding

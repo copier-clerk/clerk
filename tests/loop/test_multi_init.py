@@ -5,7 +5,7 @@ Tests:
 - each layer commits its own .copier-answers.<name>.yml
 - a threaded answer from A is visible as B's default (SC-001)
 - order-independence: init [C, D] and [D, C] → byte-identical trees (SC-003)
-- no clerk recipe/order file present in dest (SC-002 partial)
+- no bailiff recipe/order file present in dest (SC-002 partial)
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from clerk import runner, trust
+from bailiff import runner, trust
 from tests.conftest import MultiTemplateSet, make_multi_run_spec
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "clerk.py"
+_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 
 @pytest.fixture(autouse=True)
@@ -202,12 +202,14 @@ def test_order_independence_c_and_d(multi_template_set: MultiTemplateSet, tmp_pa
 
 
 # ---------------------------------------------------------------------------
-# T009-d: no clerk recipe/order file in dest (SC-002 partial)
+# T009-d: no bailiff recipe/order file in dest (SC-002 partial)
 # ---------------------------------------------------------------------------
 
 
-def test_no_clerk_order_file_in_dest(multi_template_set: MultiTemplateSet, tmp_path: Path) -> None:
-    """After multi-template init, dest contains no clerk-authored order/recipe file."""
+def test_no_bailiff_order_file_in_dest(
+    multi_template_set: MultiTemplateSet, tmp_path: Path
+) -> None:
+    """After multi-template init, dest contains no bailiff-authored order/recipe file."""
     tpl_a = multi_template_set.tpl_a
     tpl_b = multi_template_set.tpl_b
     trust.add_trust(tpl_a.url)
@@ -223,16 +225,16 @@ def test_no_clerk_order_file_in_dest(multi_template_set: MultiTemplateSet, tmp_p
         today="2026-07-09",
     )
 
-    # No clerk recipe or order file
+    # No bailiff recipe or order file
     for name in (
-        "clerk_order.yml",
-        "clerk_order.yaml",
-        "clerk_dag.yml",
-        ".clerk_order",
+        "bailiff_order.yml",
+        "bailiff_order.yaml",
+        "bailiff_dag.yml",
+        ".bailiff_order",
         "justfile",
         "Justfile",
     ):
-        assert not (dest / name).exists(), f"Unexpected clerk file: {name}"
+        assert not (dest / name).exists(), f"Unexpected bailiff file: {name}"
 
     # Only .copier-answers.* files are committed metadata
     order_files = list(dest.glob("*order*")) + list(dest.glob("*recipe*"))
@@ -247,7 +249,7 @@ def test_no_clerk_order_file_in_dest(multi_template_set: MultiTemplateSet, tmp_p
 def test_init_many_via_cli_mis_ordered(
     multi_template_set: MultiTemplateSet, tmp_path: Path
 ) -> None:
-    """scripts/clerk.py init with multi run-spec (B before A) applies in correct order."""
+    """scripts/bailiff.py init with multi run-spec (B before A) applies in correct order."""
     tpl_a = multi_template_set.tpl_a
     tpl_b = multi_template_set.tpl_b
     trust.add_trust(tpl_a.url)
@@ -284,7 +286,7 @@ def test_init_many_via_cli_mis_ordered(
 
 
 def _make_record(full_id: str, repo):
-    from clerk.catalog import TemplateRecord
+    from bailiff.catalog import TemplateRecord
 
     return TemplateRecord(
         full_id=full_id,

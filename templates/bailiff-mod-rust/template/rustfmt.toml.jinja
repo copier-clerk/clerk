@@ -1,0 +1,5 @@
+# rustfmt.toml — MANAGED by bailiff-mod-rust (byte-identical on reproduce).
+# max_width=100 is kept per the module contract.
+max_width = 100
+{% if rustfmt_heuristics != 'Off' %}use_small_heuristics = "{{ rustfmt_heuristics }}"
+{% endif %}

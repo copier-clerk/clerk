@@ -38,10 +38,10 @@ _cm = _load_check_modules()
 _META_TEMPLATE = Path(__file__).parent.parent.parent / "_meta" / "module-template"
 _PATH = os.environ.get("PATH", "/usr/bin:/bin")
 _GIT_ENV = {
-    "GIT_AUTHOR_NAME": "clerk-test",
-    "GIT_AUTHOR_EMAIL": "test@clerk.invalid",
-    "GIT_COMMITTER_NAME": "clerk-test",
-    "GIT_COMMITTER_EMAIL": "test@clerk.invalid",
+    "GIT_AUTHOR_NAME": "bailiff-test",
+    "GIT_AUTHOR_EMAIL": "test@bailiff.invalid",
+    "GIT_COMMITTER_NAME": "bailiff-test",
+    "GIT_COMMITTER_EMAIL": "test@bailiff.invalid",
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_SYSTEM": "/dev/null",
     "PATH": _PATH,
@@ -54,7 +54,7 @@ def _git(repo: Path, *args: str) -> None:
 
 @pytest.fixture
 def scaffolded(tmp_path: Path) -> Path:
-    """Render the meta-template into tmp_path with module_name=clerk-mod-test-fixture.
+    """Render the meta-template into tmp_path with module_name=bailiff-mod-test-fixture.
 
     Copies cog.toml and scripts/ into the destination so the tasks can register
     the module without touching the real monorepo.  Returns the destination root.
@@ -85,7 +85,7 @@ def scaffolded(tmp_path: Path) -> Path:
             str(_META_TEMPLATE),
             str(tmp_path),
             "--data",
-            "module_name=clerk-mod-test-fixture",
+            "module_name=bailiff-mod-test-fixture",
             "--overwrite",
             "--defaults",
             "--trust",
@@ -115,7 +115,7 @@ def test_scaffolded_module_passes_check_modules(scaffolded: Path) -> None:
 
 
 def test_scaffolded_module_has_required_files(scaffolded: Path) -> None:
-    mod = scaffolded / "templates" / "clerk-mod-test-fixture"
+    mod = scaffolded / "templates" / "bailiff-mod-test-fixture"
     assert (mod / "copier.yml").exists(), "copier.yml must be created by scaffold"
     assert (mod / "README.md").exists(), "README.md must be created by scaffold"
     assert (mod / "CHANGELOG.md").exists(), "CHANGELOG.md must be created by scaffold"
@@ -129,7 +129,7 @@ def test_scaffolded_module_has_required_files(scaffolded: Path) -> None:
 def test_scaffolded_module_copier_yml_has_answers_file_key(scaffolded: Path) -> None:
     import yaml
 
-    copier_yml = (scaffolded / "templates" / "clerk-mod-test-fixture" / "copier.yml").read_text()
+    copier_yml = (scaffolded / "templates" / "bailiff-mod-test-fixture" / "copier.yml").read_text()
     data = yaml.safe_load(copier_yml) or {}
     assert "_answers_file" in data, "copier.yml must declare _answers_file"
     assert "{{ _copier_conf.answers_file }}" in data["_answers_file"]
@@ -142,12 +142,12 @@ def test_scaffolded_module_copier_yml_has_answers_file_key(scaffolded: Path) -> 
 
 def test_cog_toml_contains_module_entry(scaffolded: Path) -> None:
     cog_text = (scaffolded / "cog.toml").read_text()
-    assert "[monorepo.packages.clerk-mod-test-fixture]" in cog_text
-    assert 'path = "templates/clerk-mod-test-fixture"' in cog_text
+    assert "[monorepo.packages.bailiff-mod-test-fixture]" in cog_text
+    assert 'path = "templates/bailiff-mod-test-fixture"' in cog_text
 
 
 def test_catalog_sources_contains_module_url(scaffolded: Path) -> None:
     catalog = scaffolded / "catalog-sources.toml"
     assert catalog.exists(), "catalog-sources.toml must be created by scaffold"
     text = catalog.read_text()
-    assert "https://github.com/copier-clerk/clerk-mod-test-fixture.git" in text
+    assert "https://github.com/bailiff-io/bailiff-mod-test-fixture.git" in text
