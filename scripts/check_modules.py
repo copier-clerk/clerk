@@ -20,12 +20,17 @@ Run via `just check-modules` or directly: `uv run scripts/check_modules.py`.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
 import yaml
+
+# Capability names are kebab-case (spec 013 FR-007). First-party modules must
+# declare them well-formed; discovery merely warns for third-party sources.
+_CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 # ---------------------------------------------------------------------------
 # Repo root resolution — script may be invoked from any cwd
@@ -140,6 +145,63 @@ def _read_catalog_sources() -> set[str]:
     return names
 
 
+def _check_capability_declarations(name: str, copier_raw: dict[str, object]) -> list[str]:
+    """First-party well-formedness lint for capability keys (spec 013 FR-010).
+
+    ``_bailiff_provides`` must be a list of kebab-case strings; ``_bailiff_exclusive``
+    must be a boolean. Absence of either key is never an error.
+    """
+    violations: list[str] = []
+    raw_provides = copier_raw.get("_bailiff_provides")
+    if raw_provides is not None:
+        if not isinstance(raw_provides, list):
+            violations.append(
+                f"{name}: _bailiff_provides must be a list of kebab-case strings, "
+                f"got {raw_provides!r}"
+            )
+        else:
+            for entry in raw_provides:
+                if not isinstance(entry, str) or not _CAPABILITY_RE.match(entry):
+                    violations.append(
+                        f"{name}: _bailiff_provides entry {entry!r} is not a "
+                        f"kebab-case string (^[a-z][a-z0-9-]*$)"
+                    )
+    raw_exclusive = copier_raw.get("_bailiff_exclusive")
+    if raw_exclusive is not None and not isinstance(raw_exclusive, bool):
+        violations.append(f"{name}: _bailiff_exclusive must be a boolean, got {raw_exclusive!r}")
+    return violations
+
+
+def _check_mixed_exclusivity(module_caps: dict[str, tuple[list[str], bool]]) -> list[str]:
+    """Mixed-exclusivity lint (spec 013 FR-010): all siblings of a pick-one
+    capability family must declare ``_bailiff_exclusive`` consistently.
+
+    ``module_caps`` maps module name → (provides, exclusive). A capability with
+    N≥2 first-party providers where only a strict subset declares exclusive is a
+    hard author-time error.
+    """
+    providers: dict[str, list[tuple[str, bool]]] = {}
+    for name, (provides, exclusive) in module_caps.items():
+        for cap in provides:
+            providers.setdefault(cap, []).append((name, exclusive))
+
+    violations: list[str] = []
+    for cap, members in sorted(providers.items()):
+        if len(members) < 2:
+            continue
+        exclusive_members = [n for n, e in members if e]
+        if exclusive_members and len(exclusive_members) < len(members):
+            member_list = ", ".join(
+                f"{n} (exclusive={'true' if e else 'false'})" for n, e in sorted(members)
+            )
+            violations.append(
+                f"capability {cap!r}: mixed exclusivity across first-party group — "
+                f"{member_list}. All siblings of a pick-one family must declare "
+                f"_bailiff_exclusive consistently."
+            )
+    return violations
+
+
 # ---------------------------------------------------------------------------
 # Main checker
 # ---------------------------------------------------------------------------
@@ -158,6 +220,8 @@ def check_modules(templates_dir: Path | None = None) -> int:
         return 0  # empty templates/ — spec 009 not yet done
 
     violations: list[str] = []
+    # module → (provides, exclusive) for the cross-module mixed-exclusivity lint.
+    module_caps: dict[str, tuple[list[str], bool]] = {}
 
     # -----------------------------------------------------------------------
     # Per-module checks
@@ -190,12 +254,22 @@ def check_modules(templates_dir: Path | None = None) -> int:
                 f"(cog bump would fail to find its insertion point)"
             )
 
-        # Check 4: published-label immutability (C-06)
+        # Check 4: capability declarations well-formed (spec 013 FR-010) and
+        # collected for the cross-module mixed-exclusivity check below.
+        copier_raw = _read_copier_yml(module_path)
+        cap_violations = _check_capability_declarations(name, copier_raw)
+        violations.extend(cap_violations)
+        if not cap_violations:
+            raw_provides = copier_raw.get("_bailiff_provides")
+            provides = [str(e) for e in raw_provides] if isinstance(raw_provides, list) else []
+            module_caps[name] = (provides, bool(copier_raw.get("_bailiff_exclusive", False)))
+
+        # Check 5: published-label immutability (C-06)
         tags = _git_tags_for_module(name)
         if tags:
             # Find latest tag (sort by version suffix)
             latest_tag = sorted(tags)[-1]
-            current_raw = _read_copier_yml(module_path)
+            current_raw = copier_raw
             tagged_raw = _copier_yml_at_ref(name, latest_tag)
             current_labels = _choice_labels(current_raw)
             tagged_labels = _choice_labels(tagged_raw)
@@ -207,6 +281,11 @@ def check_modules(templates_dir: Path | None = None) -> int:
                         f"choices at {latest_tag}: {tagged_choices!r}, "
                         f"working tree: {current_choices!r} (Constitution VI / C-06)"
                     )
+
+    # -----------------------------------------------------------------------
+    # Mixed exclusivity across first-party capability groups (spec 013 FR-010)
+    # -----------------------------------------------------------------------
+    violations.extend(_check_mixed_exclusivity(module_caps))
 
     # -----------------------------------------------------------------------
     # Three-way registration parity

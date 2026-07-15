@@ -88,7 +88,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group C: Independent engine tasks (no Group B prerequisite)
 
-- [ ] T007 [P] [US2] Extend `scripts/generate_catalog.py` to emit `_bailiff_provides` and `_bailiff_exclusive` in catalog.json module entries: read them from each module's `copier.yml` using the same static YAML read already done for name/description; emit as `"provides": [...]` and `"exclusive": <bool>` alongside the existing fields. Absent keys → `"provides": []`, `"exclusive": false`. Write or extend unit tests for the output shape (use a temporary `templates/` fixture tree).
+- [x] T007 [P] [US2] Extend `scripts/generate_catalog.py` to emit `_bailiff_provides` and `_bailiff_exclusive` in catalog.json module entries: read them from each module's `copier.yml` using the same static YAML read already done for name/description; emit as `"provides": [...]` and `"exclusive": <bool>` alongside the existing fields. Absent keys → `"provides": []`, `"exclusive": false`. Write or extend unit tests for the output shape (use a temporary `templates/` fixture tree).
 
 - [ ] T008 [P] [US2] Extend `scripts/check_modules.py` with two new first-party-only lint rules:
   (1) Well-formedness: `_bailiff_provides` must be a list of strings each matching `^[a-z][a-z0-9-]*$`; `_bailiff_exclusive` must be a boolean. Any violation → exit 1, naming the module and the offending value and key.
