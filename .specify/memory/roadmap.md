@@ -57,14 +57,17 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ## Constraints & Decisions
 
-- **C-01 — bailiff = skills + templates + minimal glue (not a tool):** the durable
-  artifacts are the `SKILL.md` conductor, the `bailiff-mod-*` templates, and small
-  deterministic glue bundled as a single script `scripts/bailiff.py` (ordering, edge
-  parsing, discovery, defaults, dry-run validation) run `./scripts/bailiff.py` / `uv
-  run scripts/bailiff.py`. No published application, no `[project.scripts] bailiff`
-  console entry. _See Constitution I; supersedes the earlier tool framing in
-  ADR-0001 and the "reproduce-recipe generation" glue item (order is recomputed —
-  spec 010)._
+- **C-01 — bailiff = skills + templates + minimal glue (published as the `bailiff`
+  CLI):** the durable artifacts are the `SKILL.md` conductor, the `bailiff-mod-*`
+  templates, and small deterministic glue (ordering, edge parsing, discovery,
+  defaults, dry-run validation, catalog, collision/capability checks) delivered
+  as the `bailiff` PyPI distribution with a `[project.scripts] bailiff` console
+  entry, invoked `uvx bailiff` / `uv run bailiff`. The formerly bundled
+  `scripts/bailiff.py` is removed (constitution v3.0.0, ADR-0008, spec 013).
+  Publishing changes the delivery, not the scope: the glue stays minimal per C-11.
+  _See Constitution I (v3.0.0); supersedes the earlier "no published application"
+  framing (v2.x) and the "reproduce-recipe generation" glue item (order is
+  recomputed — spec 010)._
 - **C-02 — Two-phase boundary:** skill authors a frozen, documented inputs handoff;
   the deterministic phase executes with zero LLM. Testable without an LLM. _See
   Constitution II._
@@ -107,10 +110,14 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   validation (`copier.errors.*` AND `builtins.ValueError`); `--pretend`/`--check`
   uses copier's dry run. Cross-module all-gaps preflight is a forward-extension at
   spec 003. _See Constitution VII/VIII._
-- **C-11 — Glue is justified only by a copier gap:** new deterministic code is added
-  only for a capability copier lacks (chiefly cross-template coordination:
-  ordering, edge resolution, catalog parsing, defaults). Otherwise prefer a copier
-  invocation, a template feature, or a documented agent step. _See Constitution I._
+- **C-11 — Glue is justified only by a copier gap (scoped to module-authoring
+  specs):** within module-authoring specs, new deterministic code is added only
+  for a capability copier lacks (chiefly cross-template coordination: ordering,
+  edge resolution, catalog parsing, defaults). Otherwise prefer a copier
+  invocation, a template feature, or a documented agent step. Spec 013 (engine:
+  PyPI packaging, capability tags, collision check, multi-catalog, listing cache)
+  is the governed engine exception, sanctioned by constitution v3.0.0 + ADR-0008.
+  _See Constitution I (v3.0.0)._
 
 ## Planned Specs
 
