@@ -186,7 +186,7 @@ Every module task implicitly includes ALL of the following before it is consider
   with edited content; no network action.
   Acceptance: SC-006, US5 AS1-3.
 
-- [ ] **T009** [US6] NEW module `bailiff-mod-gitlab-repo` per FR-012; loop test
+- [x] **T009** [US6] NEW module `bailiff-mod-gitlab-repo` per FR-012; loop test
   `tests/loop/test_gitlab_repo_loop.py`.
   Requirements: (1) Pure side-effect (no file output, `reconcile=false`). (2) Same question
   shape as github-repo: `visibility [private,public,internal]=private`, `remote_protocol`,
