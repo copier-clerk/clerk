@@ -34,6 +34,8 @@ name: release
 on:
   push:
     branches: [main]
+  # Manual trigger for the PyPI publish job only (OIDC trusted publishing).
+  workflow_dispatch:
 
 # cocogitto tags on merge to main; only one release should run at a time.
 concurrency:
@@ -198,3 +200,26 @@ jobs:
       # catalog.json was already committed + pushed in "Regenerate catalog.json"
       # (step 5) above, so there is nothing further to publish — no GitHub Pages
       # build, no deploy step, no pages/id-token permissions, no plan requirement.
+
+  # ── PyPI publish (OIDC trusted publishing, no tokens) ─────────────────────
+  # Manual-only (workflow_dispatch): first publish claims the pending publisher
+  # registered on PyPI (project: bailiff, env: release). Spec 013's T017/T019
+  # will wire this to release tags; until then a maintainer triggers it by hand.
+  pypi-publish:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write  # OIDC token for PyPI trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Publish to PyPI (trusted publisher)
+        run: uv publish --trusted-publishing always
