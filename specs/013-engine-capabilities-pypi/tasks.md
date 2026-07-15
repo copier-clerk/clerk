@@ -58,7 +58,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group A: Foundational types (prerequisites for groups B and C)
 
-- [ ] T004 [US4] Add `CollisionError` to `src/bailiff/errors.py`:
+- [x] T004 [US4] Add `CollisionError` to `src/bailiff/errors.py`:
   ```python
   class CollisionError(BailiffError):
       def __init__(self, path: str, modules: list[str]) -> None:

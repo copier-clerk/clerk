@@ -19,9 +19,11 @@ templates is a later concern (roadmap Q3), not this slice.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import tempfile
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -41,6 +43,9 @@ _SETTINGS_PREFIX = "_"
 
 # The hidden ``when: false`` answers that carry bailiff's dependency graph.
 _EDGE_KEYS = ("depends_on", "run_after", "run_before")
+
+# Capability names are kebab-case (spec 013 FR-007); no closed vocabulary.
+_CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,8 @@ class Discovery:
     secret_questions: list[str]
     dependency_edges: dict[str, Any] = field(default_factory=dict)
     has_migrations: bool = False
+    provides: list[str] = field(default_factory=list)
+    exclusive: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """The documented, JSON-serializable shape the agent reads (FR-004)."""
@@ -97,6 +104,8 @@ class Discovery:
             ],
             "secret_questions": self.secret_questions,
             "dependency_edges": self.dependency_edges,
+            "provides": self.provides,
+            "exclusive": self.exclusive,
         }
 
 
@@ -175,6 +184,7 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     jinja_extensions = list(raw.get("_jinja_extensions", []) or [])
     has_tasks = bool(raw.get("_tasks"))
     has_migrations = bool(raw.get("_migrations"))
+    provides, exclusive = _read_capabilities(raw, source)
 
     questions: list[Question] = []
     secret_questions: list[str] = []
@@ -225,7 +235,52 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
         questions=questions,
         secret_questions=secret_questions,
         dependency_edges=dependency_edges,
+        provides=provides,
+        exclusive=exclusive,
     )
+
+
+def _read_capabilities(raw: dict[str, Any], source: str) -> tuple[list[str], bool]:
+    """Statically read ``_bailiff_provides`` / ``_bailiff_exclusive`` (spec 013 FR-007).
+
+    Informational metadata only. Malformed third-party values (non-list provides,
+    non-string or non-kebab-case entries, non-bool exclusive) are warned and treated
+    as absent — NEVER a hard failure here; well-formedness is enforced for
+    first-party modules only, in CI (check_modules.py).
+    """
+    provides: list[str] = []
+    raw_provides = raw.get("_bailiff_provides")
+    if raw_provides is not None:
+        if not isinstance(raw_provides, list):
+            warnings.warn(
+                f"{source!r}: _bailiff_provides is not a list "
+                f"({raw_provides!r}); treating as absent",
+                stacklevel=2,
+            )
+        else:
+            for entry in raw_provides:
+                if isinstance(entry, str) and _CAPABILITY_RE.match(entry):
+                    provides.append(entry)
+                else:
+                    warnings.warn(
+                        f"{source!r}: _bailiff_provides entry {entry!r} is not a "
+                        f"kebab-case string; ignoring it",
+                        stacklevel=2,
+                    )
+
+    exclusive = False
+    raw_exclusive = raw.get("_bailiff_exclusive")
+    if raw_exclusive is not None:
+        if isinstance(raw_exclusive, bool):
+            exclusive = raw_exclusive
+        else:
+            warnings.warn(
+                f"{source!r}: _bailiff_exclusive is not a boolean "
+                f"({raw_exclusive!r}); treating as absent",
+                stacklevel=2,
+            )
+
+    return provides, exclusive
 
 
 def _check_migrations_format(raw: dict[str, Any], source: str) -> None:
