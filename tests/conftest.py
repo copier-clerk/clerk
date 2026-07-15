@@ -959,6 +959,30 @@ _MISE_STUB_TASKS = dedent(
     """
 )
 
+# Offline stub tasks for modules that invoke glab (GitLab CLI) — spec 012.
+_GLAB_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'glab-preflight-ok\\n' > .bailiff-glab-preflight"
+    """
+)
+
+# Offline stub tasks for bailiff-mod-cocogitto (spec 012): mise/cog preflight marker.
+_COG_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'cog-preflight-ok\\n' > .bailiff-cocogitto-preflight"
+    """
+)
+
+# Offline stub tasks for bailiff-mod-moon (spec 012): mise/moon preflight marker.
+_MOON_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'moon-preflight-ok\\n' > .bailiff-moon-preflight"
+    """
+)
+
 # Offline stub tasks for modules that invoke pre-commit (hook manager).
 _PRECOMMIT_STUB_TASKS = dedent(
     """\
@@ -1132,8 +1156,7 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           [ -z "$name" ] && err "name must not be empty";
           [ -z "$dir" ] && err "dir must not be empty";
           printf '%s' "$name" | grep -qE '(^$|/|\\\\|\\.\\.|^\\.$)' && err "name unsafe";
-          printf '%s' "$dir" | grep -qE '(\\\\|/\\.\\./|/\\.\\.$|^\\.\\./|^\\.$|^\\.\\.$)'
-          && err "dir unsafe";
+          printf '%s' "$dir" | grep -qE '(\\\\|/\\\.\\\./|/\\\.\\\.$|^\\\.\\\./|^\\\.$|^\\\.\\\.$)' && err "dir unsafe";
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
