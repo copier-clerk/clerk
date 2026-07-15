@@ -283,6 +283,9 @@ class TemplateRecord:
     reproducible: bool
     has_tasks: bool
     questions: list[str]  # visible-question key list (summary; use discover for full detail)
+    provides: list[str] = field(default_factory=list)  # informational capability tags
+    exclusive: bool = False  # this module's capability slot is pick-one
+    shadowed: bool = False  # bare name already taken by an earlier pointer
 
 
 @dataclass
@@ -323,6 +326,9 @@ class FullListing:
                             "reproducible": t.reproducible,
                             "has_tasks": t.has_tasks,
                             "questions": t.questions,
+                            "provides": t.provides,
+                            "exclusive": t.exclusive,
+                            "shadowed": t.shadowed,
                         }
                         for t in cl.templates
                     ],
@@ -349,6 +355,11 @@ def build_listing(path: Path) -> FullListing:
     """
     model = load(path)
     catalogs: list[CatalogListing] = []
+    # First-listed-wins shadow tracking (spec 013 FR-014): a bare name already
+    # claimed by an earlier pointer marks later same-named entries as shadowed.
+    # Shadowed entries stay in the listing — shadowing affects bare-name
+    # resolution, not visibility.
+    seen_bare_names: set[str] = set()
 
     for ptr in model.pointers:
         templates: list[TemplateRecord] = []
@@ -378,6 +389,10 @@ def build_listing(path: Path) -> FullListing:
             full_id = f"{ptr.name}/{template_name}"
             question_keys = [q.key for q in disc.questions]
 
+            shadowed = template_name in seen_bare_names
+            if not shadowed:
+                seen_bare_names.add(template_name)
+
             templates.append(
                 TemplateRecord(
                     full_id=full_id,
@@ -387,6 +402,9 @@ def build_listing(path: Path) -> FullListing:
                     reproducible=disc.reproducible,
                     has_tasks=disc.has_tasks,
                     questions=question_keys,
+                    provides=disc.provides,
+                    exclusive=disc.exclusive,
+                    shadowed=shadowed,
                 )
             )
 

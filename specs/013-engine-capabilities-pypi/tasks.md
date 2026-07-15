@@ -34,7 +34,7 @@ Unless a task explicitly states otherwise, "done" means:
 baseline — are in place. Nothing proceeds if either gate is red.
 
 - [x] T001 Verify the FR-021 prerequisite: `test -f specs/013-engine-capabilities-pypi/decisions-ledger.md` MUST succeed. If the file is absent, STOP — author or vendor it before any other task begins. This is the documented "before the plan phase" gate.
-- [ ] T002 Establish a green baseline: run `pytest`, `mypy`, `ruff check`, `ruff format --check` on the unmodified tree; record the result so any regression introduced by subsequent tasks is immediately attributable. Fix pre-existing failures (if any) as a separate commit BEFORE starting Phase 2 work. Confirm `tests/loop/test_secrets_policy.py` is green.
+- [x] T002 Establish a green baseline: run `pytest`, `mypy`, `ruff check`, `ruff format --check` on the unmodified tree; record the result so any regression introduced by subsequent tasks is immediately attributable. Fix pre-existing failures (if any) as a separate commit BEFORE starting Phase 2 work. Confirm `tests/loop/test_secrets_policy.py` is green.
 
 ---
 
@@ -66,7 +66,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
   ```
   Carries `self.path: str` and `self.modules: list[str]`. The error message names the overlapping path and both module full-ids. Maps to exit 1 in the CLI (same handler as other `BailiffError` subclasses — no new exit code branch needed). Write `tests/test_errors.py` assertions for the constructor, `self.path`, `self.modules`, and str output. Must pass mypy.
 
-- [ ] T005 [P] [US1] [US2] Extend `src/bailiff/discovery.py` to read `_bailiff_provides` and `_bailiff_exclusive` from copier.yml statically:
+- [x] T005 [P] [US1] [US2] Extend `src/bailiff/discovery.py` to read `_bailiff_provides` and `_bailiff_exclusive` from copier.yml statically:
   (1) Add `provides: list[str]` and `exclusive: bool` to the `Discovery` dataclass (frozen).
   (2) In `_describe()`, read them BEFORE the question-iteration loop (same pattern as `has_tasks = bool(raw.get("_tasks"))`):
   ```python
@@ -79,7 +79,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group B: Catalog data model and listing (depends on T005)
 
-- [ ] T006 [US1] [US2] [US5] [US6] Extend `src/bailiff/catalog.py`:
+- [x] T006 [US1] [US2] [US5] [US6] Extend `src/bailiff/catalog.py`:
   (1) Add fields to `TemplateRecord`: `provides: list[str] = field(default_factory=list)`, `exclusive: bool = False`, `shadowed: bool = False`.
   (2) Extend `FullListing.to_dict()` to include `provides`, `exclusive`, `shadowed` per template entry.
   (3) In `build_listing()`: populate `provides`/`exclusive` from `disc.provides`/`disc.exclusive`; implement the shadow-tracking pass. Add `seen_bare_names: set[str] = set()` across the pointer loop. For each template: compute `bare_name = full_id.split("/", 1)[-1]`; if `bare_name in seen_bare_names`, set `template.shadowed = True`; else add to `seen_bare_names`.
