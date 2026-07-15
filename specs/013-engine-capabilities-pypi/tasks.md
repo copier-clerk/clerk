@@ -97,7 +97,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group D: init_many extensions (depends on T005, T006 for capability warning; T004 for collision)
 
-- [ ] T009 [US1] Add the capability conflict warning to `src/bailiff/runner.py` `init_many()`:
+- [x] T009 [US1] Add the capability conflict warning to `src/bailiff/runner.py` `init_many()`:
   (1) Add a new parameter: `exclusive_capabilities: frozenset[str] = frozenset()`. This is the catalog-wide set of capability names where ANY provider declares `exclusive: true` (computed by the CLI before calling `init_many`; passed as a frozen set so `init_many` has no catalog awareness).
   (2) Implement `_check_capability_conflicts(records, dest, exclusive_capabilities)` per the plan's Group B / Work stream 3 algorithm: collect `provides` from selected records + already-installed modules (read from `.copier-answers.*.yml` in dest, discover each recorded source at its `_commit`); for each capability with >1 provider where the capability is in `exclusive_capabilities`, emit a `warnings.warn` loud warning naming the capability and conflicting members; proceed (never raise).
   (3) Call `_check_capability_conflicts()` from BOTH the `check=False` and `check=True` branches of `init_many`, immediately after `layer_plan()` and before any render.

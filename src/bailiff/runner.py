@@ -22,6 +22,8 @@ Invariants (constitution III/V):
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +39,7 @@ from bailiff import discovery, trust
 from bailiff.catalog import TemplateRecord
 from bailiff.errors import (
     BailiffError,
+    CollisionError,
     DirtyWorktreeError,
     DowngradeError,
     InvalidRunSpecError,
@@ -324,6 +327,70 @@ def _check_capability_conflicts(
             )
 
 
+def _scan_init_collisions(
+    plan: list[tuple[TemplateRecord, str]],
+    dest: str,
+    accumulated: dict[str, Any],
+    answers_map: dict[str, dict[str, Any]],
+) -> None:
+    """Pre-render overlap scan: hard-stop before any real write (spec 013 FR-013).
+
+    Renders each layer into an isolated temp dir and compares the written file
+    sets (answers files excluded). A static glob of the template tree would miss
+    Jinja conditionals in filenames; the render is the only correct observable
+    output. ``skip_tasks=True`` is a SAFETY REQUIREMENT: without it, task-bearing
+    modules would execute their ``_tasks`` (``gh repo create``, git init, network
+    calls) during what must be a side-effect-free scan. Raises ``CollisionError``
+    on the first overlapping path; temp dirs are always cleaned up. Every layer
+    has already passed the trust/reproducibility/secret pre-checks.
+    """
+    seen: dict[str, str] = {}  # relative path → full_id of the layer that wrote it
+    for record, af_name in plan:
+        layer_answers = answers_map.get(record.full_id, {})
+        data = {**accumulated, **layer_answers}
+        tmp = tempfile.mkdtemp(prefix="bailiff-collision-")
+        try:
+            try:
+                run_copy(
+                    record.source,
+                    tmp,
+                    data=data,
+                    vcs_ref=record.ref or None,
+                    answers_file=af_name,
+                    defaults=True,
+                    overwrite=True,
+                    quiet=True,
+                    pretend=False,
+                    skip_tasks=True,
+                )
+            except UnsafeTemplateError as exc:
+                raise UntrustedSourceError(
+                    suggest_prefix(record.source), source=record.source
+                ) from exc
+            except (ValueError, CopierError) as exc:
+                # The real render (or preflight) owns answer-error reporting with
+                # secret redaction; a layer that cannot render cannot collide.
+                warnings.warn(
+                    f"collision scan could not render {record.full_id!r} "
+                    f"({type(exc).__name__}); overlap check skipped for this layer",
+                    stacklevel=2,
+                )
+                continue
+            tmp_root = Path(tmp)
+            for path in sorted(tmp_root.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = str(path.relative_to(tmp_root))
+                name = path.name
+                if name.startswith(".copier-answers") and name.endswith(".yml"):
+                    continue
+                if rel in seen:
+                    raise CollisionError(rel, [seen[rel], record.full_id])
+                seen[rel] = record.full_id
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def init_many(
     selection: list[tuple[TemplateRecord, dict[str, Any]]],
     dest: str,
@@ -367,17 +434,26 @@ def init_many(
     _merged_defaults = _defaults.fold_settings_defaults(_raw_defaults)
 
     if not check:
-        results: list[RunResult] = []
-        for record, af_name in plan:
+        # ALL pre-render guards run for every layer BEFORE the collision scan, so
+        # the scan never renders an untrusted/unreproducible source and never sees
+        # a run-spec that violates the secret rules (FR-003a/c). Discover once per
+        # layer here and reuse below (one clone per layer, same as before).
+        descs: dict[str, discovery.Discovery] = {}
+        for record, _af in plan:
             _require_reproducible(record.source, record.ref)
             _require_trust_if_action_taking(record.source, record.ref)
             layer_answers = answers_map.get(record.full_id, {})
-            # Discover once per layer; reuse for both secret checks and redaction.
             desc = discovery.discover(record.source, record.ref)
-            # FR-003a: reject secrets in per-layer answers before any copier call.
             _check_no_secrets(layer_answers, desc)
-            # FR-003c: fail loud on required secrets with no value.
             _check_required_secrets_supplied(layer_answers, desc)
+            descs[record.full_id] = desc
+        # Init-only collision hard-stop (FR-013): renders to isolated temp dirs,
+        # raises CollisionError before any write into dest.
+        _scan_init_collisions(plan, dest, accumulated, answers_map)
+        results: list[RunResult] = []
+        for record, af_name in plan:
+            layer_answers = answers_map.get(record.full_id, {})
+            desc = descs[record.full_id]
             data = {**accumulated, **layer_answers}
             _secret_keys = desc.secret_questions
             user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
