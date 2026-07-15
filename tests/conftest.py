@@ -1132,7 +1132,8 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           [ -z "$name" ] && err "name must not be empty";
           [ -z "$dir" ] && err "dir must not be empty";
           printf '%s' "$name" | grep -qE '(^$|/|\\\\|\\.\\.|^\\.$)' && err "name unsafe";
-          printf '%s' "$dir" | grep -qE '(\\\\|/\\.\\./|/\\.\\.$|^\\.\\./|^\\.$|^\\.\\.$)' && err "dir unsafe";
+          printf '%s' "$dir" | grep -qE '(\\\\|/\\.\\./|/\\.\\.$|^\\.\\./|^\\.$|^\\.\\.$)'
+          && err "dir unsafe";
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
