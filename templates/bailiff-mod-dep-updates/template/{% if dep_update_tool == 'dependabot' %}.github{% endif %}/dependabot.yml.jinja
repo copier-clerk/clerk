@@ -1,0 +1,23 @@
+# .github/dependabot.yml — managed by bailiff-mod-dep-updates; do not edit by hand.
+{% if not github_host %}
+# WARNING: dep_update_tool=dependabot was chosen but this project is not
+# GitHub-hosted (github_host=false). Dependabot only runs on GitHub-hosted
+# repositories — this file will have no effect on other hosts. Renovate is
+# the host-neutral alternative (dep_update_tool=renovate).
+{% endif %}
+version: 2
+updates:
+{% for eco in dep_ecosystems %}
+  - package-ecosystem: "{{ eco }}"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+{% endfor %}
+{% if not dep_ecosystems %}
+  # No active ecosystems frozen (dep_ecosystems=[]): add entries per
+  # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+{% endif %}

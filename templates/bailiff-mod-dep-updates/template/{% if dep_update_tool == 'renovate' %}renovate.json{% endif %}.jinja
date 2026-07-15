@@ -1,0 +1,9 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ]{% if dep_ecosystems %},
+  "enabledManagers": [
+{% for eco in dep_ecosystems %}    "{{ eco }}"{% if not loop.last %},{% endif %}
+{% endfor %}  ]{% endif %}
+}

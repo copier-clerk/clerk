@@ -128,7 +128,7 @@ Every module task implicitly includes ALL of the following before it is consider
   init AND reproduce.
   Acceptance: SC-001, US9 AS1-3.
 
-- [ ] **T005** [US2] NEW module `bailiff-mod-cocogitto` per FR-007; loop test
+- [x] **T005** [US2] NEW module `bailiff-mod-cocogitto` per FR-007; loop test
   `tests/loop/test_cocogitto_loop.py`.
   [NEEDS CLARIFICATION FR-007 — whether to seed a cog-driven release CI job. Conservative
   default: leave CI untouched.]
@@ -142,7 +142,7 @@ Every module task implicitly includes ALL of the following before it is consider
   contribution present.
   Acceptance: SC-003, US2 AS1-3.
 
-- [ ] **T006** [US3] NEW module `bailiff-mod-dep-updates` per FR-008; loop test
+- [x] **T006** [US3] NEW module `bailiff-mod-dep-updates` per FR-008; loop test
   `tests/loop/test_dep_updates_loop.py`.
   Requirements: (1) Zero `_tasks` — pure managed render. (2) Exposes axis `dep_update_tool
   [renovate, dependabot]` with host-derived default
