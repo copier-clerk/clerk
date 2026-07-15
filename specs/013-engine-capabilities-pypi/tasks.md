@@ -90,7 +90,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 - [x] T007 [P] [US2] Extend `scripts/generate_catalog.py` to emit `_bailiff_provides` and `_bailiff_exclusive` in catalog.json module entries: read them from each module's `copier.yml` using the same static YAML read already done for name/description; emit as `"provides": [...]` and `"exclusive": <bool>` alongside the existing fields. Absent keys → `"provides": []`, `"exclusive": false`. Write or extend unit tests for the output shape (use a temporary `templates/` fixture tree).
 
-- [ ] T008 [P] [US2] Extend `scripts/check_modules.py` with two new first-party-only lint rules:
+- [x] T008 [P] [US2] Extend `scripts/check_modules.py` with two new first-party-only lint rules:
   (1) Well-formedness: `_bailiff_provides` must be a list of strings each matching `^[a-z][a-z0-9-]*$`; `_bailiff_exclusive` must be a boolean. Any violation → exit 1, naming the module and the offending value and key.
   (2) Mixed exclusivity: collect all first-party modules' `(capability, exclusive)` pairs; for each capability where N≥2 modules exist and only a strict subset declares `_bailiff_exclusive: true`, flag as a hard author-time error (exit 1, naming all members of the mixed group). Absence of `_bailiff_provides` is never an error.
   Write `tests/test_check_modules_capabilities.py`: fixture `templates/` trees covering: well-formed declarations pass; non-list `_bailiff_provides` fails; non-kebab-case entry fails; non-bool `_bailiff_exclusive` fails; consistent all-exclusive group passes; consistent all-non-exclusive group passes; mixed group fails.

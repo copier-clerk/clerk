@@ -22,6 +22,7 @@ Invariants (constitution III/V):
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -272,12 +273,64 @@ def reproduce(dest: str, *, answers_file: Path | None = None) -> RunResult:
 # ---------------------------------------------------------------------------
 
 
+def _check_capability_conflicts(
+    records: list[TemplateRecord],
+    dest: str,
+    exclusive_capabilities: frozenset[str],
+) -> None:
+    """Warn (never raise) when >1 provider of an exclusive capability is present.
+
+    ``exclusive_capabilities`` is the catalog-wide set of capability names where ANY
+    listed module declares ``exclusive: true`` (group-infection semantics, spec 013
+    FR-008) — pre-computed by the CLI so this function needs no catalog awareness.
+    Providers are collected from the current selection plus any already-installed
+    modules recorded in ``dest``'s ``.copier-answers.*.yml`` files (incremental-add
+    path, FR-011). Capabilities are informational: this NEVER blocks the run.
+    """
+    if not exclusive_capabilities:
+        return
+
+    providers: dict[str, list[str]] = {}
+    for rec in records:
+        base = rec.full_id.rsplit("/", 1)[-1]
+        for cap in rec.provides:
+            providers.setdefault(cap, []).append(base)
+
+    # Incremental add: read installed modules' capabilities at their pinned commit.
+    for af_path in enumerate_answers_files(dest):
+        raw = _read_answers_metadata(af_path)
+        src = raw.get("_src_path")
+        commit = raw.get("_commit")
+        if not src or not commit:
+            continue
+        try:
+            disc = discovery.discover(str(src), str(commit))
+        except BailiffError:
+            continue  # warn-only check is best-effort; never fail the init here
+        base = str(src).rstrip("/").rsplit("/", 1)[-1]
+        base = base.removesuffix(".git")
+        for cap in disc.provides:
+            providers.setdefault(cap, []).append(base)
+
+    for cap, mods in sorted(providers.items()):
+        uniq = list(dict.fromkeys(mods))  # a re-selected installed module counts once
+        if len(uniq) > 1 and cap in exclusive_capabilities:
+            warnings.warn(
+                f"CAPABILITY CONFLICT: {cap!r} is declared exclusive in the catalog, "
+                f"but multiple selected/installed modules provide it: {', '.join(uniq)}. "
+                f"These modules are alternatives — proceeding anyway (capability tags "
+                f"are informational and never block).",
+                stacklevel=2,
+            )
+
+
 def init_many(
     selection: list[tuple[TemplateRecord, dict[str, Any]]],
     dest: str,
     *,
     today: str | None = None,
     check: bool = False,
+    exclusive_capabilities: frozenset[str] = frozenset(),
 ) -> list[RunResult]:
     """Apply (or preflight-check) a multi-template selection in dependency order.
 
@@ -304,6 +357,9 @@ def init_many(
     records = [r for r, _ in selection]
     answers_map: dict[str, dict[str, Any]] = {r.full_id: a for r, a in selection}
     plan = ordering.layer_plan(records)
+    # Capability conflicts warn on BOTH the real run and the preflight (FR-008);
+    # reproduce/update paths never consult capabilities (FR-012 / SC-008).
+    _check_capability_conflicts(records, dest, exclusive_capabilities)
     accumulated: dict[str, Any] = _with_today({}, today)
 
     # Load and fold defaults once per init_many call; select per-layer below (FR-007).
