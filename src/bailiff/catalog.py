@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import tomllib
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -425,12 +426,12 @@ def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
 
     Accepts:
     - ``<catalog>/<template>`` full-ids present in the usable listing.
-    - A bare ``<template>`` name that uniquely matches exactly one usable
-      template across all catalogs (documented convenience — unambiguous only).
+    - A bare ``<template>`` name matching a usable template. If several catalogs
+      carry the name, the FIRST-listed pointer wins and a loud shadow warning is
+      emitted (spec 013 FR-014); shadowed entries stay addressable by full-id.
 
     Refuses (raises ``CatalogError``):
     - Any id not found in the usable listing.
-    - A bare name that matches >1 usable template (ambiguous; full-id required).
     - A full-id that exists but is in ``unusable`` (can't select what can't be used).
 
     Returns the resolved ``TemplateRecord`` list for accepted ids, in the same
@@ -477,11 +478,20 @@ def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
                 resolved.append(matches[0])
                 continue
             if len(matches) > 1:
-                ambiguous = sorted(t.full_id for t in matches)
-                raise CatalogError(
-                    f"bare name {fid!r} is ambiguous — it exists under multiple catalogs: "
-                    f"{', '.join(ambiguous)}. Use the full-id."
+                # First-listed-wins (spec 013 FR-014): matches preserve pointer file
+                # order (usable_by_short appends in listing order), so [0] is the
+                # first pointer's entry. Loud shadow warning — full-ids always
+                # address the shadowed entries directly.
+                winner = matches[0]
+                shadowed = [t.full_id for t in matches[1:]]
+                warnings.warn(
+                    f"SHADOW WARNING: bare name {fid!r} resolves to {winner.full_id!r} "
+                    f"(first pointer wins). Shadowed: {', '.join(shadowed)}. "
+                    f"Use full-ids to select shadowed entries directly.",
+                    stacklevel=2,
                 )
+                resolved.append(winner)
+                continue
 
         raise CatalogError(
             f"unknown template id {fid!r}. Valid ids: {', '.join(valid_ids) or '(none)'}"

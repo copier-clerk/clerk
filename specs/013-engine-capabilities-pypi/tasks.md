@@ -105,7 +105,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
   (5) Write `tests/test_runner_capability_warning.py`: use a monkeypatched/fixture `discovery.discover`; test: single provider = no warning; two providers of non-exclusive capability = no warning; two providers of exclusive capability = warning emitted; incremental add (dest has existing answers file with a recorded module) = warning fires; four modules where third (not selected) declares exclusive = warning fires (group-infection); no-capability modules = byte-identical to pre-013 (SC-003 proxy).
   Dependency: T005 (Discovery.provides), T006 (TemplateRecord.provides / exclusive_capabilities must be derivable from the listing).
 
-- [ ] T010 [US4] Add the init-time file-collision scan to `src/bailiff/runner.py` `init_many()`:
+- [x] T010 [US4] Add the init-time file-collision scan to `src/bailiff/runner.py` `init_many()`:
   (1) Implement `_scan_init_collisions(plan, dest, accumulated, answers_map, today)` per the plan's Work stream 4 design: for each layer in `plan`, render into `tempfile.mkdtemp(prefix="bailiff-collision-")` using `run_copy` with the layer's answers and **`skip_tasks=True`** (SAFETY: prevents task execution — `gh repo create`, git init, network calls — during the side-effect-free scan); collect all written files as relative paths (exclude `.copier-answers*.yml`); raise `CollisionError(path, [module_a, module_b])` on the first overlapping path.
   (2) Call `_scan_init_collisions()` from the `check=False` branch ONLY, BEFORE the main render loop, AFTER the capability check. The check=True (preflight) branch uses pretend=True and does not invoke the scan.
   (3) FR-013 scope: collision scan is init-only; `reproduce`, `reproduce_many`, `update`, `update_many` unchanged.
@@ -114,7 +114,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
 
 ### Group E: Multi-catalog precedence (independent)
 
-- [ ] T011 [P] [US5] Fix bare-name resolution in `src/bailiff/catalog.py` `validate_selection()` and extend `build_listing()` for shadow tracking:
+- [x] T011 [P] [US5] Fix bare-name resolution in `src/bailiff/catalog.py` `validate_selection()` and extend `build_listing()` for shadow tracking:
   (1) In `validate_selection()`, replace the `len(matches) > 1` ambiguity `CatalogError` branch (catalog.py:462-466) with first-listed-wins: take `matches[0]`, emit a `warnings.warn` loud shadow warning naming the winner full-id and all shadowed full-ids, resolve.
   (2) `build_listing()` shadow tracking is delivered as part of T006. This task ensures `validate_selection()` correctly reads and surfaces `shadowed` in its table output.
   (3) Update `_print_catalog_table` (in `scripts/bailiff.py` or `src/bailiff/cli.py` when T013 lands) to display `[shadowed by <winner>]` on shadowed entries and `[provides: <caps>]` / `[exclusive]` tags.

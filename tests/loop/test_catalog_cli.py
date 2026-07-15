@@ -209,8 +209,9 @@ def test_catalog_validate_exit_1_for_unknown_id(
     assert "error" in r.stderr.lower()
 
 
-def test_catalog_validate_exit_1_for_ambiguous_bare_name(tmp_path: Path) -> None:
-    # Same basename under different parents → same short name, two pointers → ambiguous.
+def test_catalog_validate_shadowed_bare_name_first_listed_wins(tmp_path: Path) -> None:
+    # Same basename under different parents → same short name, two pointers.
+    # Spec 013 FR-014: first-listed wins (exit 0) with a shadow warning on stderr.
     repo_a = build_template_repo(
         tmp_path / "group-a" / "tpl-shared",
         files={"copier.yml": _SIMPLE_COPIER_YML, "template/out.txt.jinja": "x\n"},
@@ -231,8 +232,9 @@ def test_catalog_validate_exit_1_for_ambiguous_bare_name(tmp_path: Path) -> None
     cat_path.write_bytes(tomli_w.dumps(data).encode())
 
     r = _bailiff("validate", "tpl-shared", catalog=cat_path)
-    assert r.returncode == 1
-    assert "ambiguous" in r.stderr.lower()
+    assert r.returncode == 0
+    assert "c1/tpl-shared" in r.stdout
+    assert "shadow" in r.stderr.lower()
 
 
 # ---------------------------------------------------------------------------

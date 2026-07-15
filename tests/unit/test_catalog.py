@@ -330,11 +330,11 @@ def test_validate_selection_bare_name_unambiguous_accepted(
     assert records[0].full_id == "mycat/tpl-alpha"
 
 
-def test_validate_selection_bare_name_ambiguous_refused(tmp_path: Path) -> None:
-    """Bare name matching two different catalog pointers → CatalogError.
+def test_validate_selection_bare_name_first_listed_wins(tmp_path: Path) -> None:
+    """Bare name matching two catalog pointers → first-listed wins + shadow warning.
 
-    Both repos share the same directory basename ("tpl-shared") so the short name
-    "tpl-shared" is ambiguous across the two pointer namespaces.
+    Spec 013 FR-014 replaced the former ambiguity CatalogError with
+    first-listed-wins resolution; shadowed entries stay addressable by full-id.
     """
     # Same basename under different parent dirs → same short template name.
     repo_a = build_template_repo(
@@ -356,8 +356,9 @@ def test_validate_selection_bare_name_ambiguous_refused(tmp_path: Path) -> None:
     cat_path = tmp_path / "catalog.toml"
     cat_path.write_bytes(tomli_w.dumps(data).encode())
 
-    with pytest.raises(CatalogError, match="ambiguous"):
-        validate_selection(cat_path, ["tpl-shared"])
+    with pytest.warns(UserWarning, match="SHADOW WARNING"):
+        records = validate_selection(cat_path, ["tpl-shared"])
+    assert records[0].full_id == "cat1/tpl-shared"
 
 
 def test_validate_selection_unusable_id_refused(
