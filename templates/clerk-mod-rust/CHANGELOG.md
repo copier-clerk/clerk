@@ -22,4 +22,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
     agent-frozen union (M1 — single writers: base, base, precommit respectively).
 
 - - -
+## clerk-mod-rust-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-rust - (a6a6d2a) - Sjors Robroek
+#### Bug Fixes
+- (**011**) cargo init not new (non-empty dir), gitnr token casing (E2E) - (330c08a) - Sjors Robroek
+
+- - -
+
 

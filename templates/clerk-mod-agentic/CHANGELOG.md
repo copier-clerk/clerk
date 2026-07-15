@@ -24,3 +24,9 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
     `uvx --from apm-cli==<ver> apm install` (when `install_via_apm` + packages).
 
 - - -
+## clerk-mod-agentic-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-agentic (T014) - (97e6ddf) - Sjors Robroek
+
+- - -
+

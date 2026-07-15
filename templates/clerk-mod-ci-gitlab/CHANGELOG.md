@@ -20,3 +20,11 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   - fail-loud guard: empty `ci_languages` + `monorepo_tool=none` → warning no-op job.
 
 - - -
+## clerk-mod-ci-gitlab-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-ci-gitlab (T017) - (029bf78) - Sjors Robroek
+#### Bug Fixes
+- (**011**) T017 address review findings - (94b82b3) - Sjors Robroek
+
+- - -
+

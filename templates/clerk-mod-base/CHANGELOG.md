@@ -22,6 +22,15 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - No `_migrations` / update path (M2 clean break to v1.0.0).
 
 - - -
+## clerk-mod-base-v0.2.0 - 2026-07-15
+#### Features
+- (**011**) revise clerk-mod-base to v1.0.0 thinned scaffold - (b813710) - Sjors Robroek
+- (**012**) remove dependabot.yml from base template (pre-v1.0.0 amendment) - (a68295e) - Sjors Robroek
+#### Bug Fixes
+- (**011**) T004 address review findings - (3554e7f) - Sjors Robroek
+
+- - -
+
 ## clerk-mod-base-v0.1.0 - 2026-07-13
 #### Features
 - add base and Python project templates (#26) - (dd704d2) - Sjors Robroek

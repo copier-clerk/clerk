@@ -18,3 +18,9 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   - No reproduce-time agent step (legacy staleness/CVE agent step dropped).
 
 - - -
+## clerk-mod-stack-adr-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-stack-adr (T013) - (326f611) - Sjors Robroek
+
+- - -
+

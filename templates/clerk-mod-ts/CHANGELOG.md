@@ -21,3 +21,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
     entries, `bun.lock` cache key (Bun 1.2 text lockfile).
 
 - - -
+## clerk-mod-ts-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-ts TypeScript language overlay - (50846b7) - Sjors Robroek
+#### Bug Fixes
+- (**011**) E2E campaign fixes -- cdk nag-splice bug, drop version pin, IaC exclusion tags - (ce28f28) - Sjors Robroek
+- (**011**) T007 address review findings - (1448520) - Sjors Robroek
+
+- - -
+

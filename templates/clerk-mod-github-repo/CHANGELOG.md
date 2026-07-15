@@ -17,3 +17,11 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   - `default_enabled=false`, `run_after: [clerk-mod-base]`, `reconcile=false`.
 
 - - -
+## clerk-mod-github-repo-v0.1.0 - 2026-07-15
+#### Features
+- (**011**) implement clerk-mod-github-repo (T018) - (86c77bc) - Sjors Robroek
+#### Bug Fixes
+- (**011**) T018 address review findings - (6f25385) - Sjors Robroek
+
+- - -
+

@@ -30,6 +30,16 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - `pyproject.toml` lifecycle changed from MANAGED seed-once to TASK-OUTPUT seed-once.
 
 - - -
+## clerk-mod-python-v0.2.0 - 2026-07-15
+#### Features
+- (**011**) revise clerk-mod-python to v1.0.0 de-opinionated spec - (cc7d7ea) - Sjors Robroek
+#### Bug Fixes
+- (**011**) E2E campaign fixes -- cdk nag-splice bug, drop version pin, IaC exclusion tags - (ce28f28) - Sjors Robroek
+- (**011**) cargo init not new (non-empty dir), gitnr token casing (E2E) - (330c08a) - Sjors Robroek
+- (**011**) T006 address review findings - (d32be2b) - Sjors Robroek
+
+- - -
+
 ## clerk-mod-python-v0.1.0 - 2026-07-13
 #### Features
 - add base and Python project templates (#26) - (dd704d2) - Sjors Robroek
