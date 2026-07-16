@@ -57,13 +57,16 @@ Producers = **base + precommit + ts + moon**. Exhaustive audit confirmed NO fact
 |---|---|
 | `project_name` | agentic, api, apm, cdk, ci-gitlab, cocogitto, devcontainer, github-repo, gitlab-repo, go, mkdocs, moon, python, readme, rust, stack-adr, ts, terraform |
 | `layout` | moon, cocogitto, package-add |
-| `github_host` | dep-updates |
 | `description` | apm, api, mkdocs, python, readme |
 | `default_branch` **(NEW to base)** | ci-github, ci-gitlab |
 
 - `default_branch` MUST be added to `bailiff-mod-base/copier.yml` (fixes a latent bug: ci-github
   `copier.yml:80-82` / ci-gitlab `:91-93` thread it from a non-existent producer today).
 - `description` KEPT + made a base fact; the 5 consumers read `_external_data.base.description`.
+- **`github_host` is NOT a base fact (R12/FR-022).** It was previously listed here (consumer:
+  dep-updates), but R12 DELETES `github_host` from base — forge metadata (`.github/`) moves to the forge
+  modules, base emits no forge files, and dep-updates self-defaults `dep_update_tool` rather than reading
+  a base fact. No `_external_data.base.github_host` alias exists. Base fact count is 4.
 
 ### precommit-produced (alias `precommit` → `.copier-answers.bailiff-mod-precommit.yml`)
 

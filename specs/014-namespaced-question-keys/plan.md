@@ -19,11 +19,12 @@ the latent `test_runner` one) with five coordinated moves:
    stays `{today}` (seeded runner.py:430; NO run-level `--data` channel exists — cli.py:286). A
    module's questions become layer-local and *cannot* leak. Reproduce gets the same isolation.
 2. **Cross-module facts via `_external_data`, ENFORCED as hard data-deps** (no vendor prefix): the
-   ratified fact set — **base** (`project_name`, `layout`, `github_host`, `description`,
+   ratified fact set — **base** (`project_name`, `layout`, `description`,
    `default_branch`-NEW) + **precommit** (`hook_manager`) + **ts** (`js_pkg_manager`, `ts_linter`) +
    **moon** (`monorepo_tool`, `monorepo_packages`) — read via consumer aliases. bailiff statically
    parses the aliases and REQUIRES each producer present + ordered-before (FR-006 inverted: absent →
-   loud error, not silent fallback). `default_branch` NEW to base (fixes a latent bug).
+   loud error, not silent fallback). `default_branch` NEW to base (fixes a latent bug); `github_host`
+   is NOT a fact — R12/FR-022 deletes it from base (see move 6).
 3. **Dependency model** — single `depends_on` edge (drop `run_after`/`run_before`); pre/normal/post
    stratified DAG with edge-legality validation (`base`=pre, family=normal, `post` reserved).
    Side-effect deps use `depends_on`; data deps use `_external_data` — both hard-enforced + ordering.
@@ -33,6 +34,15 @@ the latent `test_runner` one) with five coordinated moves:
    rev-pin conflict; gitignore: idempotent inline concat). Engine does ZERO merging.
 5. **Migration gate** — `_bailiff_schema: 014` marker + refuse-on-mismatch in `reproduce_many` (copier
    silently ignores stale keys, so bailiff must produce the loud error SC-006 requires).
+6. **Forge metadata cleanup (R12 / FR-022..024)** — base stops emitting forge-specific files: the
+   `{% if github_host %}.github{% endif %}/` tree (CODEOWNERS, ISSUE_TEMPLATE, PULL_REQUEST_TEMPLATE)
+   MOVES to `bailiff-mod-github-repo`; a `.gitlab/` equivalent is ADDED to `bailiff-mod-gitlab-repo`.
+   `github_host` is DELETED from base (not replaced by any selector — nothing forge-specific remains in
+   base). `bailiff-mod-dep-updates` self-defaults `dep_update_tool` (was reading `github_host`).
+   `github-repo`/`gitlab-repo` gain `create_remote: bool` (default false) — creation is now conditional;
+   `create_remote=false` still renders the metadata (adopt-existing-repo path). No new module; no import
+   of live remote state. This is a module-structure change, so `check_modules` and the collision check
+   must stay green through the file moves.
 
 Plus non-code deliverables: FR-018 module-authoring doc rewrite, a documented migration BREAK (no
 shim), and a full 27-mirror re-fanout. LARGE multi-agent job, spec-011 shape: worktree-isolated
@@ -141,9 +151,14 @@ tests/loop/test_*isolation*.py   # NEW negative isolation test (SC-001/SC-007)
 tests/loop/test_external_data*.py# NEW fact-resolution + absent-producer-error test (SC-002)
 tests/loop/test_ordering*.py     # NEW single-edge + stratified-DAG + schema-gate tests (SC-008)
 
-# Base — gains default_branch fact, loses the two unions:
-templates/bailiff-mod-base/copier.yml            # +default_branch; −mise_tools; −gitignore_stack union
-templates/bailiff-mod-base/template/...          # .mise.toml removed; base contributes .mise/conf.d/ + .gitignore.d/
+# Base — gains default_branch fact, loses the two unions AND github_host + .github/ (R12):
+templates/bailiff-mod-base/copier.yml            # +default_branch; −mise_tools; −gitignore_stack union; −github_host (R12)
+templates/bailiff-mod-base/template/...          # .mise.toml removed; base contributes .mise/conf.d/ + .gitignore.d/; {% if github_host %}.github{% endif %}/ tree REMOVED (moves to github-repo, R12)
+
+# Forge metadata cleanup (R12 / FR-022..024):
+templates/bailiff-mod-github-repo/               # +.github/ managed files (CODEOWNERS, ISSUE_TEMPLATE, PULL_REQUEST_TEMPLATE) moved from base; +create_remote question; gh tasks gated on create_remote
+templates/bailiff-mod-gitlab-repo/               # +.gitlab/ equivalent (CODEOWNERS + MR/issue templates); +create_remote question; glab tasks gated on create_remote
+templates/bailiff-mod-dep-updates/copier.yml     # −github_host read; dep_update_tool self-defaults to renovate
 
 # mise drop-in (union dissolution — ~10 tool-contributing modules):
 templates/bailiff-mod-{python,ts,go,rust,cocogitto,moon,api,cdk,terraform,...}/
@@ -159,7 +174,7 @@ templates/bailiff-mod-*/template/.pre-commit.d/<vendor>-<module>.yaml.jinja # pe
 templates/bailiff-mod-*/template/.gitignore.d/<vendor>-<module>.jinja       # per-contributor fragment
 templates/bailiff-mod-base/copier.yml            # concat task (delimited blocks, idempotent)
 
-# _external_data fact consumers (~19 for project_name; layout/github_host/description/default_branch; moon facts):
+# _external_data fact consumers (~19 for project_name; layout/description/default_branch; moon facts):
 templates/bailiff-mod-*/copier.yml               # _external_data: {base: .copier-answers.bailiff-mod-base.yml} etc.
 
 # FR-018 module-authoring documentation:
@@ -203,7 +218,8 @@ armed fan-out publishes each to `bailiff-io/bailiff-mod-<name>`.
    each producer present + ordered-before; ABSENT producer → loud error (FR-006 inverted — copier's own
    missing-file behavior is `warn + {}` → empty render, which SC-006 forbids). The ratified fact set
    (producers = base + precommit + ts + moon):
-   - **base** (`base`): `project_name`, `layout`, `github_host`, `description`, **`default_branch` (NEW)**.
+   - **base** (`base`): `project_name`, `layout`, `description`, **`default_branch` (NEW)**. (`github_host`
+     is NOT a fact — deleted from base by R12/FR-022; see move 6.)
    - **precommit** (`precommit`): `hook_manager` (consumers: python, ts, api, go, rust, terraform, justfile).
    - **ts** (`ts`): `js_pkg_manager` (justfile, package-add), `ts_linter` (editorconfig).
    - **moon** (`moon`): `monorepo_tool`, `monorepo_packages` — proves non-base producers.
@@ -265,7 +281,7 @@ armed fan-out publishes each to `bailiff-io/bailiff-mod-<name>`.
 
 ## Build / test / release sequencing
 
-The task DAG (Phase 2) is built on this ordering; slices A–B fan out with worktree isolation.
+The task DAG (Phase 2) is built on this ordering; slices A–B/B2 fan out with worktree isolation.
 
 1. **Engine + contract first (the gate).** Land in `src/bailiff/`: private-by-default threading
    (`runner.py`, init + reproduce); `_external_data` static-parse + validation + FR-006 loud-error
@@ -281,17 +297,24 @@ The task DAG (Phase 2) is built on this ordering; slices A–B fan out with work
    Each: rewrite → loop test → `check_modules` green.
 3. **Slice B — fragment/merge + facts** (parallel per module): pre-commit bundler + `.pre-commit.d/`
    fragments across hook contributors; `.gitignore.d/` fragments + base concat; `_external_data` alias
-   wiring — `project_name` (~19), `layout`/`github_host`/`description`/`default_branch` (base);
+   wiring — `project_name` (~19), `layout`/`description`/`default_branch` (base);
    **`hook_manager` (precommit → python/ts/api/go/rust/terraform/justfile)**; **`js_pkg_manager`/
    `ts_linter` (ts → justfile/package-add/editorconfig)**; moon facts (ci-github, ci-gitlab, cocogitto).
-4. **Slice C — FR-018 docs**: SKILL.md authoring steps, `_meta/module-template/` scaffold (demonstrate
+4. **Slice B2 — forge metadata cleanup (R12 / FR-022..024)** (small, mostly serial — touches base +
+   the two repo modules + dep-updates): move base's `{% if github_host %}.github{% endif %}/` tree
+   (CODEOWNERS, ISSUE_TEMPLATE, PULL_REQUEST_TEMPLATE) into `github-repo` as managed files; add the
+   `.gitlab/` equivalent to `gitlab-repo`; DELETE `github_host` from base; add `create_remote: bool`
+   (default false) to both repo modules + gate their `gh`/`glab` tasks on it; drop `github_host` from
+   dep-updates and self-default `dep_update_tool`. Verify: collision check stays green through the file
+   moves; each module loop-tests; `check_modules` green.
+5. **Slice C — FR-018 docs**: SKILL.md authoring steps, `_meta/module-template/` scaffold (demonstrate
    a conf.d fragment + an `_external_data` alias), per-module README prose, the concrete authoring
    guide (private-by-default, fact reads, fragment contribution, config-consistency). A module author
    must be able to write a correct module without reverse-engineering an existing one.
-5. **Verify all green locally**: `uv run pytest tests/ -q -m "not network"`, `tests/integration/`
+6. **Verify all green locally**: `uv run pytest tests/ -q -m "not network"`, `tests/integration/`
    (esp. the Python+TS `framework` stack now passing on isolation ALONE), `just check-modules` →
    "ok — 27 module(s)", `uvx bailiff doctor`.
-6. **Confirmed re-fanout batch (maintainer)**: republish 27 mirrors; regen catalog; publish engine
+7. **Confirmed re-fanout batch (maintainer)**: republish 27 mirrors; regen catalog; publish engine
    release (release-please). Write the migration note. Never unattended.
 
 ## Complexity Tracking
@@ -303,6 +326,7 @@ The task DAG (Phase 2) is built on this ordering; slices A–B fan out with work
 | Vendored pre-commit bundler (not a `bailiff merge` CLI) | pre-commit has no native drop-in; the combine needs a real script | An in-binary `bailiff merge` would make every generated project depend on the bailiff CLI at render/reproduce time (no module task does today) and can't be extended by third-party modules. Vendored = open-ecosystem + engine-free. |
 | Widened engine footprint (runner + ordering + discovery), not one function | The dependency model (data-dep validation, single-edge + stratified DAG, schema gate) needs coordination copier lacks | The original "one threading tweak" scope could not enforce fact-producer presence, ordering, edge-legality, or migration safety — all cross-template coordination, the C-11-sanctioned glue category. Doing it in templates alone is impossible (copier has no cross-template validation hook). Still under 013's engine exception. |
 | pre/normal/post stratified DAG built now (no `post` module exists yet) | A single `depends_on` cannot express "run last" without the last-mover enumerating N edges | Deferring leaves no structural "run last"; building it now is near-zero marginal cost (ordering.py + all 27 copier.yml already being rewritten) and avoids a second re-fanout later. `post` reserved until a finalizer appears. |
+| Forge metadata restructure in-scope (R12: `.github/` base→forge modules, delete `github_host`) | base (host-agnostic) silently emitted GitHub-only files with no GitLab equivalent and no guard against `github_host=true` + `gitlab-repo` — same "unenforced cross-module assumption" class 014 targets | Deferring to a later spec means the module family gets re-fanned out once for 014 and AGAIN for the forge fix. Since 014 already rewrites every `copier.yml` and re-fans all mirrors, folding it in is near-zero marginal cost and fixes the contradiction now. Merging the two repo modules into one `git` module was the bigger alternative — deferred (keeps exclusive-sibling pattern, avoids cascade into ci-github/ci-gitlab). |
 
 **Through-line note**: 014 explicitly REVERSES spec 011's M1 critique resolution ("agent-frozen
 unions → single writer, the `gitignore_stack` pattern"). 011 made unions single-writer to satisfy

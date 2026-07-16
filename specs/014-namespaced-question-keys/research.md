@@ -97,7 +97,10 @@ not itself originate. Findings (file:line evidence in the audit; summarized here
   ci-gitlab, cocogitto, devcontainer, github-repo, gitlab-repo, go, mkdocs, moon, python, readme,
   rust, stack-adr, ts, terraform). Canonical base fact.
 - **`layout`** — base + moon, cocogitto, package-add (structural branching). Base fact.
-- **`github_host`** — base + dep-updates (also derives `dep_update_tool` default from it). Base fact.
+- **`github_host`** — base + dep-updates (also derives `dep_update_tool` default from it). ~~Base fact.~~
+  **SUPERSEDED by R12/FR-022 (2026-07-16):** `github_host` is DELETED from base (forge metadata `.github/`
+  moves to the forge modules; base emits no forge files), and dep-updates self-defaults `dep_update_tool`
+  instead of reading it. It is NOT a fact. This audit line is the Phase-0 record; R12 governs.
 - **`description`** — base + apm, api, mkdocs, python, readme. DIVERGENT today: 4 of 5 default to
   `""` so users retype it. Audited as a genuine fact (renders into base AGENTS.md, readme
   README.md, api openapi.yaml, apm apm.yml, mkdocs site_description+index). KEEP + make a base fact
@@ -124,9 +127,10 @@ not itself originate. Findings (file:line evidence in the audit; summarized here
   `{cargo-test,nextest}` vs ts `{none,vitest-*,bun-test,playwright-only}`, disjoint domains. Reading it
   cross-layer IS the poisoning bug; private-by-default fixes it wholesale.
 
-- **Decision**: producers = **base** {`project_name`, `layout`, `github_host`, `description`,
+- **Decision**: producers = **base** {`project_name`, `layout`, `description`,
   `default_branch`} + **precommit** {`hook_manager`} + **ts** {`js_pkg_manager`, `ts_linter`} +
   **moon** {`monorepo_tool`, `monorepo_packages`}; everything else bare-private or collision-class.
+  (`github_host` was in this base set at Phase 0; STRUCK by R12/FR-022 — see above.)
 - **Rationale**: the minimal closure of keys ACTUALLY read across layers, per an EXHAUSTIVE audit
   (copier.yml `default:` lines AND template/ bodies — the first audit's `copier.yml`-only method missed
   the precommit/ts choice-axis reads), plus the one latent-bug fix (`default_branch`). No speculative facts.

@@ -184,6 +184,48 @@ on BOTH `init_many` AND `reproduce_many` (copier `_tasks` run on reproduce too, 
   script either way, so a post sub-render would just wrap the same script at the cost of 3× answers files,
   phase-leaking alias paths, and a 3-pass engine — machinery with no current use case.
 
+### R12 — Forge metadata leaves base; `github_host` DELETED; conditional remote creation (ratified 2026-07-16)
+
+**The smell (found this session):** base — the host-AGNOSTIC foundation — scaffolds GitHub-specific
+forge metadata: `{% if github_host %}.github{% endif %}/` (CODEOWNERS, ISSUE_TEMPLATE,
+PULL_REQUEST_TEMPLATE), gated on a base bool `github_host`. There is NO GitLab equivalent and NO guard
+against `github_host=true` co-occurring with a `gitlab-repo` selection — a silent contradiction
+(`.github/` files land in a GitLab project). `github_host` conflates two unrelated jobs: "which forge?"
+(a fact) and "emit `.github/` files" (forge-specific output).
+
+**Ruling — NO "forge" fact is introduced; the problem DISSOLVES once base stops emitting the files.**
+The forge selector only existed to gate files base should never have owned. Move the files out and the
+selector has nothing left to control:
+- **`.github/` metadata MOVES base → `github-repo`** (CODEOWNERS, ISSUE_TEMPLATE, PULL_REQUEST_TEMPLATE,
+  as MANAGED files that reconcile normally). A `.gitlab/` equivalent (CODEOWNERS + MR/issue templates)
+  is ADDED to `gitlab-repo`. base emits ZERO forge-specific files.
+- **`github_host` is DELETED from base** and is NOT replaced by any selector/enum. Nothing forge-specific
+  remains in base, so no selector is needed. `github_host` is therefore REMOVED from the R4 fact set
+  (it was listed as a base fact — that row is struck; see R4 amendment below).
+- **`bailiff-mod-dep-updates` self-defaults.** It stops reading `github_host`; `dep_update_tool` simply
+  defaults to `renovate` (agent/user overridable). `github_host` was only ever setting its default; the
+  module keeps its own axis question and its `dependabot.yml` (gated on `dep_update_tool`, not forge).
+- **Conditional remote creation.** `github-repo`/`gitlab-repo` gain `create_remote: bool` (default
+  false). `create_remote=true` runs `gh`/`glab repo create` (existing init-only, non-fatal tasks);
+  `create_remote=false` SKIPS creation but STILL renders the metadata files — this is how a user adopts
+  an EXISTING repo and still gets CODEOWNERS/issue/PR templates. There is NO import of live remote state
+  (that would break the deterministic, agent-free reproduce guarantee — a separate future feature).
+- **Behavior changes (accepted):** (a) issue/PR templates become OPT-IN via selecting the forge module
+  (were default-on via base `github_host=true`); (b) `github-repo`/`gitlab-repo` stop being "pure
+  side-effect, writes no files" — they now carry MANAGED metadata files (reconcile on reproduce)
+  alongside init-only `gh`/`glab` tasks. (`reconcile` is prose convention, not an engine field — grep
+  finds it only in comments — so mixing managed files with init-only tasks in one module is mechanically
+  fine.)
+- **Merging the two repo modules into one `git` module was CONSIDERED and DEFERRED.** Keeping
+  `github-repo`/`gitlab-repo` as exclusive siblings preserves the established one-module-per-exclusive-
+  choice pattern (same as the terraform/cdk/cloudformation IaC siblings) and avoids a cascade into
+  merging ci-github/ci-gitlab. No new module is added by 014.
+
+**Scope note:** R12 makes 014 touch module STRUCTURE (moving files between modules + new questions),
+which the original "no new module features / no new modules" scope excluded. The Out-of-scope section is
+amended accordingly: R12's forge cleanup is IN scope; NEW modules and net-new user-facing capabilities
+remain out.
+
 ### FR-006 INVERTED (ratified)
 
 The original FR-006 ("a consumer reading a fact MUST fall back to its own default when the producer is
@@ -257,9 +299,13 @@ The original audit only grepped `copier.yml` `default:` lines and MISSED three r
 cross-layer reads. A second EXHAUSTIVE audit (all 27 modules' copier.yml + template/ bodies) fixed the
 COMPLETE set. Facts read via `_external_data` aliases (each read is a validated data-dependency, R6):
 
-- **Base-produced** (alias `_external_data.base.*`): `project_name`, `layout`, `github_host`,
+- **Base-produced** (alias `_external_data.base.*`): `project_name`, `layout`,
   `description`, **`default_branch`** (NEW to base — latent bug: ci-github `copier.yml:80-82` /
   ci-gitlab `:91-93` thread it from a non-existent producer today).
+  - **`github_host` STRUCK from this set (R12).** It was listed as a base fact (consumer: dep-updates),
+    but R12 deletes `github_host` from base entirely (forge metadata moved to the forge modules).
+    dep-updates now self-defaults `dep_update_tool` instead of reading a base fact — so there is no
+    `github_host` alias to wire. This drops the base fact count from 5 to 4.
   - `description` KEPT + made a base fact (renders into base AGENTS.md, readme README.md, api
     openapi.yaml, apm apm.yml, mkdocs site_description+index). Consumers: apm, api, mkdocs, python,
     readme.
@@ -298,7 +344,12 @@ Bare keys only; copier's single-leading-`_` reservation is not engaged.
 
 ## Out of scope for 014
 
-- New module features or new modules.
+- NEW modules and net-new user-facing module CAPABILITIES. (NOTE: R12's forge cleanup — moving `.github/`
+  metadata out of base into the forge modules, deleting `github_host`, adding a `create_remote` toggle —
+  IS in scope; it restructures existing modules and fixes a latent contradiction, it does not add a new
+  module or a new capability.)
+- IMPORTING live remote state (reading an existing repo's config back into answers) — would break the
+  deterministic, agent-free reproduce guarantee; a separate future feature if ever wanted (R12).
 - The `framework` point-fix itself (separate branch).
 - Conditional-Jinja contribution expressiveness beyond what the pre-commit fragment needs.
 - Stack presets (013 FR-017, still deferred).

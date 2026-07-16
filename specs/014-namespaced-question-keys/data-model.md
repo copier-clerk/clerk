@@ -24,7 +24,6 @@ A single VALUE produced by one module and read by others via a copier `_external
 |---|---|---|---|
 | `project_name` | base | `base` | agentic, api, apm, cdk, ci-gitlab, cocogitto, devcontainer, github-repo, gitlab-repo, go, mkdocs, moon, python, readme, rust, stack-adr, ts, terraform |
 | `layout` | base | `base` | moon, cocogitto, package-add |
-| `github_host` | base | `base` | dep-updates |
 | `description` | base | `base` | apm, api, mkdocs, python, readme |
 | `default_branch` **(NEW)** | base | `base` | ci-github, ci-gitlab |
 | `hook_manager` **(ADDED)** | precommit | `precommit` | python, ts, api, go, rust, terraform, justfile |
@@ -46,6 +45,12 @@ A single VALUE produced by one module and read by others via a copier `_external
 `visibility`/`remote_protocol`/`push_after_create`/`team`, the `ci_*` keys, `placement_dir`
 (mutually-exclusive siblings — never co-occur). **Collision-class (stay private):** `test_runner`
 (go/rust/ts, disjoint domains) — reading it cross-layer IS the bug.
+
+**`github_host` is NOT a fact (R12/FR-022).** It was previously listed here as a base fact (consumer:
+dep-updates), but R12 DELETES `github_host` from base: forge metadata (`.github/`) moves to
+`bailiff-mod-github-repo` (and a `.gitlab/` equivalent to `bailiff-mod-gitlab-repo`), base emits no
+forge files, and `dep-updates` self-defaults `dep_update_tool` instead of reading a base fact. Base
+fact count is 4, not 5.
 
 ## Entity 2 — `.d/` Fragment Directory (the cross-module interface)
 

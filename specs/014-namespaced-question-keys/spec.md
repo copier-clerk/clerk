@@ -94,7 +94,7 @@ copier isolates it structurally; it never enters the consumer's own question nam
 never lands in the consumer's answers file. **No vendor prefix is needed** (an earlier
 `bailiff__<name>` scheme is REJECTED — copier's alias namespacing already isolates cross-module
 reads, works across vendors since each producer's answers file is a distinct alias, and adds no
-convention to lint). Most facts are base-produced (`project_name`, `layout`, `github_host`,
+convention to lint). Most facts are base-produced (`project_name`, `layout`, `description`,
 `default_branch`); the few that aren't (e.g. `monorepo_tool` produced by moon, read by CI) use
 the same mechanism with a different alias (`_external_data.moon.monorepo_tool`).
 
@@ -416,12 +416,35 @@ detected and reported with a documented remediation (never a silent wrong render
   writes its own `_commit`/`_src_path`. Chosen as a POSITIVE allowlist (pre-014 trees can't have it;
   generalizes to future schema bumps) over negative dissolved-key detection. (decisions-ledger R10.)
 
+### Functional Requirements — forge metadata cleanup (R12)
+
+- **FR-022** *(forge metadata leaves base; `github_host` deleted)*: `bailiff-mod-base` MUST stop
+  scaffolding forge-specific files. The `{% if github_host %}.github{% endif %}/` tree (CODEOWNERS,
+  ISSUE_TEMPLATE, PULL_REQUEST_TEMPLATE) MOVES to `bailiff-mod-github-repo` as MANAGED files; an
+  equivalent `.gitlab/` tree (CODEOWNERS + MR/issue templates) is ADDED to `bailiff-mod-gitlab-repo`.
+  The `github_host` question MUST be DELETED from base and NOT replaced by any selector/enum — once base
+  emits no forge files, nothing needs it. `github_host` is therefore REMOVED from the R4 fact set (it is
+  NOT a base fact; there is no `_external_data.base.github_host` alias). This fixes a latent silent
+  contradiction (base emitting `.github/` while a `gitlab-repo` is selected) with no new "forge" concept.
+  (decisions-ledger R12.)
+- **FR-023** *(`dep-updates` self-defaults)*: `bailiff-mod-dep-updates` MUST stop reading `github_host`.
+  Its `dep_update_tool` question defaults to `renovate` (agent/user overridable); `github_host` was only
+  ever setting that default. Its `dependabot.yml` output stays, gated on `dep_update_tool` (not forge).
+- **FR-024** *(conditional remote creation)*: `bailiff-mod-github-repo` and `bailiff-mod-gitlab-repo`
+  MUST gain a `create_remote: bool` question (default `false`). `create_remote=true` runs the existing
+  init-only, non-fatal `gh`/`glab repo create` tasks; `create_remote=false` SKIPS creation but STILL
+  renders the forge metadata files (FR-022) — the "adopt an existing repo, still get CODEOWNERS/issue/PR
+  templates" path. bailiff MUST NOT import live remote state into answers (would break the deterministic,
+  agent-free reproduce guarantee). These modules stop being "pure side-effect / writes no files": the
+  metadata files reconcile normally; the `gh`/`glab` tasks stay init-only. (decisions-ledger R12.)
+
 ### Functional Requirements — governance & scope
 
-- **FR-015** *(no new module features)*: This spec renames keys, changes engine threading, and
-  restructures mise/hook/gitignore output — it introduces NO new user-facing module
-  capabilities. The 011 cross-cutting contract is amended (single-writer unions → drop-in
-  where possible); the amendment is recorded.
+- **FR-015** *(no new module features)*: This spec renames keys, changes engine threading,
+  restructures mise/hook/gitignore output, and RESTRUCTURES existing modules (R12: forge metadata moves
+  base → forge modules) — it introduces NO NEW modules and NO net-new user-facing module capabilities.
+  The 011 cross-cutting contract is amended (single-writer unions → drop-in where possible); the
+  amendment is recorded.
 - **FR-018** *(module-authoring documentation)*: The module structure/how-to documentation MUST
   be updated to teach the new model, because it changes how every module author works. Scope:
   (a) the 011 cross-cutting contract (`specs/011-.../contracts/_cross-cutting.md`) — replace the
@@ -446,7 +469,11 @@ detected and reported with a documented remediation (never a silent wrong render
 
 ### Out of scope
 
-- New module features or new modules.
+- NEW modules and net-new user-facing module CAPABILITIES. (R12's forge-metadata restructure — moving
+  `.github/` out of base, deleting `github_host`, adding `create_remote` — IS in scope; it restructures
+  existing modules and fixes a latent bug, not a new module/capability.)
+- IMPORTING live remote state into answers (reading an existing repo's config back) — breaks the
+  deterministic agent-free reproduce guarantee; a separate future feature (R12/FR-024).
 - The `framework` collision point-fix itself (landing separately on
   `fix-framework-collision`; 014 generalizes the CLASS, not that instance).
 - Conditional-Jinja contribution expressiveness beyond hook_blocks (if a future union needs
@@ -480,6 +507,11 @@ detected and reported with a documented remediation (never a silent wrong render
   mis-render).
 - **SC-007**: The existing loop + integration suites pass; no private-key collision is possible
   by construction (an added negative test proves isolation).
+- **SC-009**: The forge cleanup (R12) is proven: `bailiff-mod-base` emits NO `.github/` files and has
+  no `github_host` question; a stack with `bailiff-mod-github-repo` renders `.github/`
+  (CODEOWNERS/issue/PR templates), a stack with `bailiff-mod-gitlab-repo` renders the `.gitlab/`
+  equivalent, and neither leaks the other forge's files; `create_remote=false` renders the metadata but
+  runs no `gh`/`glab repo create`; `bailiff-mod-dep-updates` renders without any `github_host` input.
 
 ## Assumptions
 
@@ -507,11 +539,12 @@ detected and reported with a documented remediation (never a silent wrong render
    ordered-concat as a `_post_task` in the gitignore owner. No `gitignore_stack` fact.
 3. **Rename migration** (FR-014) → R3 + R10: documented break + re-init AND a `_bailiff_schema: 014`
    marker with refuse-on-mismatch in `reproduce_many` (copier won't error on stale keys; bailiff must).
-4. **First-party shared-fact set** (FR-007) → R4 (expanded after exhaustive audit): producers =
-   **base** (`project_name`, `layout`, `github_host`, `description`, `default_branch`-new) +
+4. **First-party shared-fact set** (FR-007) → R4 (expanded after exhaustive audit; `github_host` later
+   STRUCK by R12): producers = **base** (`project_name`, `layout`, `description`, `default_branch`-new) +
    **precommit** (`hook_manager`) + **ts** (`js_pkg_manager`, `ts_linter`) + **moon** (`monorepo_tool`,
-   `monorepo_packages`). Collision-class `test_runner` stays PRIVATE; exclusive-sibling +
-   `org`/`copyright_name`/`branch_strategy` stay bare-private.
+   `monorepo_packages`). `github_host` is NOT a fact (deleted from base, R12/FR-022). Collision-class
+   `test_runner` stays PRIVATE; exclusive-sibling + `org`/`copyright_name`/`branch_strategy` stay
+   bare-private.
 5. **Vendor-prefix separator** → R5: **MOOT** — dropped for `_external_data` aliases; bare keys only.
 6. **Dependency model** (grill 2026-07-16) → R6–R9: a fact read is a HARD data-dependency (FR-006
    inverted — loud error on absent producer, no fallback); single `depends_on` edge, `run_after`/
