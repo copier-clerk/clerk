@@ -282,7 +282,7 @@ def test_cdk_external_data_declaration() -> None:
         f"got: {default!r}"
     )
     # The old threading pattern must be gone.
-    assert default != '{{ project_name }}', (
+    assert default != "{{ project_name }}", (
         "project_name must not use old copier threading '{{ project_name }}' (spec 014)"
     )
 
