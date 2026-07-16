@@ -1,7 +1,7 @@
 # bailiff-mod-stack-adr
 
 Records the project's technology stack as a SEED-ONCE document. OPT-IN module
-that `run_after: [bailiff-mod-base]`. Sorts before language layers — stack facts
+with `depends_on: [bailiff-mod-base]`. Sorts before language layers — stack facts
 are injected by the phase-1 agent via `--data` (cannot read from run-order
 accumulator, cross-cutting §6 / FR-010).
 
@@ -39,8 +39,8 @@ written once at init; reproduce replays frozen answers without any agent call.
 
 ## Ordering & threading
 
-- `run_after: [bailiff-mod-base]` (when:false hidden answer).
-- `project_name` uses `default: "{{ project_name }}"` threading (FR-010).
+- `depends_on: [bailiff-mod-base]` (when:false hidden answer); phase `normal` (default).
+- `project_name` is read from `.copier-answers.bailiff-mod-base.yml` via `_external_data.base` (spec 014).
 
 ## Usage
 
