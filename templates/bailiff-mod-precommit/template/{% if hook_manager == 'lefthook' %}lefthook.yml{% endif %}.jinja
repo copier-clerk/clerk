@@ -1,9 +1,7 @@
 # lefthook.yml — managed by bailiff-mod-precommit (DO NOT EDIT BY HAND)
 #
-# Single writer: bailiff-mod-precommit owns this file (hook_manager+hook_blocks
-# frozen-union contract, _cross-cutting §4, M1). Language hook blocks are
-# injected via the frozen `hook_blocks` answer — never appended at runtime.
-# All tool versions are managed via .mise.toml (bailiff-mod-base).
+# Single writer: bailiff-mod-precommit owns this file.
+# All tool versions are managed via .mise/conf.d/*.toml (spec 014 fragment model).
 
 pre-commit:
   parallel: true
@@ -30,6 +28,3 @@ commit-msg:
     conventional-commits:
       run: python3 .pre-commit-hooks/check-commit-msg.py {1}
 {% endif %}
-{% for block in hook_blocks %}
-{{ block | indent(0) }}
-{% endfor %}
