@@ -141,7 +141,7 @@ addition** (the gate permits publishing the console entry — the entry point it
 inert until published, so it can be code-reviewed on the branch before T003 lands, but
 must not appear in a release commit before T003 is in).
 
-- [ ] T013 [US3] Extract `src/bailiff/cli.py`, delete the bundled script, wire the console entry point:
+- [x] T013 [US3] Extract `src/bailiff/cli.py`, delete the bundled script, wire the console entry point:
   (1) Create `src/bailiff/cli.py`: copy `main()`, `_build_parser()`, `_run_preflight_or_exit()`, `_cmd_doctor()`, `_deferred_dispatch()`, `_real_dispatch()`, `_print_catalog_table()` from `scripts/bailiff.py` verbatim, with three changes: remove the dual-mode `sys.path` shim block entirely; change `prog="bailiff.py"` → `prog="bailiff"`; remove `if __name__ == "__main__"` guard. All imports stay identical.
   (2) Update `_print_catalog_table` in `cli.py` to display capability tags (`provides`, `exclusive`) and shadow marks (`shadowed`) per the plan's Work stream 5 display format.
   (3) **DELETE `scripts/bailiff.py`** (decisions-ledger FR-006 resolution). Update SKILL.md to use `uvx bailiff` as the invocation. Remove `scripts/bailiff.py` from mypy's `files` configuration.

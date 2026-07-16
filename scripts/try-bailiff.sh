@@ -4,7 +4,7 @@
 #
 # It builds a REAL tagged git repo from examples/bailiff-template-example (copier treats a
 # local path exactly like a remote), then drives the four verbs through the
-# bundled script (scripts/bailiff.py):
+# bailiff CLI (uv run bailiff):
 #
 #     discover → trust → init (--check, then real) → reproduce
 #
@@ -82,14 +82,14 @@ pause
 
 # --- 1) discover ---------------------------------------------------------------
 step "1) discover — static JSON (tags, questions, reproducible flag; no code runs)"
-run uv run scripts/bailiff.py discover "$TPL"
+run uv run bailiff discover "$TPL"
 pause
 
 # --- 2) trust + init -----------------------------------------------------------
 step "2a) The template runs tasks (git init + LICENSE) → it must be trusted first"
 echo "First, try WITHOUT trust to see the refusal (expected exit 3):"
 set +e
-uv run scripts/bailiff.py init --run-spec /dev/stdin <<YML
+uv run bailiff init --run-spec /dev/stdin <<YML
 source: "$TPL"
 dest: "$DEST"
 answers: { project_name: hello-bailiff, org: acme corp, license: Apache-2.0, description: my first bailiff project }
@@ -99,8 +99,8 @@ set -e
 pause
 
 step "2b) Grant trust with an explicit consent step, then list it"
-run uv run scripts/bailiff.py trust add "$TPL"
-run uv run scripts/bailiff.py trust list
+run uv run bailiff trust add "$TPL"
+run uv run bailiff trust list
 echo "--- scratch settings.yml written by the script ---"
 cat "$COPIER_SETTINGS_PATH"
 pause
@@ -113,12 +113,12 @@ answers: { project_name: hello-bailiff, org: acme corp, license: Apache-2.0, des
 YML
 
 step "2c) init --check — validates inputs, writes NOTHING (copier dry run)"
-run uv run scripts/bailiff.py init --run-spec "$WORK/run-spec.yml" --check
+run uv run bailiff init --run-spec "$WORK/run-spec.yml" --check
 echo "dest exists after --check? $([[ -e "$DEST" ]] && echo YES || echo 'no (correct)')"
 pause
 
 step "2d) init — generate the project for real"
-run uv run scripts/bailiff.py init --run-spec "$WORK/run-spec.yml"
+run uv run bailiff init --run-spec "$WORK/run-spec.yml"
 echo "--- generated tree ---"; find "$DEST" -type f -not -path '*/.git/*' | sort
 echo "--- README.md ---";            cat "$DEST/README.md"
 echo "--- LICENSE (head, via gh) ---"; head -4 "$DEST/LICENSE"
@@ -130,12 +130,12 @@ echo "The .copier-answers.yml is the entire reproduce state."
 pause
 
 # --- 3) reproduce via the bundled script ---------------------------------------
-step "3a) reproduce via scripts/bailiff.py — corrupt a rendered file, replay, confirm restore"
+step "3a) reproduce via the bailiff CLI — corrupt a rendered file, replay, confirm restore"
 echo "Before (checksums):"; ( cd "$DEST" && { shasum README.md out.txt 2>/dev/null || shasum README.md; } )
 echo "Corrupting README.md and deleting .gitignore..."
 echo "CORRUPTED BY HAND" > "$DEST/README.md"
 rm -f "$DEST/.gitignore"
-run uv run scripts/bailiff.py reproduce "$DEST"
+run uv run bailiff reproduce "$DEST"
 echo "After (checksums — README restored, .gitignore back):"
 ( cd "$DEST" && shasum README.md .gitignore )
 echo "--- README.md restored content ---"; head -3 "$DEST/README.md"
@@ -147,7 +147,7 @@ pause
 
 # --- 4) copier-only reproduce (no bailiff, no just) ------------------------------
 step "4) Copier-only reproduce — the fallback: no bailiff, no just"
-echo "scripts/bailiff.py reproduce only issues plain 'copier recopy' commands."
+echo "bailiff reproduce only issues plain 'copier recopy' commands."
 echo "Here is the exact fallback — works on any machine with copier installed:"
 echo
 echo "  cd \$DEST && copier recopy --vcs-ref=:current: --defaults --overwrite"

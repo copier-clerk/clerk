@@ -19,7 +19,6 @@ from bailiff import runner, trust
 from bailiff.errors import UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 _PKGS = ["srobroek/agentic-packages/packages/speckit#>=5.0.0 <6.0.0"]
 
 
@@ -49,7 +48,7 @@ def test_untrusted_apm_refused_before_tasks(bailiff_mod_apm: TemplateRepo, tmp_p
 
 
 def test_untrusted_apm_cli_exits_3(bailiff_mod_apm: TemplateRepo, tmp_path: Path) -> None:
-    """scripts/bailiff.py init exits 3 for the untrusted apm source (SC-004)."""
+    """the bailiff CLI init exits 3 for the untrusted apm source (SC-004)."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -66,7 +65,7 @@ def test_untrusted_apm_cli_exits_3(bailiff_mod_apm: TemplateRepo, tmp_path: Path
     )
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,

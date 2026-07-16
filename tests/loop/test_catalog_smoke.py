@@ -22,7 +22,6 @@ import tomli_w
 
 pytestmark = pytest.mark.network
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 # The hand-published exemplar; matches what the other smoke test uses.
 DEFAULT_TEMPLATE_URL = "https://github.com/bailiff-io/bailiff-template-example.git"
@@ -63,7 +62,8 @@ def test_catalog_list_shows_remote_template_usable(_require_remote: str, tmp_pat
     r = subprocess.run(
         [
             sys.executable,
-            str(_SCRIPT),
+            "-m",
+            "bailiff",
             "catalog",
             "--catalog",
             str(cat_path),

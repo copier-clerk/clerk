@@ -22,15 +22,13 @@ import tomli_w
 
 from tests.conftest import _SIMPLE_COPIER_YML, MultiSourceCatalog, build_template_repo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 def _bailiff(
     *args: str,
     catalog: Path,
     env_catalog_fallback: Path | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run ``scripts/bailiff.py catalog --catalog <catalog> <args>``.
+    """Run ``the bailiff CLI catalog --catalog <catalog> <args>``.
 
     Sets BAILIFF_CATALOG_PATH to ``env_catalog_fallback`` (or the same ``catalog``
     path when not given) so that even if the ``--catalog`` flag were absent the
@@ -45,7 +43,7 @@ def _bailiff(
         "BAILIFF_LISTING_CACHE_PATH": str(catalog.parent / "listing-cache.json"),
     }
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), "catalog", "--catalog", str(catalog), *args],
+        [sys.executable, "-m", "bailiff", "catalog", "--catalog", str(catalog), *args],
         capture_output=True,
         text=True,
         env=full_env,

@@ -20,8 +20,6 @@ from bailiff import runner, trust
 from bailiff.errors import InvalidRunSpecError
 from tests.conftest import build_template_repo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,7 +156,7 @@ def test_preflight_partial_answers_still_collects_all(tmp_path: Path) -> None:
 
 
 def test_preflight_via_cli_exits_1_with_all_gaps(tmp_path: Path) -> None:
-    """scripts/bailiff.py init --check exits 1 and reports gaps from both layers."""
+    """the bailiff CLI init --check exits 1 and reports gaps from both layers."""
     tpl_p, tpl_q = _build_two_required_templates(tmp_path)
     trust.add_trust(tpl_p.url)
     trust.add_trust(tpl_q.url)
@@ -185,7 +183,7 @@ def test_preflight_via_cli_exits_1_with_all_gaps(tmp_path: Path) -> None:
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--check", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--check", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},
@@ -226,7 +224,7 @@ def test_preflight_clean_selection_exits_0(tmp_path: Path) -> None:
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--check", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--check", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},

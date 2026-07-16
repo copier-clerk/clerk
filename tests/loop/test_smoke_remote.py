@@ -34,7 +34,6 @@ from bailiff import discovery, runner, trust
 
 pytestmark = pytest.mark.network
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
 
 # The intended first-party published exemplar. A public repo, so no auth needed
 # for a read-only clone. Overridable for forks / mirrors.
@@ -126,14 +125,14 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
 
 
 def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path) -> None:
-    """scripts/bailiff.py discover/trust/init/reproduce against the live remote."""
+    """the bailiff CLI discover/trust/init/reproduce against the live remote."""
     url = _require_remote
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
     # 1) discover via script
     r_discover = subprocess.run(
-        [sys.executable, str(_SCRIPT), "discover", url],
+        [sys.executable, "-m", "bailiff", "discover", url],
         capture_output=True,
         text=True,
         env=env,
@@ -145,7 +144,7 @@ def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path)
 
     # 2) trust add --from-source
     r_trust = subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "add", "--from-source", url],
+        [sys.executable, "-m", "bailiff", "trust", "add", "--from-source", url],
         capture_output=True,
         text=True,
         env=env,
@@ -170,7 +169,7 @@ def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path)
         )
     )
     r_init = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -186,7 +185,7 @@ def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path)
     # 4) corrupt and reproduce via script
     (dest / "README.md").write_text("CORRUPTED\n")
     r_repro = subprocess.run(
-        [sys.executable, str(_SCRIPT), "reproduce", str(dest)],
+        [sys.executable, "-m", "bailiff", "reproduce", str(dest)],
         capture_output=True,
         text=True,
         env=env,

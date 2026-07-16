@@ -14,8 +14,6 @@ from bailiff import discovery, runner, trust
 from bailiff.errors import NotReproducibleError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -46,19 +44,19 @@ def test_init_refuses_non_reproducible_template(
 
 
 # ---------------------------------------------------------------------------
-# T016: scripts/bailiff.py discover reports reproducible:false; init exits 1
+# T016: the bailiff CLI discover reports reproducible:false; init exits 1
 # ---------------------------------------------------------------------------
 
 
 def test_bailiff_script_discover_reports_not_reproducible(
     no_answers_file_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py discover emits reproducible:false for a template without answers-file."""
+    """the bailiff CLI discover emits reproducible:false for a template without answers-file."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "discover", no_answers_file_template.url],
+        [sys.executable, "-m", "bailiff", "discover", no_answers_file_template.url],
         capture_output=True,
         text=True,
         env=env,
@@ -73,7 +71,7 @@ def test_bailiff_script_discover_reports_not_reproducible(
 def test_bailiff_script_init_exits_1_for_non_reproducible_template(
     no_answers_file_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init exits 1 (BailiffError) for a template that can't record answers."""
+    """the bailiff CLI init exits 1 (BailiffError) for a template that can't record answers."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -92,7 +90,7 @@ def test_bailiff_script_init_exits_1_for_non_reproducible_template(
     )
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,

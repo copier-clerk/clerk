@@ -29,6 +29,11 @@ dependencies = [
   "tomli-w>=1.2.0",
 ]
 
+[project.scripts]
+# Sanctioned by constitution v3.0.0 / ADR-0008 (spec 013 FR-001): bailiff is the
+# tool on PyPI; `uvx bailiff` / `uv run bailiff` are the invocation paths.
+bailiff = "bailiff.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/bailiff-io/bailiff"
 Repository = "https://github.com/bailiff-io/bailiff"
@@ -71,7 +76,7 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src/bailiff", "scripts/bailiff.py"]
+files = ["src/bailiff"]
 mypy_path = ["src"]
 explicit_package_bases = true
 

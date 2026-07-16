@@ -1,28 +1,21 @@
-#!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["copier>=9.16,<10", "pyyaml", "packaging", "tomli-w"]
-# ///
-"""Bundled orchestration script — the single deterministic entrypoint for the bailiff skill.
+"""The bailiff CLI — the single deterministic entrypoint (spec 013 US3).
 
-Drives the full lifecycle — ``discover``, ``trust``, ``init``, ``reproduce`` — through
-ONE uniform 1..N path. A single-template project is simply the N=1 case: ``reproduce``
-enumerates the committed ``.copier-answers*.yml`` file(s) and drives
-``copier recopy --vcs-ref=:current:`` per layer; at N=1 that is one file → one recopy.
-There is no separate single-template code path and no verb meaningful only for multiple
-templates.
+Drives the full lifecycle — ``discover``, ``trust``, ``init``, ``reproduce``,
+``update``, ``catalog`` — through ONE uniform 1..N path. A single-template
+project is simply the N=1 case: ``reproduce`` enumerates the committed
+``.copier-answers*.yml`` file(s) and drives ``copier recopy --vcs-ref=:current:``
+per layer; at N=1 that is one file → one recopy. There is no separate
+single-template code path and no verb meaningful only for multiple templates.
 
-Run via::
-
-    ./scripts/bailiff.py <verb> …          # shebang, deps importable in env
-    uv run scripts/bailiff.py <verb> …     # uv with the project's locked deps
+Installed as the ``bailiff`` console command (``[project.scripts]``); run
+``uvx bailiff <verb> …`` or, in the repo, ``uv run bailiff <verb> …``.
 
 Errors are printed legibly to stderr with a non-zero exit — never a bare stack trace.
 
 Exit codes
 ----------
 0  success
-1  BailiffError (bad run-spec, copier failure, unreproducible template)
+1  BailiffError (bad run-spec, copier failure, unreproducible template, collision)
 2  argparse usage error / unknown verb
 3  UntrustedSourceError — source takes actions and is not trusted
 4  preflight failure — a required dep is missing or version-incompatible
@@ -31,51 +24,15 @@ Exit codes
 from __future__ import annotations
 
 import argparse
-
-# ---------------------------------------------------------------------------
-# Module-resolution shim — DUAL-MODE (BLOCKER-1 fix)
-#
-# When installed via APM, the package layout places a vendored `bailiff/` package
-# directory BESIDE `scripts/bailiff.py` (i.e. scripts/bailiff/ exists).  In that
-# case we keep the script's own dir (`scripts/`) on sys.path so that
-# `import bailiff` resolves to the vendored package — no ../src needed.
-#
-# When running from the bailiff repo itself (development), there is no sibling
-# `bailiff/` directory; we fall back to inserting `../src` so that
-# `import bailiff` resolves to `src/bailiff/`.
-#
-# The old unconditional remove+add of ../src broke installed trees completely.
-# ---------------------------------------------------------------------------
-import contextlib
 import sys
 from pathlib import Path
-
-_here = Path(__file__).resolve().parent  # …/scripts  (or install_dir/scripts)
-_vendored_pkg = _here / "bailiff"  # sibling bailiff/ package (installed case)
-_src = str(_here.parent / "src")  # ../src (repo case)
-
-if _vendored_pkg.is_dir():
-    # Installed: keep script dir on path so `import bailiff` finds the vendored pkg.
-    # Remove ../src if it somehow crept in (shouldn't happen, but be explicit).
-    with contextlib.suppress(ValueError):
-        sys.path.remove(_src)
-    if str(_here) not in sys.path:
-        sys.path.insert(0, str(_here))
-else:
-    # Repo: remove scripts/ (Python inserts it for __main__ scripts) and add src/.
-    with contextlib.suppress(ValueError):
-        sys.path.remove(str(_here))
-    if _src not in sys.path:
-        sys.path.insert(0, _src)
 
 # ---------------------------------------------------------------------------
 # Preflight — runs BEFORE third-party imports so --help and `doctor` work
 # even when deps are absent.  Third-party imports are deferred to after the
 # preflight passes (or the `doctor` verb is dispatched).
 # ---------------------------------------------------------------------------
-# _preflight itself is stdlib-only; it is part of bailiff's vendored package so
-# it is importable immediately after the shim above.
-from bailiff._preflight import missing_or_incompatible, report  # noqa: E402
+from bailiff._preflight import missing_or_incompatible, report
 
 
 def _run_preflight_or_exit() -> None:
@@ -93,7 +50,7 @@ def _run_preflight_or_exit() -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="bailiff.py",
+        prog="bailiff",
         description=(
             "Bundled copier conductor — discovers templates, manages trust, "
             "inits and reproduces projects through one uniform 1..N path."
@@ -154,7 +111,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cat_remove.set_defaults(func=_deferred_dispatch)
 
     p_cat_list = catalog_sub.add_parser(
-        "list", help="List all templates (static discovery, deterministic)."
+        "list", help="List all templates (from the listing cache; builds it once if absent)."
     )
     p_cat_list.add_argument(
         "--json", action="store_true", dest="json", help="Emit machine-readable JSON."
@@ -163,7 +120,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_cat_refresh = catalog_sub.add_parser(
         "refresh",
-        help="Re-discover all sources (same as list; explicit freshness trigger).",
+        help="Re-discover all sources and rebuild the listing cache.",
     )
     p_cat_refresh.add_argument(
         "--json", action="store_true", dest="json", help="Emit machine-readable JSON."
@@ -415,6 +372,18 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                 print(f"not found (no-op): {a.source}")
             return 0
 
+        def _cached_listing() -> catalog.FullListing:
+            """Load the persisted listing; auto-build once with a stderr notice (US6)."""
+            cached = catalog.load_listing_cache()
+            if cached is not None:
+                return cached
+            print(
+                "notice: no listing cache — building it now (run 'catalog refresh' "
+                "to rebuild after add/remove).",
+                file=sys.stderr,
+            )
+            return catalog.build_and_cache_listing(cat_path)
+
         if verb in ("list", "refresh"):
             if not cat_path.is_file():
                 print(
@@ -423,7 +392,14 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                     file=sys.stderr,
                 )
                 return 1
-            listing = catalog.build_listing(cat_path)
+            if verb == "refresh":
+                listing = catalog.build_and_cache_listing(cat_path)
+                print(
+                    f"refreshed listing cache: {catalog.listing_cache_path()}",
+                    file=sys.stderr,
+                )
+            else:
+                listing = _cached_listing()
             if getattr(a, "json", False):
                 print(json.dumps(listing.to_dict(), indent=2))
             else:
@@ -438,7 +414,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                     file=sys.stderr,
                 )
                 return 1
-            records = catalog.validate_selection(cat_path, list(a.full_ids))
+            records = catalog.validate_selection(cat_path, list(a.full_ids), _cached_listing())
             for rec in records:
                 print(f"ok: {rec.full_id} ({rec.source} @ {rec.ref})")
             return 0
@@ -449,6 +425,13 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
         if not listing.catalogs:
             print("(empty catalog)")
             return
+        # Winner lookup so a shadowed entry can name what shadows it (spec 013 US5).
+        winner_by_bare: dict[str, str] = {}
+        for cl in listing.catalogs:
+            for t in cl.templates:
+                bare = t.full_id.split("/", 1)[-1]
+                if not t.shadowed and bare not in winner_by_bare:
+                    winner_by_bare[bare] = t.full_id
         for cl in listing.catalogs:
             print(f"catalog: {cl.name}")
             if cl.templates:
@@ -456,8 +439,15 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                     versions_str = ", ".join(t.versions[-3:])
                     if len(t.versions) > 3:
                         versions_str = f"… {versions_str}"
-                    tasks_flag = " [tasks]" if t.has_tasks else ""
-                    print(f"  {t.full_id}{tasks_flag}")
+                    flags = " [tasks]" if t.has_tasks else ""
+                    if t.shadowed:
+                        bare = t.full_id.split("/", 1)[-1]
+                        winner = winner_by_bare.get(bare, "?")
+                        flags += f" [shadowed by {winner}]"
+                    print(f"  {t.full_id}{flags}")
+                    if t.provides:
+                        excl = " [exclusive]" if t.exclusive else ""
+                        print(f"    provides:  {', '.join(t.provides)}{excl}")
                     print(f"    source:    {t.source}")
                     print(f"    ref:       {t.ref}")
                     print(f"    versions:  {versions_str}")
@@ -552,7 +542,3 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return int(func(ns))
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -29,8 +29,8 @@ from pathlib import Path
 import yaml
 
 # ---------------------------------------------------------------------------
-# Module resolution — same dual-mode shim as scripts/bailiff.py so this script
-# works both in-repo (src/bailiff/ on PYTHONPATH) and as a standalone uv script.
+# Module resolution — add repo src/ to sys.path so this CI script works both
+# in-repo (uv run) and as a standalone uv script.
 # ---------------------------------------------------------------------------
 
 _SCRIPT_DIR = Path(__file__).resolve().parent

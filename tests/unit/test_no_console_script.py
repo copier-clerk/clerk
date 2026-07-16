@@ -1,40 +1,30 @@
-"""T019 / US4 / FR-001 / SC-003: no console-script; bundled script is the entry point."""
+"""Spec 013 FR-001 / constitution v3.0.0: the console entry point IS the tool.
+
+Inverts the former spec-010 assertions (no console script, bundled script exists):
+after ADR-0008 the `bailiff` console entry must exist and `scripts/bailiff.py`
+must be gone (FR-006: deleted, no shim).
+"""
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 import tomllib  # stdlib ≥3.11
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
-_SCRIPT = _REPO_ROOT / "scripts" / "bailiff.py"
 
 
-def test_no_project_scripts_entry() -> None:
-    """pyproject.toml must declare NO `[project.scripts] bailiff` entry (FR-001)."""
+def test_project_scripts_declares_bailiff() -> None:
+    """pyproject.toml must declare `[project.scripts] bailiff` (spec 013 FR-001)."""
     data = tomllib.loads(_PYPROJECT.read_text())
     scripts = data.get("project", {}).get("scripts", {})
-    assert "bailiff" not in scripts, (
-        f"[project.scripts] still declares 'bailiff'; found keys: {list(scripts)}"
+    assert scripts.get("bailiff") == "bailiff.cli:main", (
+        f"[project.scripts] bailiff missing or wrong; found: {scripts}"
     )
 
 
-def test_script_exists_and_is_executable() -> None:
-    """scripts/bailiff.py must exist and carry the executable bit."""
-    assert _SCRIPT.exists(), f"scripts/bailiff.py not found at {_SCRIPT}"
-    assert os.access(_SCRIPT, os.X_OK), "scripts/bailiff.py is not executable"
-
-
-def test_script_help_via_uv_run() -> None:
-    """`uv run python scripts/bailiff.py --help` must exit 0."""
-    result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "--help"],
-        capture_output=True,
-        text=True,
-        cwd=str(_REPO_ROOT),
+def test_bundled_script_is_deleted() -> None:
+    """scripts/bailiff.py must NOT exist (FR-006: deleted, no shim)."""
+    assert not (_REPO_ROOT / "scripts" / "bailiff.py").exists(), (
+        "scripts/bailiff.py still exists — decisions-ledger FR-006 requires deletion"
     )
-    assert result.returncode == 0, f"stderr: {result.stderr}"
-    assert "bailiff.py" in result.stdout

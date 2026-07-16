@@ -16,8 +16,8 @@ from typing import NamedTuple
 # ---------------------------------------------------------------------------
 
 # Each entry is (import_name, install_name, version_spec_or_None).
-# The PEP 723 header in scripts/bailiff.py and the install commands generated below
-# must stay in sync with this list; an equality test in tests/ enforces that.
+# [project.dependencies] in pyproject.toml and the install commands generated
+# below must stay in sync with this list; an equality test in tests/ enforces that.
 #
 # version_spec format: ">=X.Y,<Z" (a PEP 440 specifier; None means any version).
 # We hand-parse simple ">=" / "<" pairs rather than importing `packaging`
@@ -37,16 +37,6 @@ REQUIRED_DEPS: list[_DepSpec] = [
     _DepSpec("packaging", "packaging", None, None),
     _DepSpec("tomli_w", "tomli-w", None, None),
 ]
-
-# The install names as they appear in the PEP 723 header — used by the equality
-# test in tests/unit/test_preflight.py.
-PEP723_DEPS: list[str] = [
-    "copier>=9.16,<10",
-    "pyyaml",
-    "packaging",
-    "tomli-w",
-]
-
 
 # ---------------------------------------------------------------------------
 # Version-spec parsing (no `packaging` dep)

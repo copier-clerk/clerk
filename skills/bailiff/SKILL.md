@@ -1,14 +1,14 @@
 ---
 name: bailiff
-description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run bailiff", init a project from a bailiff-mod-* template, or set one up interactively. Portable (macOS/Linux/WSL) — the deterministic steps run via the bundled script, no bailiff CLI on PATH required. Phase-1 only — you author the inputs; copier (driven by `scripts/bailiff.py`) does all rendering, and reproduce is agent-free.
+description: Conduct copier to scaffold a reproducible project from a template. Use when the user wants to generate/scaffold a project from a copier template, "run bailiff", init a project from a bailiff-mod-* template, or set one up interactively. Portable (macOS/Linux/WSL) — the deterministic steps run via `uvx bailiff` (the PyPI CLI). Phase-1 only — you author the inputs; copier (driven by the `bailiff` CLI) does all rendering, and reproduce is agent-free.
 ---
 
 # bailiff — conduct copier
 
 You are the **phase-1 conductor**. copier is a deterministic scaffolding engine;
-`scripts/bailiff.py` is a thin bundled script over copier's public API. Your job is
+the `bailiff` CLI is a thin published tool over copier's public API. Your job is
 to inspect a template, help the user answer its questions, obtain trust consent, and
-hand a frozen **run-spec** to the deterministic phase (`scripts/bailiff.py init`). You
+hand a frozen **run-spec** to the deterministic phase (`uvx bailiff init`). You
 author *inputs only*.
 
 **The two-phase boundary — do not cross it:**
@@ -17,43 +17,28 @@ author *inputs only*.
   explain + obtain trust consent → write the run-spec → dry-run → generate.
 - Everything after the run-spec is deterministic and LLM-free. **You are NEVER in
   the reproduce path** — reproduce replays committed answers at the recorded commit
-  with no agent (`uv run scripts/bailiff.py reproduce`). Never offer to "reproduce
-  it for them" by re-authoring answers; point them at `scripts/bailiff.py reproduce`.
+  with no agent (`uvx bailiff reproduce`). Never offer to "reproduce
+  it for them" by re-authoring answers; point them at `uvx bailiff reproduce`.
 
 ## Prerequisites
 
 - **Platform:** macOS, Linux, or WSL on Windows.
 - `git` on PATH.
 - The example template's LICENSE task needs `gh` authenticated (`gh auth status`).
-- `scripts/bailiff.py` is the bundled script — **invoke it by the path anchored to
-  the skill's install location**, not as `./scripts/bailiff.py` (the agent's CWD is
-  normally the consumer project root, not the skill dir, so a bare relative path
-  will not resolve when the skill is installed via APM). Example:
+- the `bailiff` CLI is the tool on PyPI — no script is bundled with the skill.
+  Invoke it as:
 
   ```sh
-  # When bailiff is installed via APM, the skill dir is the resolved base:
-  python "$SKILL_DIR/scripts/bailiff.py" <verb> …
-  # or with uv (frictionless if uv is on PATH — reads the PEP 723 header):
-  uv run "$SKILL_DIR/scripts/bailiff.py" <verb> …
+  uvx bailiff <verb> …          # ephemeral env; nothing to install
+  # repo contributors (editable install):
+  uv run bailiff <verb> …
   ```
 
-  where `$SKILL_DIR` is the directory containing this `SKILL.md`.
-
-- **Third-party deps** (`copier>=9.16,<10`, `pyyaml`, `packaging`, `tomli-w`) must
-  be installed. The script checks them at startup and prints an environment-aware
-  install suggestion if any are missing or version-incompatible — no traceback.
-  Run `scripts/bailiff.py doctor` for an explicit readiness check:
-
-  ```sh
-  python "$SKILL_DIR/scripts/bailiff.py" doctor   # exit 0 = ready; exit 4 = issues
-  ```
-
-  Install suggestions (detected automatically):
-  - **uv** on PATH: `uv pip install copier pyyaml packaging tomli-w`
-  - **pip** on PATH: `pip install copier pyyaml packaging tomli-w`
-  - **macOS brew** (copier only): `brew install copier` (then pip/uv for the rest)
-  - `uv run "$SKILL_DIR/scripts/bailiff.py"` auto-provisions in an ephemeral env
-    if you have `uv` — no manual install needed in that case.
+- **Dependencies** ship with the wheel (`uvx` resolves them automatically). The
+  CLI still checks them at startup and prints an environment-aware install
+  suggestion if the environment is broken — no traceback. Run
+  `uvx bailiff doctor` for an explicit readiness check (exit 0 = ready; exit 4
+  = issues).
 
 ## User defaults (spec 004)
 
@@ -74,7 +59,7 @@ user-side config only — it is never written into the generated project. See
 > user names a concrete URL/path directly, skip to step 1.
 
 Discovery and validation (sub-steps 0-a through 0-c) are **LLM-free and
-deterministic** — `scripts/bailiff.py` drives them. The **pick** (0-b) is your
+deterministic** — the `bailiff` CLI drives them. The **pick** (0-b) is your
 judgment per Constitution II: you present the listing and collect the user's
 choice; you do not guess or auto-select without showing the options first.
 
@@ -83,17 +68,17 @@ choice; you do not guess or auto-select without showing the options first.
 Check whether a catalog already exists:
 
 ```sh
-uv run scripts/bailiff.py catalog [--catalog PATH] list
+uvx bailiff catalog [--catalog PATH] list
 ```
 
 If the file is absent or empty, create it and populate it:
 
 ```sh
 # Create the catalog file if absent (idempotent — no-op if it already exists):
-uv run scripts/bailiff.py catalog [--catalog PATH] init [--name <pointer-name>]
+uvx bailiff catalog [--catalog PATH] init [--name <pointer-name>]
 
 # Add each source the user names (idempotent — duplicate adds are a no-op):
-uv run scripts/bailiff.py catalog [--catalog PATH] add <source> [--name <pointer-name>]
+uvx bailiff catalog [--catalog PATH] add <source> [--name <pointer-name>]
 ```
 
 `<source>` is a `gituser/gitrepo` locator or a local path; an optional `@ref`
@@ -104,7 +89,7 @@ You manage this file on behalf of the user — never ask them to hand-edit it.
 **0-b. Present the verified listing and collect the user's pick.**
 
 ```sh
-uv run scripts/bailiff.py catalog [--catalog PATH] list
+uvx bailiff catalog [--catalog PATH] list
 ```
 
 The listing is **deterministic** (same sources at same pins → identical output
@@ -120,7 +105,7 @@ authoritative — do not substitute your own preference.
 For the machine-readable shape (useful when scripting or comparing runs):
 
 ```sh
-uv run scripts/bailiff.py catalog [--catalog PATH] list --json
+uvx bailiff catalog [--catalog PATH] list --json
 ```
 
 See `specs/002-catalog/contracts/catalog.md` for the exact JSON shape, full-id
@@ -129,7 +114,7 @@ semantics, exit codes, and the `unusable` structure.
 **0-c. Validate the chosen full-id before proceeding.**
 
 ```sh
-uv run scripts/bailiff.py catalog [--catalog PATH] validate <full-id>
+uvx bailiff catalog [--catalog PATH] validate <full-id>
 ```
 
 Exit 0 → the id is valid; extract the resolved `source` and `ref` from the
@@ -147,7 +132,7 @@ Present the error to the user and loop back to 0-b.
 ### 1. Inspect the template (no trust needed)
 
 ```sh
-uv run scripts/bailiff.py discover <source> [--ref REF]
+uvx bailiff discover <source> [--ref REF]
 ```
 
 `<source>` is a fetchable locator — an expanded `https://` URL or a local path.
@@ -180,13 +165,13 @@ those run. Only trust sources you control or have reviewed."* Obtain an explicit
 yes. Then, and only then:
 
 ```sh
-uv run scripts/bailiff.py trust add <prefix>
+uvx bailiff trust add <prefix>
 # or, to record the owner-path prefix covering a whole org:
-uv run scripts/bailiff.py trust add --from-source <source>
+uvx bailiff trust add --from-source <source>
 ```
 
 If you skip this, `init` refuses with exit 3 and prints the exact
-`scripts/bailiff.py trust add` command — that refusal is the safety gate working,
+`bailiff trust add` command — that refusal is the safety gate working,
 not an error to route around. Never auto-trust; consent is the user's, per turn.
 
 ### 4. Author the run-spec — and handle secret questions
@@ -218,7 +203,7 @@ If discovery reports any key in `secret_questions` (for a third-party template):
   value supplied **fails loud** naming the question — bailiff does NOT silently
   render copier's placeholder default (Constitution V). The user must supply the
   real value out-of-band before reproducing.
-- **bailiff enforces this mechanically.** `scripts/bailiff.py init` rejects any
+- **bailiff enforces this mechanically.** `uvx bailiff init` rejects any
   run-spec that supplies a value for a discovery-flagged secret key — fail loud,
   naming the key — regardless of what you put in the run-spec. Do not try to
   work around this; it is the security boundary.
@@ -232,8 +217,8 @@ regardless (copier's own behavior).
 ### 5. Dry-run, then generate
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <file> --check   # validates via copier's dry run; writes nothing
-uv run scripts/bailiff.py init --run-spec <file>           # generates the project
+uvx bailiff init --run-spec <file> --check   # validates via copier's dry run; writes nothing
+uvx bailiff init --run-spec <file>           # generates the project
 ```
 
 `--check` surfaces missing/invalid answers (and any trust refusal) without writing.
@@ -283,8 +268,8 @@ the exact run-spec shape, edge semantics, and exit codes.
 #### 5b. Preflight, then generate
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <file> --check   # all-gaps preflight: all layers, writes nothing
-uv run scripts/bailiff.py init --run-spec <file>           # apply layers in dependency order
+uvx bailiff init --run-spec <file> --check   # all-gaps preflight: all layers, writes nothing
+uvx bailiff init --run-spec <file>           # apply layers in dependency order
 ```
 
 **How bailiff orders and applies layers (LLM-free):**
@@ -313,7 +298,7 @@ layer. Those files are the entire reproduce state.
 #### Reproduce (recomputed, not frozen)
 
 ```sh
-uv run scripts/bailiff.py reproduce <project-dir>
+uvx bailiff reproduce <project-dir>
 ```
 
 bailiff enumerates the committed `.copier-answers*.yml` files, fetches each template
@@ -342,8 +327,8 @@ Tell the user the project is generated and how to reproduce it **without you**:
 > Reproduce anytime with:
 >
 > ```sh
-> # via the bundled script (primary path — ergonomics over copier):
-> uv run scripts/bailiff.py reproduce <project-dir>
+> # via the bailiff CLI (primary path — ergonomics over copier):
+> uvx bailiff reproduce <project-dir>
 >
 > # copier-only fallback (no bailiff, no just — works anywhere copier is installed):
 > cd <project-dir> && copier recopy --vcs-ref=:current: --defaults --overwrite
@@ -448,7 +433,7 @@ agent is ever in the reproduce path (Constitution II/III).
 `reproduce` and `update` are **portable skills** (semantic auto-trigger) — not
 slash commands. They apply to any project bailiff has touched:
 
-- **Reproduce** — `uv run scripts/bailiff.py reproduce [<dest>]` — replays committed
+- **Reproduce** — `uvx bailiff reproduce [<dest>]` — replays committed
   answers at the recorded commit, no agent. Equivalent copier-only fallback:
   `copier recopy --vcs-ref=:current: --defaults --overwrite` (per answers file).
 - **Update** — the intentional upgrade to a newer template version (spec 006);
@@ -465,12 +450,12 @@ slash commands. They apply to any project bailiff has touched:
 1. **Inspect current state**: read the project's `.copier-answers*.yml` — note the
    `_src_path` (template source) and `_commit` (current pinned version) per layer.
 2. **Discover available versions**: run
-   `uv run scripts/bailiff.py discover <src_path>` and note the `versions` list.
+   `uvx bailiff discover <src_path>` and note the `versions` list.
 3. **Announce the upgrade**: tell the user the from→to version per layer.
 4. **Trust check**: if `has_tasks`, `has_migrations`, or `jinja_extensions` is
    non-empty, explain that the template runs code and obtain explicit consent before
    running upgrade. Then trust the source if not already trusted:
-   `uv run scripts/bailiff.py trust add --from-source <src>`.
+   `uvx bailiff trust add --from-source <src>`.
 5. **Clean tree required**: the destination must have no uncommitted changes.
    Upgrade commits each layer between layers (and copier refuses a dirty tree even
    in `--pretend`), so commit or stash first. bailiff refuses up front with a clear
@@ -482,7 +467,7 @@ slash commands. They apply to any project bailiff has touched:
 
 ```sh
 # Single-layer or multi-layer (N=1 is the degenerate case):
-uv run scripts/bailiff.py update <dest> [--vcs-ref <tag>] [--pretend] [--conflict inline|rej]
+uvx bailiff update <dest> [--vcs-ref <tag>] [--pretend] [--conflict inline|rej]
 ```
 
 **Exit codes** (see `contracts/upgrade.md` for details):
@@ -514,7 +499,8 @@ copier update --vcs-ref <tag> --defaults --overwrite <dest>
 ## References
 
 - `specs/010-delivery-reshape/contracts/invocation.md` — the canonical invocation
-  surface, exact commands, and exit codes for the bundled script.
+  surface, exact commands, and exit codes (spec 013 moved invocation to the
+  PyPI CLI: `uvx bailiff`).
 - `specs/002-catalog/contracts/catalog.md` — catalog file format, listing JSON
   shape, full-id semantics, exit codes, and `unusable` structure.
 - `specs/003-multi-template/contracts/ordering.md` — multi-template run-spec shape,

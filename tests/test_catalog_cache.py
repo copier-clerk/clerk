@@ -23,7 +23,6 @@ from bailiff.catalog import (
 )
 from tests.conftest import build_template_repo
 
-_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "bailiff.py"
 _YML = "project_name:\n  type: str\n_subdirectory: template\n"
 
 
@@ -119,7 +118,7 @@ def _bailiff(*args: str, catalog: Path, cache: Path) -> subprocess.CompletedProc
         "BAILIFF_LISTING_CACHE_PATH": str(cache),
     }
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), "catalog", "--catalog", str(catalog), *args],
+        [sys.executable, "-m", "bailiff", "catalog", "--catalog", str(catalog), *args],
         capture_output=True,
         text=True,
         env=env,
