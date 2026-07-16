@@ -44,6 +44,16 @@ _SETTINGS_PREFIX = "_"
 # The hidden ``when: false`` answers that carry bailiff's dependency graph.
 _EDGE_KEYS = ("depends_on", "run_after", "run_before")
 
+# The hidden ``when: false`` key that carries the post-task list.
+_POST_TASKS_KEY = "_post_tasks"
+
+# Phase values; default when absent is "normal".
+_VALID_PHASES = frozenset({"pre", "normal", "post"})
+
+# Pattern for a valid _external_data value: .copier-answers.<basename>.yml
+# No Jinja ({{ ... }}), no traversal (..), no URL (://), no nested paths.
+_EXTERNAL_DATA_PATH_RE = re.compile(r"^\.copier-answers\.([^/\\]+)\.yml$")
+
 # Capability names are kebab-case (spec 013 FR-007); no closed vocabulary.
 _CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
@@ -78,6 +88,12 @@ class Discovery:
     has_migrations: bool = False
     provides: list[str] = field(default_factory=list)
     exclusive: bool = False
+    # spec 014: alias → producer-basename mapping from _external_data block.
+    external_data_aliases: dict[str, str] = field(default_factory=dict)
+    # spec 014: deferred tasks declared via _post_tasks (list of command strings).
+    post_tasks: list[Any] = field(default_factory=list)
+    # spec 014: module execution phase ("pre" | "normal" | "post"); default "normal".
+    phase: str = "normal"
 
     def to_dict(self) -> dict[str, Any]:
         """The documented, JSON-serializable shape the agent reads (FR-004)."""
@@ -106,6 +122,9 @@ class Discovery:
             "dependency_edges": self.dependency_edges,
             "provides": self.provides,
             "exclusive": self.exclusive,
+            "external_data_aliases": self.external_data_aliases,
+            "post_tasks": self.post_tasks,
+            "phase": self.phase,
         }
 
 
@@ -185,6 +204,9 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     has_tasks = bool(raw.get("_tasks"))
     has_migrations = bool(raw.get("_migrations"))
     provides, exclusive = _read_capabilities(raw, source)
+    external_data_aliases = _read_external_data(raw, source)
+    post_tasks = _read_post_tasks(raw)
+    phase = _read_phase(raw, source)
 
     questions: list[Question] = []
     secret_questions: list[str] = []
@@ -237,7 +259,86 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
         dependency_edges=dependency_edges,
         provides=provides,
         exclusive=exclusive,
+        external_data_aliases=external_data_aliases,
+        post_tasks=post_tasks,
+        phase=phase,
     )
+
+
+def _read_external_data(raw: dict[str, Any], source: str) -> dict[str, str]:
+    """Parse ``_external_data`` → ``{alias: producer_basename}`` (FR-006/R6/R9).
+
+    Each value MUST be a literal ``.copier-answers.<basename>.yml`` (no Jinja
+    expressions, no path traversal, no URL).  Non-conforming values raise
+    ``DiscoveryError`` for first-party modules — they cannot be validated at
+    engine preflight time if the alias→basename mapping is ambiguous.
+    """
+    raw_ed = raw.get("_external_data")
+    if not raw_ed:
+        return {}
+    if not isinstance(raw_ed, dict):
+        raise DiscoveryError(
+            f"{source!r}: _external_data must be a mapping of alias → answers-file path, "
+            f"got {type(raw_ed).__name__!r}"
+        )
+    result: dict[str, str] = {}
+    for alias, path_val in raw_ed.items():
+        if not isinstance(path_val, str):
+            raise DiscoveryError(
+                f"{source!r}: _external_data[{alias!r}] must be a string path, "
+                f"got {type(path_val).__name__!r}"
+            )
+        # Reject Jinja expressions, path traversal, URLs, nested paths.
+        m = _EXTERNAL_DATA_PATH_RE.match(path_val)
+        if not m:
+            raise DiscoveryError(
+                f"{source!r}: _external_data[{alias!r}] value {path_val!r} does not match "
+                f"the required format '.copier-answers.<basename>.yml'. "
+                f"Jinja expressions, path traversal (..), URLs, and nested paths are not "
+                f"allowed. Use a literal basename reference (FR-006a/R9)."
+            )
+        result[alias] = m.group(1)
+    return result
+
+
+def _read_post_tasks(raw: dict[str, Any]) -> list[Any]:
+    """Read ``_post_tasks`` as a list of task commands (FR-021/R11).
+
+    ``_post_tasks`` is declared as a top-level settings key (like ``_tasks``),
+    not as a hidden ``when:false`` question. Its value is a list of strings or
+    dicts (same shape as ``_tasks``).  Missing or empty → empty list.
+    """
+    pt = raw.get(_POST_TASKS_KEY)
+    if not pt:
+        return []
+    if isinstance(pt, list):
+        return list(pt)
+    return []
+
+
+def _read_phase(raw: dict[str, Any], source: str) -> str:
+    """Read ``_bailiff_phase`` settings key; default "normal" when absent (FR-020/R8).
+
+    Warns and falls back to "normal" on an invalid value so third-party modules
+    with a typo don't hard-fail (consistent with ``_read_capabilities`` policy).
+    """
+    phase = raw.get("_bailiff_phase", "normal")
+    if not isinstance(phase, str):
+        warnings.warn(
+            f"{source!r}: _bailiff_phase must be a string ('pre'|'normal'|'post'), "
+            f"got {phase!r}; treating as 'normal'",
+            stacklevel=2,
+        )
+        return "normal"
+    phase = phase.strip()
+    if phase not in _VALID_PHASES:
+        warnings.warn(
+            f"{source!r}: _bailiff_phase={phase!r} is not a known phase "
+            f"({', '.join(sorted(_VALID_PHASES))}); treating as 'normal'",
+            stacklevel=2,
+        )
+        return "normal"
+    return phase
 
 
 def _read_capabilities(raw: dict[str, Any], source: str) -> tuple[list[str], bool]:

@@ -2,8 +2,13 @@
 
 Computes the topological application order for a selection of templates from
 their statically-declared ``when:false`` edges (``depends_on``, ``run_after``,
-``run_before``).  Pure functions; no copier import; called identically at init
-and at reproduce (recompute-not-freeze, spec 003 / Constitution III).
+``run_before``) and their ``_bailiff_phase`` setting (spec 014 FR-019/FR-020).
+
+Phase model (spec 014 FR-020/R8): modules carry a phase — ``pre`` | ``normal``
+(default) | ``post``.  Sort = (phase) → (``depends_on`` DAG) → (basename).
+Edge legality: ``pre`` may depend only on ``pre``; ``normal`` may depend on
+``pre`` + ``normal``; ``post`` may depend on anything.  A forward cross-phase
+edge (e.g. ``normal`` → ``post``) is rejected with an ``OrderingError``.
 
 Identity: nodes are keyed by **basename** (the repo name, i.e. the last
 component of the full_id) within a valid selection — the portable name a
@@ -18,6 +23,8 @@ Validation (raised before any sort or return):
   ``OrderingError`` naming the colliding basename.
 * **Dangling edge** — an edge target that is not among the selected basenames →
   ``OrderingError`` naming the missing dependency.
+* **Forward cross-phase edge** — a dependency that jumps to a later phase →
+  ``OrderingError`` naming the offending pair (spec 014 FR-020).
 * **Cycle** — a cycle in the dependency graph → ``OrderingError`` naming the
   cycle members (via ``graphlib.CycleError``).
 """
@@ -45,9 +52,14 @@ def answers_file_name(record: TemplateRecord) -> str:
     return f".copier-answers.{_basename(record)}.yml"
 
 
+# Phase ordering: lower index = earlier in execution.
+_PHASE_ORDER = {"pre": 0, "normal": 1, "post": 2}
+
+
 def build_dag(
     records: list[TemplateRecord],
     edges_by_basename: dict[str, dict[str, Any]],
+    phases_by_basename: dict[str, str] | None = None,
 ) -> dict[str, set[str]]:
     """Build a dependency graph from the selected records and their declared edges.
 
@@ -55,13 +67,19 @@ def build_dag(
     ``dependency_edges`` dict (from ``discovery.Discovery.dependency_edges``),
     which has keys ``depends_on``, ``run_after``, ``run_before`` with list values.
 
+    ``phases_by_basename`` maps each basename to its ``_bailiff_phase`` value
+    (spec 014 FR-020).  When provided, forward cross-phase edges are rejected.
+
     Returns a graph ``{basename: {predecessors}}`` suitable for
     ``graphlib.TopologicalSorter`` — a node with no predecessors maps to an empty set.
 
     Raises ``OrderingError`` for:
     - basename collision among selected templates (two records share a basename)
     - dangling edge (an edge target not present in the selection)
+    - forward cross-phase edge (spec 014 FR-020)
     """
+    phases = phases_by_basename or {}
+
     # 1. Check basename collision.
     basenames: list[str] = [_basename(r) for r in records]
     seen: dict[str, int] = {}
@@ -84,6 +102,8 @@ def build_dag(
     # 3. Normalize edges: depends_on/run_after → (dep → self); run_before → (self → dep).
     for record in records:
         self_b = _basename(record)
+        self_phase = phases.get(self_b, "normal")
+        self_phase_idx = _PHASE_ORDER.get(self_phase, 1)
         edges = edges_by_basename.get(self_b, {})
 
         # depends_on and run_after: X → self (self depends on X)
@@ -100,6 +120,18 @@ def build_dag(
                         f"dangling edge: {self_b!r} declares {key}={target!r}, "
                         f"but {target!r} is not in the selection. "
                         f"Add {target!r} to the selection or remove the edge."
+                    )
+                # Validate phase legality: self may not depend on a LATER phase (FR-020).
+                target_phase = phases.get(target, "normal")
+                target_phase_idx = _PHASE_ORDER.get(target_phase, 1)
+                if target_phase_idx > self_phase_idx:
+                    raise OrderingError(
+                        f"forward cross-phase edge: {self_b!r} (phase={self_phase!r}) "
+                        f"declares {key}={target!r} (phase={target_phase!r}). "
+                        f"A {self_phase!r}-phase module may not depend on a later "
+                        f"{target_phase!r}-phase module. "
+                        f"Edge legality: pre→pre only; normal→pre+normal; post→anything. "
+                        f"(spec 014 FR-020/R8)"
                     )
                 graph[self_b].add(target)
 
@@ -125,17 +157,19 @@ def build_dag(
 def topo_sort(
     records: list[TemplateRecord],
     graph: dict[str, set[str]],
+    phases_by_basename: dict[str, str] | None = None,
 ) -> list[TemplateRecord]:
     """Topologically sort ``records`` given the dependency graph.
 
-    Stable tie-break: among constraint-free nodes (no ordering constraint between
-    them), order lexicographically by **basename** (not full_id).  Basename is
-    unique within a valid selection (collision check has already run) and is the
-    same component at both init and reproduce (reproduce rebuilds full_ids as
-    ``_recorded/<basename>``), ensuring init order == reproduce order (SC-002/SC-003).
+    Sort key: (phase_index, DAG constraints, basename).  Phase ordering ensures
+    ``pre`` modules come before ``normal`` and ``normal`` before ``post``
+    (spec 014 FR-020/R8), even among constraint-free nodes.  Within the same
+    phase, the tie-break is lexicographic by basename.
 
     Raises ``OrderingError`` if a cycle is detected (names the cycle members).
     """
+    phases = phases_by_basename or {}
+
     # Build basename → record for lookup.
     by_basename: dict[str, TemplateRecord] = {_basename(r): r for r in records}
 
@@ -152,8 +186,13 @@ def topo_sort(
 
     result: list[TemplateRecord] = []
     while ts.is_active():
-        ready_basenames = sorted(ts.get_ready())  # basename is already unique within selection
-        for b in ready_basenames:
+        ready_basenames = ts.get_ready()
+        # Sort by (phase_index, basename) for deterministic, phase-respecting order.
+        sorted_ready = sorted(
+            ready_basenames,
+            key=lambda b: (_PHASE_ORDER.get(phases.get(b, "normal"), 1), b),
+        )
+        for b in sorted_ready:
             result.append(by_basename[b])
             ts.done(b)
 
@@ -163,36 +202,41 @@ def topo_sort(
 def layer_plan(records: list[TemplateRecord]) -> list[tuple[TemplateRecord, str]]:
     """Compute the ordered layer plan for ``records``.
 
-    For each record, calls ``discovery.discover`` to fetch its declared edges,
-    builds the DAG, validates it (raises ``OrderingError`` on cycle, dangling
-    edge, or basename collision), topo-sorts with the stable basename tie-break,
-    and returns ``[(record, answers_file_name)]`` in application order.
+    For each record, calls ``discovery.discover`` to fetch its declared edges and
+    phase, builds the DAG, validates it (raises ``OrderingError`` on cycle, dangling
+    edge, basename collision, or forward cross-phase edge), topo-sorts with the
+    stable phase→basename tie-break, and returns ``[(record, answers_file_name)]``
+    in application order.
 
     This is the entry point for both ``init_many`` and ``reproduce_many`` — the
     same algorithm, same tie-break, same deterministic result.
     """
     edges_by_basename: dict[str, dict[str, Any]] = {}
+    phases_by_basename: dict[str, str] = {}
     for record in records:
         b = _basename(record)
         disc = discovery.discover(record.source, record.ref or None)
         edges_by_basename[b] = disc.dependency_edges
+        phases_by_basename[b] = disc.phase
 
-    graph = build_dag(records, edges_by_basename)
-    ordered = topo_sort(records, graph)
+    graph = build_dag(records, edges_by_basename, phases_by_basename)
+    ordered = topo_sort(records, graph, phases_by_basename)
     return [(r, answers_file_name(r)) for r in ordered]
 
 
 def layer_plan_from_edges(
     records: list[TemplateRecord],
     edges_by_basename: dict[str, dict[str, Any]],
+    phases_by_basename: dict[str, str] | None = None,
 ) -> list[tuple[TemplateRecord, str]]:
     """Like ``layer_plan`` but accepts pre-fetched edges (avoids duplicate discovers).
 
     Used by ``reproduce_many`` which has already fetched edges while reading the
-    committed answers files.
+    committed answers files.  ``phases_by_basename`` carries the ``_bailiff_phase``
+    values discovered at the same time as the edges.
     """
-    graph = build_dag(records, edges_by_basename)
-    ordered = topo_sort(records, graph)
+    graph = build_dag(records, edges_by_basename, phases_by_basename)
+    ordered = topo_sort(records, graph, phases_by_basename)
     return [(r, answers_file_name(r)) for r in ordered]
 
 
