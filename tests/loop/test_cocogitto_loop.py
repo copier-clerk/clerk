@@ -1,11 +1,11 @@
-"""spec 012 T005: bailiff-mod-cocogitto loop tests (FR-007).
+"""spec 012/014: bailiff-mod-cocogitto loop tests (FR-007, spec 014 _external_data migration).
 
 Assertions:
-- single layout → managed cog.toml (no [monorepo] section);
-- monorepo layout → [monorepo] section with per-package entries;
+- single layout → managed cog.toml (no [monorepo] section); layout read from base answers file;
+- monorepo layout → [monorepo] section with per-package entries; packages from moon answers file;
 - ZERO release side effects: no git tag, no CHANGELOG.md written by the module;
-- hook_blocks contribution: the commit-msg-lint block flows through precommit
-  (the single writer) when frozen into the union;
+- pre-commit fragment: .pre-commit.d/bailiff-mod-cocogitto.yaml rendered with commit-msg-lint hook;
+- mise conf.d drop-in: .mise/conf.d/bailiff-mod-cocogitto.toml rendered with cog tool;
 - preflight is init-only-guarded (stubbed offline);
 - no secret: questions.
 """
@@ -13,36 +13,47 @@ Assertions:
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
+import yaml
 
 from bailiff import runner, trust
-from bailiff.catalog import TemplateRecord
 from tests.conftest import (
     _BASE_STUB_TASKS,
     _COG_STUB_TASKS,
     _MODULES_DIR,
-    _PRECOMMIT_STUB_TASKS,
+    _MOON_STUB_TASKS,
     TemplateRepo,
     _copy_module_with_stub_tasks,
 )
 
 _COG_FILE = Path("cog.toml")
+_FRAGMENT_FILE = Path(".pre-commit.d/bailiff-mod-cocogitto.yaml")
+_MISE_FILE = Path(".mise/conf.d/bailiff-mod-cocogitto.toml")
 
-# The commit-msg-lint block cocogitto contributes to the frozen hook_blocks
-# union (rendered by bailiff-mod-precommit, the single writer).
-_COG_HOOK_BLOCK = (
-    "  - repo: local\n"
-    "    hooks:\n"
-    "      - id: cocogitto-commit-msg\n"
-    "        name: cocogitto verify (conventional commits)\n"
-    "        entry: cog verify --file\n"
-    "        language: system\n"
-    "        stages: [commit-msg]\n"
-)
+
+def _seed_base_answers(dest: Path, project_name: str = "myapp", layout: str = "single") -> None:
+    """Pre-seed the base answers file so _external_data.base resolves."""
+    dest.mkdir(parents=True, exist_ok=True)
+    data = {
+        "_src_path": "https://github.com/bailiff-io/bailiff-mod-base.git",
+        "_commit": "v1.0.0",
+        "project_name": project_name,
+        "layout": layout,
+    }
+    (dest / ".copier-answers.bailiff-mod-base.yml").write_text(yaml.dump(data))
+
+
+def _seed_moon_answers(dest: Path, monorepo_packages: list[str]) -> None:
+    """Pre-seed the moon answers file so _external_data.moon resolves."""
+    dest.mkdir(parents=True, exist_ok=True)
+    data = {
+        "_src_path": "https://github.com/bailiff-io/bailiff-mod-moon.git",
+        "_commit": "v1.0.0",
+        "monorepo_packages": monorepo_packages,
+    }
+    (dest / ".copier-answers.bailiff-mod-moon.yml").write_text(yaml.dump(data))
 
 
 @pytest.fixture
@@ -61,9 +72,9 @@ def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
 
 
 @pytest.fixture
-def bailiff_mod_precommit(tmp_path: Path) -> TemplateRepo:
+def bailiff_mod_moon(tmp_path: Path) -> TemplateRepo:
     return _copy_module_with_stub_tasks(
-        "bailiff-mod-precommit", tmp_path / "bailiff-mod-precommit", _PRECOMMIT_STUB_TASKS
+        "bailiff-mod-moon", tmp_path / "bailiff-mod-moon", _MOON_STUB_TASKS
     )
 
 
@@ -72,21 +83,20 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
-    return TemplateRecord(
-        full_id=full_id,
-        source=repo.url,
-        ref=repo.tag,
-        versions=[repo.tag],
-        reproducible=True,
-        has_tasks=True,
-        questions=questions,
-    )
-
-
-def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
+def _init_with_facts(
+    repo: TemplateRepo,
+    dest: Path,
+    *,
+    project_name: str = "myapp",
+    layout: str = "single",
+    monorepo_packages: list[str] | None = None,
+) -> str:
+    """Init cocogitto after pre-seeding the required external data answers files."""
+    _seed_base_answers(dest, project_name=project_name, layout=layout)
+    if monorepo_packages is not None:
+        _seed_moon_answers(dest, monorepo_packages)
     trust.add_trust(repo.url)
-    spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
+    spec = runner.RunSpec(source=repo.url, dest=str(dest), answers={})
     runner.init(spec, today="2026-07-14")
     cog = dest / _COG_FILE
     assert cog.is_file(), "cog.toml not rendered"
@@ -94,16 +104,16 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Single layout (US2 AS1)
+# Single layout — cog.toml shape (US2 AS1)
 # ---------------------------------------------------------------------------
 
 
 def test_single_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
     """Single layout: cog.toml with changelog path, no [monorepo] section."""
-    text = _init(
+    text = _init_with_facts(
         bailiff_mod_cocogitto,
         tmp_path / "proj",
-        {"project_name": "myapp", "layout": "single"},
+        layout="single",
     )
     assert 'tag_prefix = "v"' in text
     assert "[changelog]" in text
@@ -111,20 +121,17 @@ def test_single_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path: P
 
 
 # ---------------------------------------------------------------------------
-# Monorepo layout (US2 / plan: monorepo section present)
+# Monorepo layout — [monorepo] section with packages from moon (US2)
 # ---------------------------------------------------------------------------
 
 
 def test_monorepo_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
-    """Monorepo layout: [monorepo] section with one entry per frozen package path."""
-    text = _init(
+    """Monorepo layout: [monorepo] section with one entry per package from moon answers."""
+    text = _init_with_facts(
         bailiff_mod_cocogitto,
         tmp_path / "proj",
-        {
-            "project_name": "myapp",
-            "layout": "monorepo",
-            "monorepo_packages": ["packages/api", "packages/web"],
-        },
+        layout="monorepo",
+        monorepo_packages=["packages/api", "packages/web"],
     )
     assert "[monorepo]" in text
     assert "generate_mono_repository_global_tag = false" in text
@@ -140,11 +147,12 @@ def test_monorepo_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path:
 
 def test_no_release_side_effects(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
     """Init creates no git tag and no CHANGELOG.md — release actions are the project's."""
+    import subprocess
+
     dest = tmp_path / "proj"
-    _init(bailiff_mod_cocogitto, dest, {"project_name": "myapp", "layout": "single"})
+    _init_with_facts(bailiff_mod_cocogitto, dest, layout="single")
 
     assert not (dest / "CHANGELOG.md").exists(), "module must not write a changelog"
-    # No tags in the destination repo (if the dest is even a git repo).
     if (dest / ".git").exists():
         tags = subprocess.run(
             ["git", "tag"], cwd=dest, capture_output=True, text=True, check=False
@@ -153,57 +161,42 @@ def test_no_release_side_effects(bailiff_mod_cocogitto: TemplateRepo, tmp_path: 
 
 
 # ---------------------------------------------------------------------------
-# hook_blocks contribution flows through precommit (US2 AS2)
+# Fragment outputs: mise conf.d + pre-commit.d (spec 014)
 # ---------------------------------------------------------------------------
 
 
-def test_hook_block_written_by_precommit(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_cocogitto: TemplateRepo,
-    tmp_path: Path,
-) -> None:
-    """The commit-msg-lint block appears in the hook file via precommit (single writer)."""
-    for repo in (bailiff_mod_base, bailiff_mod_precommit, bailiff_mod_cocogitto):
-        trust.add_trust(repo.url)
-
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": [],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-cocogitto", bailiff_mod_cocogitto, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "layout": "single",
-                "hook_blocks": [_COG_HOOK_BLOCK],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-precommit", bailiff_mod_precommit, ["hook_manager"]),
-            {"hook_manager": "pre-commit", "hook_blocks": [_COG_HOOK_BLOCK]},
-        ),
-    ]
+def test_mise_confd_drop_in_rendered(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
+    """Mise conf.d drop-in is rendered with cog tool entry."""
     dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    hook_file = dest / ".pre-commit-config.yaml"
-    assert hook_file.is_file(), "precommit must write the hook file"
-    text = hook_file.read_text()
-    assert "cocogitto-commit-msg" in text, "cog hook block missing from hook file"
-    assert text.count("cocogitto-commit-msg") == 1, "hook block injected more than once"
-    # cocogitto itself never writes hook config.
-    assert (dest / _COG_FILE).is_file()
+    _init_with_facts(bailiff_mod_cocogitto, dest, layout="single")
+    mise_file = dest / _MISE_FILE
+    assert mise_file.is_file(), f"{_MISE_FILE} not rendered"
+    text = mise_file.read_text()
+    assert "[tools]" in text
+    assert "cog" in text
 
 
-# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
+def test_precommit_fragment_rendered(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
+    """Pre-commit fragment is rendered in .pre-commit.d/ with the commit-msg-lint hook."""
+    dest = tmp_path / "proj"
+    _init_with_facts(bailiff_mod_cocogitto, dest, layout="single")
+    frag = dest / _FRAGMENT_FILE
+    assert frag.is_file(), f"{_FRAGMENT_FILE} not rendered"
+    text = frag.read_text()
+    assert "cocogitto-commit-msg" in text
+    assert "cog verify --file" in text
+    assert "commit-msg" in text
+
+
+def test_cocogitto_does_not_write_hook_config(
+    bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path
+) -> None:
+    """cocogitto never writes .pre-commit-config.yaml — that belongs to precommit's bundler."""
+    dest = tmp_path / "proj"
+    _init_with_facts(bailiff_mod_cocogitto, dest, layout="single")
+    assert not (dest / ".pre-commit-config.yaml").exists(), (
+        "cocogitto must not write the merged hook file — only precommit's bundler may"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,3 +218,19 @@ def test_preflight_is_init_only_guarded_and_no_secrets() -> None:
     )
     for forbidden in ("cog bump", "cog changelog", "git tag"):
         assert forbidden not in executable, f"forbidden release action in tasks: {forbidden}"
+
+
+def test_no_union_questions_in_copier_yml() -> None:
+    """copier.yml must not declare mise_tools or hook_blocks union questions (spec 014)."""
+    copier_yml = (_MODULES_DIR / "bailiff-mod-cocogitto" / "copier.yml").read_text()
+    assert "mise_tools" not in copier_yml, "mise_tools union removed in spec 014"
+    assert "hook_blocks" not in copier_yml, "hook_blocks union removed in spec 014"
+
+
+def test_depends_on_base_and_moon() -> None:
+    """copier.yml depends_on must list bailiff-mod-base and bailiff-mod-moon (spec 014)."""
+    copier_yml = (_MODULES_DIR / "bailiff-mod-cocogitto" / "copier.yml").read_text()
+    assert "bailiff-mod-base" in copier_yml
+    assert "bailiff-mod-moon" in copier_yml
+    assert "depends_on" in copier_yml
+    assert "run_after" not in copier_yml, "run_after replaced by depends_on in spec 014"
