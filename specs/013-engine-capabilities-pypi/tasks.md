@@ -167,9 +167,9 @@ must not appear in a release commit before T003 is in).
 
 **Purpose**: Whole-spec validation before the maintainer-gated release work.
 
-- [ ] T015 Run the full gate suite and drive it to green: `pytest tests/` (all non-network tests), `mypy` on `src/bailiff/` + `src/bailiff/cli.py`, `ruff check .`, `ruff format --check .`. This is the SC-003 gate: every existing test must pass unmodified alongside the new tests. Fix any regression introduced by the work streams above.
+- [x] T015 Run the full gate suite and drive it to green: `pytest tests/` (all non-network tests), `mypy` on `src/bailiff/` + `src/bailiff/cli.py`, `ruff check .`, `ruff format --check .`. This is the SC-003 gate: every existing test must pass unmodified alongside the new tests. Fix any regression introduced by the work streams above.
 
-- [ ] T016 [US3] Wheel build and clean-venv install verification (SC-001):
+- [x] T016 [US3] Wheel build and clean-venv install verification (SC-001):
   (1) `uv build` — verify the wheel is produced without error.
   (2) Install the wheel into a fresh `venv` (not `uv sync` dev environment): `python -m venv /tmp/bailiff-test-venv && /tmp/bailiff-test-venv/bin/pip install dist/bailiff-*.whl`.
   (3) Verify the `bailiff` console command exists and:
