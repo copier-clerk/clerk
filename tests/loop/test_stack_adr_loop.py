@@ -1,10 +1,12 @@
-"""spec 011 T013: bailiff-mod-stack-adr loop tests.
+"""spec 011 T013 / spec 014: bailiff-mod-stack-adr loop tests.
 
 Covers:
 - simple format: STACK.md rendered from frozen facts; seed-once on reproduce.
 - adr format: numbered ADR rendered under adr_dir; seed-once on reproduce.
 - rationale with {{ }} notation is written verbatim (no double-render).
 - no agent step in reproduce path.
+- _external_data.base.project_name resolution (FR-006a): project_name sourced
+  from base answers file when omitted from stack-adr answers.
 """
 
 from __future__ import annotations
@@ -238,3 +240,49 @@ def test_adr_format_custom_adr_dir(bailiff_mod_stack_adr: TemplateRepo, tmp_path
     adr_file = dest / "architecture" / "decisions" / "0001-stack.md"
     assert adr_file.is_file(), "ADR not written to overridden adr_dir"
     assert "rust@1.79" in adr_file.read_text()
+
+
+# ---------------------------------------------------------------------------
+# _external_data.base resolution (spec 014 FR-006a)
+# ---------------------------------------------------------------------------
+
+
+def test_project_name_read_from_external_data(
+    bailiff_mod_base: TemplateRepo,
+    bailiff_mod_stack_adr: TemplateRepo,
+    tmp_path: Path,
+) -> None:
+    """project_name is sourced from base answers file when omitted from stack-adr answers.
+
+    Exercises _external_data.base.project_name (FR-006a): base runs first and
+    writes .copier-answers.bailiff-mod-base.yml; stack-adr reads project_name
+    from that file, not from its own answers dict.
+    """
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_stack_adr.url)
+
+    dest = tmp_path / "proj"
+    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
+        (
+            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
+            {
+                "project_name": "from-base-only",
+                "org": "acme",
+            },
+        ),
+        (
+            _record("demo/bailiff-mod-stack-adr", bailiff_mod_stack_adr, ["format"]),
+            # project_name deliberately omitted — must resolve via _external_data.base
+            {
+                "format": "simple",
+                "stack_pins": ["go@1.23"],
+            },
+        ),
+    ]
+    runner.init_many(selection, str(dest), today="2026-01-15")
+
+    stack = (dest / "STACK.md").read_text()
+    assert "from-base-only" in stack, (
+        "project_name not resolved from _external_data.base — "
+        "FR-006a regression: STACK.md header should contain the base-sourced name"
+    )
