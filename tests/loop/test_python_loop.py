@@ -6,8 +6,8 @@ Covers:
   - init [base, python] uv/3.13/src: ruff.toml MANAGED, pyproject present (task-output),
     mise sentinel present, gitignore_stack threaded.
   - standalone init with defaults: renders ruff.toml, pyproject present.
-  - reproduce: ruff.toml byte-identical (MANAGED), pyproject present/structure only
-    (TASK-OUTPUT seed-once, no regeneration over populated tree).
+  - reproduce: pyproject present/structure only (TASK-OUTPUT seed-once, no
+    regeneration over populated tree).
   - SEED-ONCE: pyproject not clobbered on re-run when already present.
   - pdm variant: pyproject present, sentinel written.
 """
@@ -131,14 +131,14 @@ def test_base_python_init_uv_src(
 
 
 # --------------------------------------------------------------------------- #
-# reproduce: ruff.toml byte-identical, pyproject presence only                 #
+# reproduce: pyproject presence/seed-once preservation                         #
 # --------------------------------------------------------------------------- #
 
 
-def test_reproduce_ruff_managed_pyproject_preserved(
+def test_reproduce_pyproject_preserved(
     bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
-    """reproduce: ruff.toml byte-identical (MANAGED); pyproject present but not regenerated."""
+    """reproduce: pyproject present but not regenerated (seed-once guard)."""
     trust.add_trust(bailiff_mod_base.url)
     trust.add_trust(bailiff_mod_python.url)
 
@@ -174,13 +174,9 @@ def test_reproduce_ruff_managed_pyproject_preserved(
     ]
     runner.init_many(selection, str(dest), today="2026-07-13")
 
-    ruff_before = _digest(dest / "ruff.toml")
     pyproject_before = _digest(dest / "pyproject.toml")
 
     runner.reproduce_many(str(dest))
-
-    # MANAGED: ruff.toml byte-identical after reproduce.
-    assert _digest(dest / "ruff.toml") == ruff_before, "ruff.toml changed on reproduce"
 
     # TASK-OUTPUT/seed-once: pyproject.toml present; the `test -f` guard + _skip_if_exists
     # make it a no-op on reproduce — committed file used verbatim (R5).
@@ -443,27 +439,4 @@ def test_add_tests_seed_once_not_clobbered(
     )
 
 
-def test_add_tests_pytest_ini_managed(bailiff_mod_python: TemplateRepo, tmp_path: Path) -> None:
-    """MANAGED: pytest.ini is byte-identical after reproduce."""
-    trust.add_trust(bailiff_mod_python.url)
-
-    dest = tmp_path / "proj"
-    spec = runner.RunSpec(
-        source=bailiff_mod_python.url,
-        dest=str(dest),
-        answers={
-            "python_pkg_manager": "uv",
-            "python_version": "3.13",
-            "python_layout": "src",
-            "add_tests": True,
-        },
-    )
-    runner.init(spec, today="2026-07-13")
-
-    ini_before = _digest(dest / "pytest.ini")
-    # Single-layer reproduce (same reason as test_add_tests_seed_once_not_clobbered).
-    # runner.init (single-layer) writes .copier-answers.yml, not the multi-layer name.
-    runner.reproduce(str(dest))
-    assert _digest(dest / "pytest.ini") == ini_before, (
-        "pytest.ini changed on reproduce (not managed)"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

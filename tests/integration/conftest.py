@@ -9,13 +9,11 @@ swapped for the deterministic stubs defined in tests/conftest.py
 
 Stacks are expensive (one shallow clone per layer for discovery + collision
 scan + render), so test files build them ONCE via module-scoped fixtures and
-assert read-only on the resulting tree; the reproduce test runs last-ish and
-must leave the tree byte-identical anyway.
+assert read-only on the resulting tree.
 """
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -141,33 +139,6 @@ def init_stack(
         exclusive_capabilities=exclusive_capabilities,
     )
     return dest
-
-
-def tree_digest(root: Path) -> dict[str, str]:
-    """SHA-256 of every non-.git file, keyed by relative path."""
-    digests: dict[str, str] = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(root)
-        if rel.parts and rel.parts[0] == ".git":
-            continue
-        digests[str(rel)] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digests
-
-
-def assert_reproduce_byte_identical(dest: Path) -> None:
-    """reproduce_many over the committed tree must change no file's bytes."""
-    before = tree_digest(dest)
-    runner.reproduce_many(str(dest))
-    after = tree_digest(dest)
-    changed = [p for p in before if before.get(p) != after.get(p)]
-    missing = sorted(set(before) - set(after))
-    extra = sorted(set(after) - set(before))
-    assert before == after, (
-        f"reproduce is not byte-identical.\nChanged: {changed}\n"
-        f"Missing after: {missing}\nExtra after: {extra}"
-    )
 
 
 @pytest.fixture(scope="module")

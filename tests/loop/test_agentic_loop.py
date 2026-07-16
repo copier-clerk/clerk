@@ -7,7 +7,6 @@ Covers:
 - native_marketplace → manifests + (stubbed) plugin install.
 - install_via_apm + kiro → apm path (stubbed offline).
 - mcp_config → per-target MCP file with ${VAR} refs (no secret question).
-- Managed files byte-identical on reproduce.
 - seed-once: .kiro/steering/project.md NOT overwritten on reproduce.
 - AGENTIC.md always present (managed).
 
@@ -16,7 +15,6 @@ All tasks are stubbed offline via the bailiff_mod_agentic fixture.
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -40,10 +38,6 @@ def _init(
     trust.add_trust(repo.url)
     spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-14")
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # --------------------------------------------------------------------------- #
@@ -403,50 +397,7 @@ def test_claude_codex_only_disjoint(bailiff_mod_agentic: TemplateRepo, tmp_path:
     assert not (dest / ".kiro").exists()
 
 
-# --------------------------------------------------------------------------- #
-# Managed files byte-identical on reproduce                                     #
-# --------------------------------------------------------------------------- #
-
-
-def test_managed_files_byte_identical_on_reproduce(
-    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
-) -> None:
-    """All managed files are byte-identical after reproduce (R5 / Constitution III)."""
-    dest = tmp_path / "proj"
-    servers = [{"name": "srv", "command": "npx", "args": ["-y", "srv-mcp"]}]
-    plugins = [{"name": "my-plugin", "owner_repo": "myorg/my-plugin"}]
-    _init(
-        bailiff_mod_agentic,
-        dest,
-        {
-            "project_name": "myapp",
-            "agentic_targets": ["claude", "codex", "opencode", "kiro"],
-            "mcp_config": True,
-            "mcp_servers": servers,
-            "native_marketplace": True,
-            "agentic_plugins": plugins,
-            "kiro_cli_agents": True,
-        },
-    )
-
-    managed_files = [
-        dest / "AGENTIC.md",
-        dest / ".claude" / "settings.json",
-        dest / ".mcp.json",
-        dest / ".codex" / "config.toml",
-        dest / ".agents" / "plugins" / "marketplace.json",
-        dest / "opencode.json",
-        dest / ".kiro" / "settings" / "mcp.json",
-        dest / ".kiro" / "agents" / "agents.json",
-        dest / ".copier-answers.yml",
-    ]
-
-    before = {p: _digest(p) for p in managed_files if p.is_file()}
-
-    runner.reproduce_many(str(dest))
-
-    for p, d in before.items():
-        assert _digest(p) == d, f"{p.relative_to(dest)} changed after reproduce (must be managed)"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # --------------------------------------------------------------------------- #

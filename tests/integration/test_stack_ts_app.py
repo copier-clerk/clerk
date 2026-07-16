@@ -17,7 +17,6 @@ import yaml
 
 from tests.integration.conftest import (
     BIOME_HOOK_BLOCK,
-    assert_reproduce_byte_identical,
     init_stack,
 )
 
@@ -143,5 +142,4 @@ def test_readme_static_skeleton(stack: Path) -> None:
     assert "bun install" in text, "install snippet must follow the bun stack fact"
 
 
-def test_reproduce_byte_identical(stack: Path) -> None:
-    assert_reproduce_byte_identical(stack)
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

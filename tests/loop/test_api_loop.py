@@ -3,7 +3,7 @@
 Pure render — zero _tasks. Assertions (US7 AS1-3):
 - seed-once openapi.yaml at the REPO ROOT: minimal valid OpenAPI 3.1 skeleton;
   a project edit survives reproduce over the populated tree;
-- managed .spectral.yaml byte-identical on init AND reproduce;
+- managed .spectral.yaml rendered on init;
 - hook_manager=none → files still render and no hook file is written by anyone;
 - spectral hook block flows through precommit (the single writer) when frozen;
 - no secret: questions.
@@ -11,7 +11,6 @@ Pure render — zero _tasks. Assertions (US7 AS1-3):
 
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 from pathlib import Path
@@ -84,10 +83,6 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _record(full_id: str, repo: TemplateRepo, has_tasks: bool = False) -> TemplateRecord:
     return TemplateRecord(
         full_id=full_id,
@@ -136,11 +131,11 @@ def test_openapi_skeleton_and_spectral_config(
 
 
 # ---------------------------------------------------------------------------
-# Re-run preserves edited openapi.yaml; spectral re-renders identically (US7 AS2)
+# Re-run preserves edited openapi.yaml (seed-once) (US7 AS2)
 # ---------------------------------------------------------------------------
 
 
-def test_edited_openapi_preserved_and_spectral_byte_identical(
+def test_edited_openapi_preserved_on_reproduce(
     bailiff_mod_base: TemplateRepo, bailiff_mod_api: TemplateRepo, tmp_path: Path
 ) -> None:
     trust.add_trust(bailiff_mod_base.url)
@@ -168,7 +163,6 @@ def test_edited_openapi_preserved_and_spectral_byte_identical(
     oa = dest / _OPENAPI
     sp = dest / _SPECTRAL
     assert oa.is_file() and sp.is_file()
-    sp_before = _digest(sp)
 
     health_path = (
         "paths:\n  /health:\n    get:\n      responses:\n"
@@ -180,7 +174,6 @@ def test_edited_openapi_preserved_and_spectral_byte_identical(
     runner.reproduce_many(str(dest))
 
     assert oa.read_text() == edited, "seed-once openapi.yaml clobbered on reproduce"
-    assert _digest(sp) == sp_before, ".spectral.yaml changed on reproduce"
 
 
 # ---------------------------------------------------------------------------

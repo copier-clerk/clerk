@@ -1,8 +1,7 @@
 """spec 012 T005: bailiff-mod-cocogitto loop tests (FR-007).
 
 Assertions:
-- single layout → managed cog.toml (no [monorepo] section), byte-identical on
-  reproduce;
+- single layout → managed cog.toml (no [monorepo] section);
 - monorepo layout → [monorepo] section with per-package entries;
 - ZERO release side effects: no git tag, no CHANGELOG.md written by the module;
 - hook_blocks contribution: the commit-msg-lint block flows through precommit
@@ -13,7 +12,6 @@ Assertions:
 
 from __future__ import annotations
 
-import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -72,10 +70,6 @@ def bailiff_mod_precommit(tmp_path: Path) -> TemplateRepo:
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
@@ -209,44 +203,7 @@ def test_hook_block_written_by_precommit(
     assert (dest / _COG_FILE).is_file()
 
 
-# ---------------------------------------------------------------------------
-# Reproduce: byte-identical managed render, no re-shelling (US2 AS1 / SC-003)
-# ---------------------------------------------------------------------------
-
-
-def test_cog_toml_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_cocogitto: TemplateRepo,
-    tmp_path: Path,
-) -> None:
-    for repo in (bailiff_mod_base, bailiff_mod_cocogitto):
-        trust.add_trust(repo.url)
-
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": [],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-cocogitto", bailiff_mod_cocogitto, ["project_name"]),
-            {"project_name": "myapp", "layout": "single"},
-        ),
-    ]
-    dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    cog = dest / _COG_FILE
-    before = _digest(cog)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(cog) == before, "cog.toml changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

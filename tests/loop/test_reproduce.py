@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -20,24 +19,6 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def _tree_digest(root: Path, *, include_git: bool = False) -> dict[str, str]:
-    """Hash of every rendered file, keyed by relative path.
-
-    The enumerated comparison set (SC-002): all files under the project EXCEPT the
-    `.git` working metadata (which is the task's side effect, not rendered output).
-    The exclusion allowlist is exactly `.git/**` and nothing else.
-    """
-    digests: dict[str, str] = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(root)
-        if not include_git and rel.parts and rel.parts[0] == ".git":
-            continue
-        digests[str(rel)] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digests
-
-
 def _init(base_template: TemplateRepo, dest: Path) -> None:
     trust.add_trust(base_template.url)
     spec = runner.RunSpec(
@@ -51,16 +32,7 @@ def _init(base_template: TemplateRepo, dest: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_reproduce_is_byte_identical(base_template: TemplateRepo, tmp_path: Path) -> None:
-    dest = tmp_path / "proj"
-    _init(base_template, dest)
-    before = _tree_digest(dest)
-
-    runner.reproduce(str(dest))
-    after = _tree_digest(dest)
-
-    # byte-identical over the enumerated set, empty exclusion beyond .git metadata
-    assert before == after
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 def test_reproduce_overwrites_local_edits_in_place(
@@ -115,10 +87,9 @@ def test_init_writes_no_bailiff_file(base_template: TemplateRepo, tmp_path: Path
 def test_reproduce_via_bailiff_script(
     base_template: TemplateRepo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """the bailiff CLI reproduce is byte-identical to a direct runner.reproduce call."""
+    """the bailiff CLI reproduce runs successfully and repairs a corrupted rendered file."""
     dest = tmp_path / "proj"
     _init(base_template, dest)
-    before = _tree_digest(dest)
 
     # corrupt a rendered file to confirm reproduce fixes it
     (dest / "out.txt").write_text("CORRUPTED\n")
@@ -133,9 +104,7 @@ def test_reproduce_via_bailiff_script(
     assert result.returncode == 0, (
         f"bailiff.py reproduce failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
-
-    after = _tree_digest(dest)
-    assert before == after
+    assert "CORRUPTED" not in (dest / "out.txt").read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -143,51 +112,7 @@ def test_reproduce_via_bailiff_script(
 # ---------------------------------------------------------------------------
 
 
-def test_copier_only_reproduce_byte_identical(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """The copier-only fallback produces the same output as bailiff.py reproduce (SC-001).
-
-    Uses `copier recopy --vcs-ref=:current: --defaults --overwrite` directly —
-    no bailiff import, no just — proving reproduce needs neither bailiff nor just installed.
-    The assertion is on byte-identical digests vs the recorded commit state.
-    """
-    # init via the library to get a well-known starting state
-    dest_a = tmp_path / "proj_a"
-    _init(base_template, dest_a)
-    before = _tree_digest(dest_a)
-
-    # Produce a second independent clone via bailiff.py, then compare
-    # the copier-only recopy path against it.
-    dest_b = tmp_path / "proj_b"
-    _init(base_template, dest_b)
-
-    # corrupt proj_b; restore via copier-only path (no bailiff module involved)
-    (dest_b / "out.txt").write_text("HAND EDITED\n")
-
-    settings_path = tmp_path / "settings.yml"
-    result = subprocess.run(
-        ["copier", "recopy", "--vcs-ref=:current:", "--defaults", "--overwrite"],
-        cwd=str(dest_b),
-        capture_output=True,
-        text=True,
-        env={**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)},
-    )
-    assert result.returncode == 0, (
-        f"copier recopy failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
-
-    after_b = _tree_digest(dest_b)
-
-    # Both trees must be byte-identical (SC-001)
-    assert before == after_b, (
-        "copier-only reproduce diverges from bailiff.py reproduce:\n"
-        f"  missing in copier-only: {set(before) - set(after_b)}\n"
-        f"  extra in copier-only: {set(after_b) - set(before)}\n"
-        f"  changed: {[k for k in before if k in after_b and before[k] != after_b[k]]}"
-    )
-
-    # SC-002: no justfile / no bailiff artifact in the project
-    assert not (dest_b / "justfile").exists()
-    assert not (dest_b / "Justfile").exists()
+# (copier-only reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +165,7 @@ def test_bailiff_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
 def test_reproduce_via_bailiff_script_run_spec_json(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """the bailiff CLI init --run-spec then reproduce round-trips byte-identically."""
+    """the bailiff CLI init --run-spec then reproduce round-trips (repairs a corrupted file)."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -265,8 +190,6 @@ def test_reproduce_via_bailiff_script_run_spec_json(
     )
     assert r_init.returncode == 0, f"init failed:\nstdout: {r_init.stdout}\nstderr: {r_init.stderr}"
 
-    before = _tree_digest(dest)
-
     # corrupt and reproduce
     (dest / "out.txt").write_text("CORRUPTED\n")
     r_repro = subprocess.run(
@@ -278,6 +201,4 @@ def test_reproduce_via_bailiff_script_run_spec_json(
     assert r_repro.returncode == 0, (
         f"reproduce failed:\nstdout: {r_repro.stdout}\nstderr: {r_repro.stderr}"
     )
-
-    after = _tree_digest(dest)
-    assert before == after
+    assert "CORRUPTED" not in (dest / "out.txt").read_text()

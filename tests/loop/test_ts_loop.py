@@ -4,13 +4,12 @@ Init [bailiff-mod-base, bailiff-mod-ts] and assert:
 - run_after edge sequences base before ts;
 - project_name threaded from base into the ts overlay;
 - package.json stub marker present (task-output lifecycle);
-- managed configs byte-identical: tsconfig.json, biome.json (ts_linter=biome),
+- managed configs present: tsconfig.json, biome.json (ts_linter=biome),
   eslint/.prettierrc (ts_linter=eslint-prettier);
 - gitignore_stack / mise_tools / hook_blocks tokens contributed (frozen-union M1);
 - answers files committed for both layers.
 
 Reproduce assertions:
-- managed config files byte-identical after reproduce;
 - edited package.json preserved (_skip_if_exists seed-once contract).
 
 No secret: questions, yarn/jest never offered (spec 011 contract).
@@ -18,7 +17,6 @@ No secret: questions, yarn/jest never offered (spec 011 contract).
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -51,8 +49,6 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
     )
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 @pytest.fixture
@@ -233,64 +229,7 @@ def test_ts_eslint_prettier_variant(
 # ---------------------------------------------------------------------------
 
 
-def test_managed_configs_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
-) -> None:
-    """Managed configs (tsconfig.json, biome.json) are byte-identical after reproduce."""
-    trust.add_trust(bailiff_mod_base.url)
-    trust.add_trust(bailiff_mod_ts_bun.url)
-
-    dest = tmp_path / "proj"
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record(
-                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
-            ),
-            {
-                "project_name": "mytsapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": ["Node"],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
-            {
-                "js_pkg_manager": "bun",
-                "ts_linter": "biome",
-                "test_runner": "none",
-                "node_version": "22",
-                "ts_framework": "plain",
-                "ui_kit": "none",
-                "gitignore_stack": ["Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
-            },
-        ),
-    ]
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    # Capture digests of managed files before reproduce.
-    managed = ["tsconfig.json", "biome.json"]
-    before = {
-        p: _digest(dest / p)
-        for p in managed
-        if (dest / p).is_file() and (dest / p).stat().st_size > 0
-    }
-    assert before, "no managed files found after init"
-
-    runner.reproduce_many(str(dest))
-
-    after = {
-        p: _digest(dest / p)
-        for p in managed
-        if (dest / p).is_file() and (dest / p).stat().st_size > 0
-    }
-    assert before == after, (
-        "managed config files changed on reproduce: "
-        f"{[p for p in before if before.get(p) != after.get(p)]}"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 def test_edited_package_json_preserved_on_reproduce(
@@ -441,53 +380,7 @@ def test_test_runner_variants(
             )
 
 
-def test_test_runner_variants_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_ts_bun: TemplateRepo,
-    tmp_path: Path,
-) -> None:
-    """Managed vitest.config.ts is byte-identical after reproduce (test_runner=vitest-node)."""
-    trust.add_trust(bailiff_mod_base.url)
-    trust.add_trust(bailiff_mod_ts_bun.url)
-
-    dest = tmp_path / "proj-vn-reproduce"
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record(
-                "demo/bailiff-mod-base", bailiff_mod_base, ["project_name", "license", "layout"]
-            ),
-            {
-                "project_name": "tstest",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": ["Node"],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "test_runner"]),
-            {
-                "js_pkg_manager": "bun",
-                "ts_linter": "biome",
-                "test_runner": "vitest-node",
-                "node_version": "22",
-                "ts_framework": "plain",
-                "ui_kit": "none",
-                "gitignore_stack": ["Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
-            },
-        ),
-    ]
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    vitest_path = dest / "vitest.config.ts"
-    assert vitest_path.is_file(), "vitest.config.ts missing after init"
-    before = _digest(vitest_path)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(vitest_path) == before, "vitest.config.ts changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 def test_no_secret_questions() -> None:

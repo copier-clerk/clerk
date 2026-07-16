@@ -5,27 +5,21 @@ Pure MANAGED render — zero _tasks. Assertions:
 - ts_linter=biome frozen → TS section with the linter's 2-space indent convention;
 - python facts + ruff_line_length=88 → Python section max_line_length=88, indent 4
   (indentation from the linter convention, NEVER from line width);
-- byte-identical on init AND reproduce (managed lifecycle);
 - no secret: questions.
 """
 
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from bailiff import runner, trust
-from bailiff.catalog import TemplateRecord
 from tests.conftest import (
-    _BASE_STUB_TASKS,
     _MODULES_DIR,
     TemplateRepo,
-    _copy_module_with_stub_tasks,
     _git,
 )
 
@@ -57,32 +51,9 @@ def bailiff_mod_editorconfig(tmp_path: Path) -> TemplateRepo:
     return _copy_editorconfig_module(tmp_path)
 
 
-@pytest.fixture
-def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
-    )
-
-
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
-    return TemplateRecord(
-        full_id=full_id,
-        source=repo.url,
-        ref=repo.tag,
-        versions=[repo.tag],
-        reproducible=True,
-        has_tasks=False,
-        questions=questions,
-    )
 
 
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
@@ -160,46 +131,7 @@ def test_python_section_indent_and_line_length(
     assert "indent_size = 4" in py_120, "indentation must never derive from line width"
 
 
-# ---------------------------------------------------------------------------
-# Reproduce: byte-identical managed render (US9 AS3)
-# ---------------------------------------------------------------------------
-
-
-def test_editorconfig_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_editorconfig: TemplateRepo,
-    tmp_path: Path,
-) -> None:
-    """Managed render is byte-identical after reproduce, no task executed."""
-    trust.add_trust(bailiff_mod_base.url)
-    trust.add_trust(bailiff_mod_editorconfig.url)
-
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": [],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-editorconfig", bailiff_mod_editorconfig, ["ts_linter"]),
-            {"ts_linter": "biome", "python_linter": "ruff", "ruff_line_length": "88"},
-        ),
-    ]
-    dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    ec = dest / _EC_FILE
-    assert ec.is_file()
-    before = _digest(ec)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(ec) == before, ".editorconfig changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

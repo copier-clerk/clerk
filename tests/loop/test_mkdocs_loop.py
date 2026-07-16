@@ -1,7 +1,7 @@
 """spec 012 T008: bailiff-mod-mkdocs loop tests (FR-011).
 
 Pure render — zero _tasks. Assertions (US5 AS1-3):
-- managed mkdocs.yml wired to docs/, byte-identical on reproduce;
+- managed mkdocs.yml wired to docs/;
 - docs/index.md is seed-once (_skip_if_exists): a project edit survives
   reproduce over the populated tree;
 - no _tasks at all (no build/deploy/network at scaffold time);
@@ -10,7 +10,6 @@ Pure render — zero _tasks. Assertions (US5 AS1-3):
 
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 from pathlib import Path
@@ -63,10 +62,6 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _record(full_id: str, repo: TemplateRepo) -> TemplateRecord:
     return TemplateRecord(
         full_id=full_id,
@@ -115,10 +110,10 @@ def test_mkdocs_yml_and_seeded_index(bailiff_mod_mkdocs: TemplateRepo, tmp_path:
 # ---------------------------------------------------------------------------
 
 
-def test_edited_index_preserved_and_mkdocs_byte_identical(
+def test_edited_index_preserved_on_reproduce(
     bailiff_mod_base: TemplateRepo, bailiff_mod_mkdocs: TemplateRepo, tmp_path: Path
 ) -> None:
-    """A project edit to docs/index.md survives reproduce; mkdocs.yml re-renders identically."""
+    """A project edit to docs/index.md survives reproduce (seed-once)."""
     trust.add_trust(bailiff_mod_base.url)
     trust.add_trust(bailiff_mod_mkdocs.url)
 
@@ -144,7 +139,6 @@ def test_edited_index_preserved_and_mkdocs_byte_identical(
     mk = dest / _MKDOCS
     idx = dest / _INDEX
     assert mk.is_file() and idx.is_file()
-    mk_before = _digest(mk)
 
     edited = "# My edited docs\n\nproject-owned content\n"
     idx.write_text(edited)
@@ -152,7 +146,6 @@ def test_edited_index_preserved_and_mkdocs_byte_identical(
     runner.reproduce_many(str(dest))
 
     assert idx.read_text() == edited, "seed-once docs/index.md clobbered on reproduce"
-    assert _digest(mk) == mk_before, "mkdocs.yml changed on reproduce"
 
 
 # ---------------------------------------------------------------------------

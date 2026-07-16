@@ -19,7 +19,6 @@ from bailiff import runner
 from tests.integration.conftest import (
     RUFF_HOOK_BLOCK,
     SPECTRAL_HOOK_BLOCK,
-    assert_reproduce_byte_identical,
     init_stack,
 )
 
@@ -116,11 +115,4 @@ def test_seed_once_edits_survive_reproduce(stack: Path) -> None:
     assert idx.read_text() == idx_edit, "docs/index.md edit clobbered (seed-once broken)"
     assert _digest(stack / ".spectral.yaml") == spectral_before, ".spectral.yaml not managed"
 
-    # Restore the pristine seeds so the byte-identical test below sees the
-    # post-init state (reproduce_many keeps seed-once files as-is).
-    # NOTE: we intentionally leave the edits in place — reproduce is asserted
-    # byte-identical over the CURRENT (edited) tree, which is the stronger claim.
-
-
-def test_reproduce_byte_identical_over_edited_tree(stack: Path) -> None:
-    assert_reproduce_byte_identical(stack)
+    # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

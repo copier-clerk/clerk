@@ -4,30 +4,23 @@ Pure MANAGED render — zero _tasks. Assertions:
 - init [base, python, devcontainer] with mise_tools frozen → devcontainer.json
   references the mise devcontainer feature and lists the exact frozen tool set;
 - mise_tools=[] → minimal valid JSON (base image + mise feature, no install);
-- byte-identical on init AND reproduce (managed lifecycle);
 - fixed base image (no devcontainer_image question — ledger FR-005);
 - no secret: questions.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import shutil
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from bailiff import runner, trust
-from bailiff.catalog import TemplateRecord
 from tests.conftest import (
-    _BASE_STUB_TASKS,
     _MODULES_DIR,
-    _PYTHON_STUB_TASKS,
     TemplateRepo,
-    _copy_module_with_stub_tasks,
     _git,
 )
 
@@ -54,39 +47,9 @@ def bailiff_mod_devcontainer(tmp_path: Path) -> TemplateRepo:
     return _copy_devcontainer_module(tmp_path)
 
 
-@pytest.fixture
-def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
-    )
-
-
-@pytest.fixture
-def bailiff_mod_python(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-python", tmp_path / "bailiff-mod-python", _PYTHON_STUB_TASKS
-    )
-
-
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
-    return TemplateRecord(
-        full_id=full_id,
-        source=repo.url,
-        ref=repo.tag,
-        versions=[repo.tag],
-        reproducible=True,
-        has_tasks=False,
-        questions=questions,
-    )
 
 
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
@@ -148,55 +111,7 @@ def test_devcontainer_empty_mise_tools_minimal_valid(
     assert "postCreateCommand" not in parsed, "no install command when mise_tools is empty"
 
 
-# ---------------------------------------------------------------------------
-# Reproduce: byte-identical managed render over [base, python, devcontainer]
-# ---------------------------------------------------------------------------
-
-
-def test_devcontainer_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_python: TemplateRepo,
-    bailiff_mod_devcontainer: TemplateRepo,
-    tmp_path: Path,
-) -> None:
-    """US1 AS2 / SC-001: managed render is byte-identical after reproduce, no re-shelling."""
-    for repo in (bailiff_mod_base, bailiff_mod_python, bailiff_mod_devcontainer):
-        trust.add_trust(repo.url)
-
-    mise_tools = [{"python": "3.13"}]
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "gitignore_stack": [],
-                "mise_tools": mise_tools,
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-python", bailiff_mod_python, ["project_name"]),
-            {"project_name": "myapp", "mise_tools": mise_tools},
-        ),
-        (
-            _record("demo/bailiff-mod-devcontainer", bailiff_mod_devcontainer, ["project_name"]),
-            {"project_name": "myapp", "mise_tools": mise_tools},
-        ),
-    ]
-    dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    dc_file = dest / _DC_FILE
-    assert dc_file.is_file()
-    parsed = json.loads(dc_file.read_text())
-    assert "python@3.13" in parsed["postCreateCommand"]
-    before = _digest(dc_file)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(dc_file) == before, "devcontainer.json changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

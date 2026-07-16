@@ -20,7 +20,6 @@ the repo goes live.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -71,19 +70,6 @@ def _require_remote() -> str:
     return TEMPLATE_URL
 
 
-def _tree_digest(root: Path) -> dict[str, str]:
-    """SHA-256 of every rendered file except `.git` working metadata."""
-    digests: dict[str, str] = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(root)
-        if rel.parts and rel.parts[0] == ".git":
-            continue
-        digests[str(rel)] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digests
-
-
 def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> None:
     """The whole loop against a real remote: discover → init → faithful reproduce."""
     url = _require_remote
@@ -116,12 +102,10 @@ def test_live_discover_init_reproduce(_require_remote: str, tmp_path: Path) -> N
     assert answers["_commit"] in desc.versions
     assert answers["project_name"] == "bailiff-smoke"
 
-    # 3) reproduce — corrupt, then replay; must come back byte-identical.
-    before = _tree_digest(dest)
+    # 3) reproduce — corrupt, then replay; the corruption must be repaired.
     (dest / "README.md").write_text("CORRUPTED\n")
     runner.reproduce(str(dest))
-    after = _tree_digest(dest)
-    assert before == after
+    assert "CORRUPTED" not in (dest / "README.md").read_text()
 
 
 def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path) -> None:
@@ -176,8 +160,6 @@ def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path)
     )
     assert r_init.returncode == 0, f"init failed:\nstdout: {r_init.stdout}\nstderr: {r_init.stderr}"
 
-    before = _tree_digest(dest)
-
     # SC-002: no bailiff artifact
     assert not (dest / "justfile").exists()
     assert not (dest / "Justfile").exists()
@@ -193,51 +175,7 @@ def test_live_reproduce_via_bailiff_script(_require_remote: str, tmp_path: Path)
     assert r_repro.returncode == 0, (
         f"reproduce failed:\nstdout: {r_repro.stdout}\nstderr: {r_repro.stderr}"
     )
-    after = _tree_digest(dest)
-    assert before == after
+    assert "CORRUPTED" not in (dest / "README.md").read_text()
 
 
-def test_live_copier_only_reproduce_byte_identical(_require_remote: str, tmp_path: Path) -> None:
-    """copier-only-by-hand reproduce matches bailiff.py reproduce against the live remote.
-
-    Proves the US1 fallback: `copier recopy --vcs-ref=:current: --defaults --overwrite`
-    in the project dir needs no bailiff on PATH (FR-003 / SC-001).
-    """
-    url = _require_remote
-    settings_path = tmp_path / "settings.yml"
-    env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
-
-    trust.add_trust(url)
-
-    dest = tmp_path / "proj"
-    spec = runner.RunSpec(
-        source=url,
-        dest=str(dest),
-        answers={
-            "project_name": "bailiff-smoke",
-            "org": "bailiff-io",
-            "license": "MIT",
-            "description": "copier-only fallback test",
-        },
-    )
-    runner.init(spec, today="2026-07-10")
-    before = _tree_digest(dest)
-
-    # corrupt and restore via the copier-only path (no bailiff module used here)
-    (dest / "README.md").write_text("CORRUPTED\n")
-    result = subprocess.run(
-        ["copier", "recopy", "--vcs-ref=:current:", "--defaults", "--overwrite"],
-        cwd=str(dest),
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert result.returncode == 0, (
-        f"copier recopy failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
-
-    after = _tree_digest(dest)
-    assert before == after, (
-        "copier-only reproduce diverges from the recorded state:\n"
-        f"  changed: {[k for k in before if k in after and before[k] != after[k]]}"
-    )
+# (copier-only reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

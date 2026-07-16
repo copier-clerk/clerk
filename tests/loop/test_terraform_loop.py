@@ -3,8 +3,8 @@
 Init + reproduce assertions for both tf_flavor=terraform and tf_flavor=opentofu.
 
 Lifecycle classes asserted:
-  MANAGED     — versions.tf, .tflint.hcl, .terraform-version: byte-identical on
-                init AND reproduce (content matched exactly).
+  MANAGED     — versions.tf, .tflint.hcl, .terraform-version: rendered on init;
+                .tflint.hcl is identical across tf_flavor (shared ruleset).
   SEED-ONCE   — main.tf, variables.tf, outputs.tf, backend.tf,
                 terraform.tfvars.example: present after init; NOT overwritten on
                 reproduce when already present (_skip_if_exists guard).
@@ -222,31 +222,7 @@ class TestTerraformFlavor:
         assert "run_after" not in af
         assert "depends_on" not in af
 
-    def test_managed_byte_identical_on_reproduce(
-        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
-    ) -> None:
-        """MANAGED files are byte-identical after reproduce (no drift)."""
-        dest = tmp_path / "proj"
-        _init(
-            bailiff_mod_terraform,
-            dest,
-            {
-                "tf_flavor": "terraform",
-                "terraform_version": "1.12.2",
-                "tflint_version": "0.57.0",
-                "placement_dir": "infrastructure",
-            },
-        )
-        iac = dest / "infrastructure"
-        versions_before = (iac / "versions.tf").read_text()
-        tflint_before = (iac / ".tflint.hcl").read_text()
-        tv_before = (iac / ".terraform-version").read_text()
-
-        _reproduce(bailiff_mod_terraform, dest)
-
-        assert (iac / "versions.tf").read_text() == versions_before, "versions.tf drifted"
-        assert (iac / ".tflint.hcl").read_text() == tflint_before, ".tflint.hcl drifted"
-        assert (iac / ".terraform-version").read_text() == tv_before, ".terraform-version drifted"
+    # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
     def test_seed_once_not_overwritten_on_reproduce(
         self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path

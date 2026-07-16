@@ -93,21 +93,7 @@ def test_cdk_answers_file_written(bailiff_mod_cdk: TemplateRepo, tmp_path: Path)
     assert data.get("placement_dir") == "infrastructure"
 
 
-def test_cdk_reproduce_is_no_op(bailiff_mod_cdk: TemplateRepo, tmp_path: Path) -> None:
-    """Reproduce with stub tasks is a no-op: answers file unchanged (T026 analogue)."""
-    dest = tmp_path / "proj"
-    _init_cdk(bailiff_mod_cdk, dest)
-
-    # Single-template init → default answers file name.
-    af = dest / ".copier-answers.yml"
-    before = af.read_bytes()
-
-    # Reproduce replays the stub — guard logic in the real tasks makes reproduce
-    # idempotent; the stub just overwrites the marker (same content).
-    runner.reproduce(str(dest))
-
-    after = af.read_bytes()
-    assert before == after, "answers file must be byte-identical after reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 def test_cdk_context_json_not_gitignored(tmp_path: Path) -> None:

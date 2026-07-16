@@ -2,18 +2,17 @@
 
 Covers:
 - Init [base, rust] applies base first, threads project_name, produces managed
-  rust-toolchain.toml and rustfmt.toml (byte-identical).
+  rust-toolchain.toml and rustfmt.toml.
 - crate_kind=lib renders the --lib flag expression in the task (verified via the
   copier.yml task body — actual cargo is stubbed offline).
 - test_runner=cargo-test vs nextest: answers recorded correctly.
-- reproduce: managed files byte-identical; Cargo.toml (seed-once) preserved after edit.
+- reproduce: Cargo.toml (seed-once) preserved after edit.
 - Standalone render with defaults does not crash.
 - No secret: questions present.
 """
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
@@ -24,13 +23,6 @@ import yaml
 from bailiff import runner, trust
 from bailiff.catalog import TemplateRecord
 from tests.conftest import TemplateRepo
-
-# Managed files whose bytes must be stable across reproduce.
-_MANAGED_PATHS = [
-    "rust-toolchain.toml",
-    "rustfmt.toml",
-    ".copier-answers.bailiff-mod-rust.yml",
-]
 
 
 @pytest.fixture(autouse=True)
@@ -48,10 +40,6 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
         has_tasks=True,
         questions=questions,
     )
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _init_base_rust(
@@ -205,29 +193,7 @@ def test_rustfmt_heuristics_off(
     assert "use_small_heuristics" not in rustfmt, "Off should suppress the heuristics line"
 
 
-# ---------------------------------------------------------------------------
-# Managed files byte-identical on reproduce
-# ---------------------------------------------------------------------------
-
-
-def test_managed_files_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
-) -> None:
-    """T-R5: managed files (rust-toolchain.toml, rustfmt.toml, answers) are byte-identical."""
-    dest = tmp_path / "proj"
-    _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest)
-
-    before = {p: _digest(dest / p) for p in _MANAGED_PATHS if (dest / p).is_file()}
-    for p in _MANAGED_PATHS:
-        assert (dest / p).is_file(), f"expected managed file {p} after init"
-
-    runner.reproduce_many(str(dest))
-
-    after = {p: _digest(dest / p) for p in _MANAGED_PATHS if (dest / p).is_file()}
-    assert before == after, (
-        "managed files changed on reproduce: "
-        f"{[p for p in before if before.get(p) != after.get(p)]}"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.conftest import assert_reproduce_byte_identical, init_stack
+from tests.integration.conftest import init_stack
 
 _LAYERS = [
     (
@@ -91,5 +91,4 @@ def test_coexistence_with_language_and_ci(stack: Path) -> None:
     assert len(list(stack.glob(".copier-answers.*.yml"))) == len(_LAYERS)
 
 
-def test_reproduce_byte_identical(stack: Path) -> None:
-    assert_reproduce_byte_identical(stack)
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

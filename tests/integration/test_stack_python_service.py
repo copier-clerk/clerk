@@ -6,8 +6,7 @@ holds when the whole realistic stack composes:
 - base is the only writer of .mise.toml (all contributed tokens present);
 - precommit is the only writer of the hook config (contributed blocks present once);
 - quality writes the quality-languages hook file;
-- dep-updates resolves dependabot from the THREADED github_host=true base answer;
-- reproduce over the committed tree is byte-identical.
+- dep-updates resolves dependabot from the THREADED github_host=true base answer.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ import yaml
 
 from tests.integration.conftest import (
     RUFF_HOOK_BLOCK,
-    assert_reproduce_byte_identical,
     init_stack,
 )
 
@@ -157,5 +155,4 @@ def test_dependabot_from_threaded_github_host(stack: Path) -> None:
     assert not (stack / "renovate.json").exists()
 
 
-def test_reproduce_byte_identical(stack: Path) -> None:
-    assert_reproduce_byte_identical(stack)
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

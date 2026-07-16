@@ -2,20 +2,17 @@
 
 Assertions per model:
 - valid YAML structure (not just rendered text);
-- correct key semantics per grill-fix rules;
-- MANAGED lifecycle → byte-identical on reproduce.
+- correct key semantics per grill-fix rules.
 
 Covers:
 - all 5 models with a 2-language ci_lang_facts fixture (python + typescript);
 - optional:true needs on change-gated jobs (optimized model);
 - merge-queue + free tier → fallback + header warning;
-- empty ci_languages + monorepo_tool=none → loud warning job (R4 guard);
-- reproduce byte-identical (pure render, zero tasks).
+- empty ci_languages + monorepo_tool=none → loud warning job (R4 guard).
 """
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -79,10 +76,6 @@ _BASE_ANSWERS = {
 # ---------------------------------------------------------------------------
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> dict:
     """Run init and return the parsed YAML of .gitlab-ci.yml."""
     trust.add_trust(repo.url)
@@ -124,19 +117,7 @@ def test_minimal_renders_single_job(bailiff_mod_ci_gitlab: TemplateRepo, tmp_pat
     assert ":lts" not in text, "pinned image must not use :lts"
 
 
-def test_minimal_reproduce_byte_identical(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """minimal MANAGED: reproduce byte-identical (pure render)."""
-    dest = tmp_path / "proj"
-    answers = {**_BASE_ANSWERS, "ci_model": "minimal"}
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before, ".gitlab-ci.yml changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -170,19 +151,7 @@ def test_standard_parallel_jobs_no_gate(
     assert parsed["typescript"].get("image") == "oven/bun:1.2-slim"
 
 
-def test_standard_reproduce_byte_identical(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """standard MANAGED: reproduce byte-identical."""
-    dest = tmp_path / "proj"
-    answers = {**_BASE_ANSWERS, "ci_model": "standard"}
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -289,19 +258,7 @@ def test_optimized_no_interruptible_when_disabled(
     )
 
 
-def test_optimized_reproduce_byte_identical(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """optimized MANAGED: reproduce byte-identical."""
-    dest = tmp_path / "proj"
-    answers = {**_BASE_ANSWERS, "ci_model": "optimized"}
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -333,24 +290,7 @@ def test_monorepo_affected_parent_child(
         assert "include" in trigger_block, f"{job_name}: trigger.include missing"
 
 
-def test_monorepo_affected_reproduce_byte_identical(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """monorepo-affected MANAGED: reproduce byte-identical."""
-    dest = tmp_path / "proj"
-    answers = {
-        **_BASE_ANSWERS,
-        "ci_model": "monorepo-affected",
-        "monorepo_tool": "nx",
-        "monorepo_packages": ["apps/backend", "apps/frontend"],
-    }
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -401,19 +341,7 @@ def test_moon_absent_in_other_models(bailiff_mod_ci_gitlab: TemplateRepo, tmp_pa
     assert any(str(k).startswith("trigger:") for k in parsed)
 
 
-def test_monorepo_affected_moon_reproduce(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """moon branch MANAGED: reproduce byte-identical."""
-    dest = tmp_path / "proj"
-    answers = {**_BASE_ANSWERS, "ci_model": "monorepo-affected", "monorepo_tool": "moon"}
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -470,19 +398,7 @@ def test_merge_queue_free_tier_fallback_and_warning(
     assert mr_rule, "free tier must have MR event fallback rule"
 
 
-def test_merge_queue_reproduce_byte_identical(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
-    """merge-queue MANAGED: reproduce byte-identical."""
-    dest = tmp_path / "proj"
-    answers = {**_BASE_ANSWERS, "ci_model": "merge-queue", "gitlab_tier": "free"}
-    trust.add_trust(bailiff_mod_ci_gitlab.url)
-    spec = runner.RunSpec(source=bailiff_mod_ci_gitlab.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / ".gitlab-ci.yml")
-    runner.reproduce(str(dest))
-    assert _digest(dest / ".gitlab-ci.yml") == before
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

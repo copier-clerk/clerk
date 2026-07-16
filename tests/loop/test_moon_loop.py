@@ -2,7 +2,7 @@
 
 Assertions (US4 AS1-3):
 - monorepo layout + frozen monorepo_packages → managed .moon/workspace.yml with
-  an explicit projects map, byte-identical on reproduce;
+  an explicit projects map;
 - monorepo_tool=moon is recorded in the answers (the frozen answer CI consumes);
 - CI can consume it: ci-github monorepo-affected + monorepo_tool=moon renders
   the moon ci invocation (supplier + FR-010a amendment together — SC-004);
@@ -13,17 +13,14 @@ Assertions (US4 AS1-3):
 
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
-from typing import Any
 
 import pytest
 import yaml
 
 from bailiff import runner, trust
 from tests.conftest import (
-    _BASE_STUB_TASKS,
     _MODULES_DIR,
     _MOON_STUB_TASKS,
     TemplateRepo,
@@ -41,20 +38,9 @@ def bailiff_mod_moon(tmp_path: Path) -> TemplateRepo:
     )
 
 
-@pytest.fixture
-def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
-    )
-
-
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
@@ -170,59 +156,8 @@ def test_authored_preflight_warns_on_single_layout() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Reproduce: byte-identical managed render (US4 AS1)
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 # ---------------------------------------------------------------------------
-
-
-def test_workspace_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo, bailiff_mod_moon: TemplateRepo, tmp_path: Path
-) -> None:
-    from bailiff.catalog import TemplateRecord
-
-    def _record(full_id: str, repo: TemplateRepo) -> TemplateRecord:
-        return TemplateRecord(
-            full_id=full_id,
-            source=repo.url,
-            ref=repo.tag,
-            versions=[repo.tag],
-            reproducible=True,
-            has_tasks=True,
-            questions=["project_name"],
-        )
-
-    trust.add_trust(bailiff_mod_base.url)
-    trust.add_trust(bailiff_mod_moon.url)
-
-    selection: list[tuple[Any, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "monorepo",
-                "gitignore_stack": [],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-moon", bailiff_mod_moon),
-            {
-                "project_name": "myapp",
-                "layout": "monorepo",
-                "monorepo_packages": ["packages/api", "packages/web"],
-            },
-        ),
-    ]
-    dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    ws = dest / _WS_FILE
-    assert ws.is_file()
-    before = _digest(ws)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(ws) == before, ".moon/workspace.yml changed on reproduce"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 """spec 011 T016: bailiff-mod-ci-github loop tests.
 
-MANAGED render — .github/workflows/ci.yml is byte-identical on reproduce.
+MANAGED render — .github/workflows/ci.yml.
 ZERO _tasks — the module has no task block so no stub is needed.
 
 Tests cover:
@@ -10,7 +10,6 @@ Tests cover:
 - No unpinned refs (no :latest, all actions pinned to major).
 - R4 fail-loud guard: empty ci_languages + no monorepo_tool → warning comment
   + no-op job, NOT a silent empty file.
-- Reproduce byte-identical (pure managed render).
 - merge_queue_org_confirmed=false emits warning header on merge-queue model.
 """
 
@@ -353,14 +352,7 @@ def test_moon_absent_in_other_models(ci_github_repo: TemplateRepo, tmp_path: Pat
     assert "dorny/paths-filter@v3" in ci
 
 
-def test_monorepo_affected_moon_reproduce(ci_github_repo: TemplateRepo, tmp_path: Path) -> None:
-    """moon branch is a managed render: byte-identical on reproduce."""
-    dest = tmp_path / "proj"
-    answers = _base_answers(ci_model="monorepo-affected", monorepo_tool="moon")
-    _run_copier(ci_github_repo.url, ci_github_repo.tag, dest, answers=answers)
-    first = (dest / _CI_FILE).read_bytes()
-    _run_copier(ci_github_repo.url, ci_github_repo.tag, dest, answers=answers, overwrite=True)
-    assert (dest / _CI_FILE).read_bytes() == first
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -485,56 +477,7 @@ def test_artifact_actions_same_major(ci_github_repo: TemplateRepo, tmp_path: Pat
         )
 
 
-# ---------------------------------------------------------------------------
-# T016-09: MANAGED reproduce byte-identical
-# ---------------------------------------------------------------------------
-
-
-def test_reproduce_byte_identical(ci_github_repo: TemplateRepo, tmp_path: Path) -> None:
-    """Pure managed render: reproducing must yield byte-identical .github/workflows/ci.yml."""
-    dest = tmp_path / "proj"
-    answers = _base_answers(ci_model="standard")
-    _run_copier(ci_github_repo.url, ci_github_repo.tag, dest, answers=answers)
-
-    first_render = (dest / _CI_FILE).read_bytes()
-
-    # Reproduce (recopy) — must yield identical bytes
-    _run_copier(
-        ci_github_repo.url,
-        ci_github_repo.tag,
-        dest,
-        answers=answers,
-        overwrite=True,
-    )
-
-    second_render = (dest / _CI_FILE).read_bytes()
-    assert first_render == second_render, (
-        "ci.yml changed between init and reproduce — managed render is not deterministic"
-    )
-
-
-def test_reproduce_all_models_byte_identical(ci_github_repo: TemplateRepo, tmp_path: Path) -> None:
-    """All 5 models reproduce byte-identical with 2-language facts."""
-    for model in ["minimal", "standard", "optimized", "monorepo-affected", "merge-queue"]:
-        dest = tmp_path / f"proj-{model}"
-        answers = _base_answers(
-            ci_model=model,
-            merge_queue_org_confirmed=(model == "merge-queue"),
-            monorepo_tool=("turborepo" if model == "monorepo-affected" else "none"),
-        )
-        _run_copier(ci_github_repo.url, ci_github_repo.tag, dest, answers=answers)
-        first = (dest / _CI_FILE).read_bytes()
-
-        _run_copier(
-            ci_github_repo.url,
-            ci_github_repo.tag,
-            dest,
-            answers=answers,
-            overwrite=True,
-        )
-        second = (dest / _CI_FILE).read_bytes()
-
-        assert first == second, f"Model {model}: ci.yml not byte-identical on reproduce"
+# (reproduce byte-identity tests removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

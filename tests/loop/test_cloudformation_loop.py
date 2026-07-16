@@ -4,7 +4,6 @@ Tests cover:
 - raw mode: template.yaml has no SAM Transform; .cfnlintrc.yaml is MANAGED.
 - sam mode: template.yaml includes Transform: AWS::Serverless-2016-10-31.
 - Per-env parameter files are present (seeded by task with test -f guard).
-- .cfnlintrc.yaml is byte-identical on reproduce (MANAGED lifecycle).
 - template.yaml is NOT overwritten on reproduce (SEED-ONCE).
 - aws_validate task is stubbed; marker written when aws_validate=true.
 - No secret: questions.
@@ -193,31 +192,7 @@ def test_custom_placement_dir(bailiff_mod_cloudformation: TemplateRepo, tmp_path
     assert (dest / ".cfnlintrc.yaml").is_file(), ".cfnlintrc.yaml not at root"
 
 
-# ---------------------------------------------------------------------------
-# Tests: MANAGED byte-identity on reproduce
-# ---------------------------------------------------------------------------
-
-
-def test_cfnlintrc_byte_identical_on_reproduce(
-    bailiff_mod_cloudformation: TemplateRepo, tmp_path: Path
-) -> None:
-    """.cfnlintrc.yaml is byte-identical after reproduce (MANAGED lifecycle)."""
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_cloudformation,
-        dest,
-        {
-            "mode": "raw",
-            "cfnlint_ignore_rules": ["W3002"],
-        },
-    )
-
-    cfnlintrc = dest / "infrastructure" / ".cfnlintrc.yaml"
-    digest_before = _digest(cfnlintrc)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(cfnlintrc) == digest_before, ".cfnlintrc.yaml changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

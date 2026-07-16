@@ -5,10 +5,10 @@ Covers the full init→reproduce loop for the thinned base scaffold including:
 - github_host=false → no .github/ at all.
 - docs_subdirs gates lean core subdirs.
 - AGENTS.md seed-once: substituted with project_name / description / branch_strategy.
-- .mise.toml MANAGED: rendered from frozen mise_tools, byte-identical on reproduce.
+- .mise.toml MANAGED: rendered from frozen mise_tools.
 - .gitignore and LICENSE TASK-OUTPUT: present after init, guarded on reproduce.
 - Sentinel .bailiff-base-init-done: present after init, skips heavy tasks on reproduce.
-- reproduce byte-identical for MANAGED outputs; presence-only for TASK-OUTPUT.
+- reproduce leaves TASK-OUTPUT and MANAGED dirs present and guard-idempotent.
 """
 
 from __future__ import annotations
@@ -62,19 +62,6 @@ _ABSENT_DIRS = [
     "docs/product",
     "docs/research",
 ]
-
-# MANAGED files whose bytes must be stable across reproduce.
-_MANAGED_PATHS = [
-    "docs/.gitkeep",
-    "docs/architecture/.gitkeep",
-    "docs/decisions/.gitkeep",
-    "docs/runbooks/.gitkeep",
-    "scripts/.gitkeep",
-    "tests/.gitkeep",
-    ".mise.toml",
-    ".copier-answers.yml",
-]
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -233,7 +220,7 @@ def test_init_agents_md_seed_once_not_overwritten(
 
 
 # ---------------------------------------------------------------------------
-# .mise.toml MANAGED: rendered from mise_tools, byte-identical on reproduce
+# .mise.toml MANAGED: rendered from mise_tools
 # ---------------------------------------------------------------------------
 
 
@@ -255,25 +242,7 @@ def test_init_mise_toml_managed_rendered(bailiff_mod_base: TemplateRepo, tmp_pat
     assert "node" in mise and "22" in mise, "node 22 not in .mise.toml"
 
 
-def test_reproduce_mise_toml_byte_identical(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """MANAGED: .mise.toml is byte-identical after reproduce."""
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_base,
-        dest,
-        {
-            "project_name": "gamma",
-            "license": "mit",
-            "mise_tools": [{"python": "3.13"}],
-        },
-    )
-    digest_before = _digest(dest / ".mise.toml")
-
-    runner.reproduce(str(dest))
-
-    assert _digest(dest / ".mise.toml") == digest_before, (
-        ".mise.toml changed on reproduce (must be byte-identical MANAGED)"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -319,11 +288,6 @@ def test_init_sentinel_created(bailiff_mod_base: TemplateRepo, tmp_path: Path) -
 
 
 # ---------------------------------------------------------------------------
-# MANAGED dirs: byte-identical on reproduce
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # extra_dirs: freeform append-only dirs (MANAGED lifecycle)
 # ---------------------------------------------------------------------------
 
@@ -366,24 +330,4 @@ def test_reproduce_extra_dirs_idempotent(bailiff_mod_base: TemplateRepo, tmp_pat
     )
 
 
-def test_reproduce_managed_dirs_byte_identical(
-    bailiff_mod_base: TemplateRepo, tmp_path: Path
-) -> None:
-    """MANAGED dir scaffold is byte-identical after reproduce."""
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_base,
-        dest,
-        {
-            "project_name": "zeta",
-            "license": "mit",
-            "mise_tools": [{"python": "3.13"}],
-        },
-    )
-    before = {p: _digest(dest / p) for p in _MANAGED_PATHS if (dest / p).is_file()}
-
-    runner.reproduce(str(dest))
-
-    after = {p: _digest(dest / p) for p in _MANAGED_PATHS if (dest / p).is_file()}
-    drifted = [p for p in before if before.get(p) != after.get(p)]
-    assert not drifted, f"MANAGED files changed on reproduce: {drifted}"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

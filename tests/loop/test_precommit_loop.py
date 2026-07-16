@@ -4,8 +4,6 @@ Covers:
 - All three hook_manager values render the right file / no file (MANAGED lifecycle).
 - Threaded hook_blocks appear exactly once (no double-append on reproduce).
 - Install task is stubbed offline (preflight marker written).
-- Byte-assert the managed hook config on reproduce.
-- MANAGED files are byte-identical init → reproduce.
 - No secret: questions.
 
 Contract: specs/011-deopinionated-module-family/contracts/quality-tooling.md
@@ -13,7 +11,6 @@ Contract: specs/011-deopinionated-module-family/contracts/quality-tooling.md
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -26,10 +23,6 @@ from tests.conftest import TemplateRepo
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
@@ -177,31 +170,7 @@ def test_precommit_config_hook_blocks_injected_once(
     )
 
 
-def test_precommit_config_byte_identical_on_reproduce(
-    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
-) -> None:
-    """MANAGED: .pre-commit-config.yaml is byte-identical after reproduce."""
-    dest = tmp_path / "proj"
-    answers = {
-        "hook_manager": "pre-commit",
-        "enforce_conventional_commits": True,
-        "enable_typo_check": True,
-    }
-    _init(bailiff_mod_precommit, dest, answers)
-
-    cfg = dest / ".pre-commit-config.yaml"
-    before = _digest(cfg)
-    check_script_before = _digest(dest / ".pre-commit-hooks" / "check-commit-msg.py")
-
-    # Use single-layer reproduce (not reproduce_many) to avoid the DAG dangling-edge
-    # error that fires when bailiff-mod-base is absent from the selection — this module
-    # declares run_after: [bailiff-mod-base] which reproduce_many enforces strictly.
-    runner.reproduce(str(dest))
-
-    assert _digest(cfg) == before, ".pre-commit-config.yaml not byte-identical after reproduce"
-    assert _digest(dest / ".pre-commit-hooks" / "check-commit-msg.py") == check_script_before, (
-        "check-commit-msg.py not byte-identical after reproduce"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
@@ -254,27 +223,7 @@ def test_lefthook_hook_blocks_injected_once(
     )
 
 
-def test_lefthook_byte_identical_on_reproduce(
-    bailiff_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
-) -> None:
-    """MANAGED: lefthook.yml is byte-identical after reproduce."""
-    dest = tmp_path / "proj"
-    trust.add_trust(bailiff_mod_precommit_lefthook.url)
-    spec = runner.RunSpec(
-        source=bailiff_mod_precommit_lefthook.url,
-        dest=str(dest),
-        answers={"hook_manager": "lefthook"},
-    )
-    runner.init(spec, today="2026-07-13")
-
-    before = _digest(dest / "lefthook.yml")
-
-    # Single-layer reproduce avoids DAG dangling-edge error (run_after: bailiff-mod-base).
-    runner.reproduce(str(dest))
-
-    assert _digest(dest / "lefthook.yml") == before, (
-        "lefthook.yml not byte-identical after reproduce"
-    )
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.integration.conftest import assert_reproduce_byte_identical, init_stack
+from tests.integration.conftest import init_stack
 
 _PACKAGES = ["packages/api", "apps/web"]
 
@@ -116,5 +116,4 @@ def test_mise_union_all_three_tokens(stack: Path) -> None:
         assert token in text
 
 
-def test_reproduce_byte_identical(stack: Path) -> None:
-    assert_reproduce_byte_identical(stack)
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

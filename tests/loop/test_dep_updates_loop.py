@@ -8,29 +8,23 @@ Pure MANAGED renders — zero _tasks. Assertions (US3 AS1-5):
   dependabot.yml ABSENT;
 - dep_update_tool=dependabot + github_host=false → warn-and-render: file
   renders WITH the warning comment;
-- byte-identical on init AND reproduce;
 - never deletes the other tool's file (pre-existing file untouched);
 - no secret: questions.
 """
 
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 from pathlib import Path
-from typing import Any
 
 import pytest
 import yaml
 
 from bailiff import runner, trust
-from bailiff.catalog import TemplateRecord
 from tests.conftest import (
-    _BASE_STUB_TASKS,
     _MODULES_DIR,
     TemplateRepo,
-    _copy_module_with_stub_tasks,
     _git,
 )
 
@@ -56,32 +50,9 @@ def bailiff_mod_dep_updates(tmp_path: Path) -> TemplateRepo:
     return _copy_dep_updates_module(tmp_path)
 
 
-@pytest.fixture
-def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
-    )
-
-
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
-    return TemplateRecord(
-        full_id=full_id,
-        source=repo.url,
-        ref=repo.tag,
-        versions=[repo.tag],
-        reproducible=True,
-        has_tasks=False,
-        questions=questions,
-    )
 
 
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
@@ -195,53 +166,7 @@ def test_never_deletes_other_tools_file(
     assert (dest / _DEPENDABOT).is_file()
 
 
-# ---------------------------------------------------------------------------
-# Reproduce: byte-identical managed renders on both branches
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("github_host", "out_file"),
-    [(True, _DEPENDABOT), (False, _RENOVATE)],
-    ids=["dependabot", "renovate"],
-)
-def test_byte_identical_on_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_dep_updates: TemplateRepo,
-    tmp_path: Path,
-    github_host: bool,
-    out_file: Path,
-) -> None:
-    trust.add_trust(bailiff_mod_base.url)
-    trust.add_trust(bailiff_mod_dep_updates.url)
-
-    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
-        (
-            _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
-            {
-                "project_name": "myapp",
-                "org": "acme",
-                "license": "mit",
-                "layout": "single",
-                "github_host": github_host,
-                "gitignore_stack": [],
-            },
-        ),
-        (
-            _record("demo/bailiff-mod-dep-updates", bailiff_mod_dep_updates, ["github_host"]),
-            {"github_host": github_host, "dep_ecosystems": ["github-actions"]},
-        ),
-    ]
-    dest = tmp_path / "proj"
-    runner.init_many(selection, str(dest), today="2026-07-14")
-
-    out = dest / out_file
-    assert out.is_file()
-    before = _digest(out)
-
-    runner.reproduce_many(str(dest))
-
-    assert _digest(out) == before, f"{out_file} changed on reproduce"
+# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
