@@ -16,11 +16,13 @@ All tasks are stubbed offline via the bailiff_mod_agentic fixture.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 
 from bailiff import runner, trust
+from bailiff.catalog import TemplateRecord
 from bailiff.errors import InvalidRunSpecError
 from tests.conftest import TemplateRepo
 
@@ -28,6 +30,18 @@ from tests.conftest import TemplateRepo
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
+
+
+def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateRecord:
+    return TemplateRecord(
+        full_id=full_id,
+        source=repo.url,
+        ref=repo.tag,
+        versions=[repo.tag],
+        reproducible=True,
+        has_tasks=True,
+        questions=questions,
+    )
 
 
 def _init(
@@ -38,6 +52,29 @@ def _init(
     trust.add_trust(repo.url)
     spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-14")
+
+
+def _init_with_base(
+    base: TemplateRepo,
+    agentic: TemplateRepo,
+    dest: Path,
+    base_answers: dict[str, Any],
+    agentic_answers: dict[str, Any],
+) -> None:
+    """Init base + agentic as a proper multi-module stack (spec 014 _external_data)."""
+    trust.add_trust(base.url)
+    trust.add_trust(agentic.url)
+    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
+        (
+            _record("demo/bailiff-mod-base", base, list(base_answers.keys())),
+            base_answers,
+        ),
+        (
+            _record("demo/bailiff-mod-agentic", agentic, list(agentic_answers.keys())),
+            agentic_answers,
+        ),
+    ]
+    runner.init_many(selection, str(dest), today="2026-07-14")
 
 
 # --------------------------------------------------------------------------- #
@@ -267,11 +304,21 @@ def test_opencode_target_renders_config(bailiff_mod_agentic: TemplateRepo, tmp_p
 
 
 def test_kiro_target_renders_steering_seed_once(
-    bailiff_mod_agentic: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo, bailiff_mod_agentic: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Kiro target renders .kiro/steering/project.md as seed-once (not overwritten)."""
+    """Kiro target renders .kiro/steering/project.md as seed-once (not overwritten).
+
+    Uses init_many with base + agentic: spec 014 requires base to be present in the
+    selection because agentic reads project_name via _external_data.base.
+    """
     dest = tmp_path / "proj"
-    _init(bailiff_mod_agentic, dest, {"project_name": "myapp", "agentic_targets": ["kiro"]})
+    _init_with_base(
+        bailiff_mod_base,
+        bailiff_mod_agentic,
+        dest,
+        base_answers={"project_name": "myapp"},
+        agentic_answers={"agentic_targets": ["kiro"]},
+    )
 
     steering_path = dest / ".kiro" / "steering" / "project.md"
     assert steering_path.is_file(), ".kiro/steering/project.md not rendered for kiro target"
