@@ -15,17 +15,26 @@
 # edges are when:false hidden answers.
 
 _subdirectory: template
+_bailiff_phase: normal
 
 # --------------------------------------------------------------------------- #
-# Identity (threaded)                                                           #
+# Cross-module facts (spec 014 — FR-004/FR-006)                                #
 # --------------------------------------------------------------------------- #
 
-# Threaded from a base layer via copier's default: "{{ project_name }}" mechanism
-# (FR-010). Standalone fallback: renders empty when no upstream supplied it.
+# project_name is a base fact; read via _external_data alias (spec 014).
+# bailiff enforces that bailiff-mod-base is present and ordered before this module.
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+
+# --------------------------------------------------------------------------- #
+# Identity                                                                      #
+# --------------------------------------------------------------------------- #
+
+# Read from base via _external_data alias (spec 014 / FR-004).
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from a base layer)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "The project's name (read from bailiff-mod-base via _external_data.base)."
 
 # `today` is injected by bailiff at init and frozen into the recorded answers
 # (FR-007); never sourced from jinja2_time (Constitution V).
@@ -129,17 +138,7 @@ apm_cli_version:
 # Dependency edges (when:false hidden answers — FR-004)                        #
 # --------------------------------------------------------------------------- #
 
-run_after:
-  type: yaml
-  default: []
-  when: false
-
 depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
   type: yaml
   default: []
   when: false
