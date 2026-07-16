@@ -63,6 +63,7 @@ _ABSENT_DIRS = [
     "docs/research",
 ]
 
+
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))

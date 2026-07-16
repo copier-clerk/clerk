@@ -56,9 +56,7 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
         # Single iac-tool provider: the exclusive set must NOT trigger a warning.
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            yield init_stack(
-                root, _LAYERS, exclusive_capabilities=frozenset({"iac-tool"})
-            )
+            yield init_stack(root, _LAYERS, exclusive_capabilities=frozenset({"iac-tool"}))
     finally:
         mp.undo()
 
