@@ -1,0 +1,6 @@
+# .mise/conf.d/bailiff-mod-rust.toml — managed by bailiff-mod-rust; do not edit by hand.
+# Drop-in tool fragment; mise merges all conf.d/*.toml at runtime (FR-008/010).
+[tools]
+rust = "{{ rust_channel }}"
+{% if test_runner == 'nextest' %}cargo-nextest = "latest"
+{% endif %}

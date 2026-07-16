@@ -1,0 +1,4 @@
+# Rust — fragment contributed by bailiff-mod-rust.
+# Folded into .gitignore by bailiff-mod-base's _post_task concat.
+/target
+Cargo.lock

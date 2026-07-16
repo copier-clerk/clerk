@@ -1,0 +1,11 @@
+# .pre-commit.d/bailiff-mod-rust.yaml — fragment contributed by bailiff-mod-rust.
+# Merged into .pre-commit-config.yaml by bailiff-mod-precommit's _post_task bundler.
+# Conditional on hook_manager (read from precommit alias via _external_data).
+{% if _external_data.precommit.hook_manager == 'pre-commit' %}
+repos:
+  - repo: https://github.com/doublify/pre-commit-hooks-rust
+{% if precommit_rust_rev %}    rev: "{{ precommit_rust_rev }}"
+{% endif %}    hooks:
+      - id: clippy
+        stages: ["{{ clippy_stage }}"]
+{% endif %}
