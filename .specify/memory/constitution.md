@@ -1,6 +1,35 @@
 <!--
 SYNC IMPACT REPORT (latest amendment)
 ==================
+Version change: 2.3.0 → 3.0.0 (Version: 3.0.0)
+Bump rationale: MAJOR — Principle I is REDEFINED (the same class as v1.0.0 → 2.0.0).
+The "no published package / no console entry / no uvx tool" prohibition is lifted:
+bailiff IS the tool (published on PyPI, invoked `uvx bailiff`), and bailiff-mod-* are
+the modules. Spec 013 is the governed engine exception; the C-11 "glue only for
+capabilities copier lacks" rule is scoped to module-authoring specs in the roadmap.
+  - I.   "bailiff Is Skills + Templates + Minimal Glue" — title UNCHANGED; the glue
+         enumeration now names the packaged CLI (`[project.scripts] bailiff`,
+         `src/bailiff/cli.py`) as the third form of glue. The bundled script
+         `scripts/bailiff.py` is REMOVED: the PyPI CLI is the sole invocation path
+         (contributors use `uv run bailiff` via the editable install).
+  - VIII. Unlock clause triggered (recorded in ADR-0008, not a text change): the
+         packaged CLI, the collision check, and the capability-tag warning are
+         genuine non-agent consumers of the handoff; capability fields in catalog
+         artifacts and `catalog list --json` are sanctioned.
+Reconciled in the same change (per governance: amend the principle with the change
+that relies on it):
+  - docs/decisions/0008-pypi-packaging-repositioning.md — NEW ADR recording the
+    repositioning, the distribution name (bailiff, live on PyPI), the FR-019 unlock
+    scope, the warn-not-block capability design, and the group-infection escape valve.
+  - .specify/memory/roadmap.md — C-11 scoped to module-authoring specs; spec 013
+    noted as the governed engine exception; C-01 reconciled to the packaged CLI.
+Retroactive honor: spec 011's FR-011 gate ("no new src/bailiff code" for 011's scope)
+remains textually intact and honored for its own scope; 013 is not retroactively
+applied to 011's deliverables.
+Unchanged in substance: II, III, IV, V, VI, VII.
+
+PRIOR SYNC IMPACT REPORT (2.2.0 → 2.3.0)
+==================
 Version change: 2.2.0 → 2.3.0
 Bump rationale: MINOR — materially expanded guidance on Principle III's existing
 process-deterministic carve-out, to sanction spec 011's native-command scaffolding.
@@ -89,7 +118,8 @@ is the deterministic render + reproduce engine; bailiff decides *what* to render
 authors the *inputs*, and — where copier alone cannot coordinate — computes the
 small deterministic facts (ordering, dependency edges, defaults) needed to drive
 it. bailiff is delivered as **an agent skill + a family of copier templates + a
-little deterministic glue**, not as a standalone application. Every principle
+small published CLI** (`bailiff` on PyPI) that carries the deterministic glue.
+Every principle
 below is source-verified against copier 9.16.0 and derives from the architecture
 decisions in `docs/decisions/`, which are binding.
 
@@ -100,22 +130,29 @@ decisions in `docs/decisions/`, which are binding.
 bailiff is, in order of weight: (1) **an agent skill** — the `SKILL.md` procedure
 that conducts the non-deterministic work; (2) **a family of copier templates**
 (`bailiff-mod-*`) — the actual reusable product; and (3) **minimal deterministic
-glue** — small helpers and scripts for the few things copier and an agent cannot
-do directly (dependency-edge parsing, topological ordering — recomputed at
-reproduce time, not frozen into the project — writing/reading defaults, and
-dry-run validation). This glue is bundled with the skill as a single script
-(`scripts/bailiff.py`), run `./scripts/bailiff.py` / `uv run scripts/bailiff.py`. bailiff
-is NOT a published general-purpose application: there is no `[project.scripts]
-bailiff` console entry, no `uvx bailiff` PyPI tool, and glue MUST NOT grow into a
-re-implementation of what copier already provides. New glue is justified only by a
-capability copier lacks (chiefly cross-template coordination); when in doubt,
-prefer a copier invocation, a
-template feature, or a documented agent step over new code.
+glue** — small helpers for the few things copier and an agent cannot do directly
+(dependency-edge parsing, topological ordering — recomputed at reproduce time,
+not frozen into the project — writing/reading defaults, dry-run validation,
+catalog listing, and init-time collision/capability checks). This glue is
+delivered as a **published CLI**: the `bailiff` distribution on PyPI with a
+`[project.scripts] bailiff` console entry (`src/bailiff/cli.py`), invoked
+`uvx bailiff` by users and `uv run bailiff` by repo contributors via the editable
+install. **bailiff is the tool; bailiff-mod-\* are the modules.** The previously
+bundled `scripts/bailiff.py` is REMOVED — the PyPI CLI is the sole invocation
+path. Publishing does not license growth: the CLI stays in the glue bucket, and
+glue MUST NOT grow into a re-implementation of what copier already provides. New
+glue is justified only by a capability copier lacks (chiefly cross-template
+coordination); when in doubt, prefer a copier invocation, a template feature, or
+a documented agent step over new code.
 
 Rationale: an audit of the full roadmap found that copier already owns the whole
 single-template lifecycle; bailiff's durable value is the conducting skill, the
 templates, and a thin sliver of coordination logic — not a wrapper around copier's
-CLI.
+CLI. Packaging that sliver as an installable command (ADR-0008, spec 013) changes
+its delivery, not its scope: `uvx bailiff` removes the copy-a-script friction while
+Principle I's growth constraint keeps the glue minimal. Spec 011's FR-011 gate
+("no new `src/bailiff/` code" within 011's scope) remains honored for its scope;
+spec 013 is the governed engine exception, not a retroactive change to 011.
 
 ### II. Two-Phase Boundary; the Skill Conducts, Deterministic Helpers Execute (NON-NEGOTIABLE)
 
@@ -316,4 +353,4 @@ Versioning: MAJOR for backward-incompatible principle removals or redefinitions,
 MINOR for a new principle or materially expanded guidance, PATCH for
 clarifications.
 
-**Version**: 2.3.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-14
+**Version**: 3.0.0 | **Ratified**: 2026-07-09 | **Last Amended**: 2026-07-15

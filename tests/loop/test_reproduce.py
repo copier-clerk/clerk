@@ -14,8 +14,6 @@ import pytest
 from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,14 +108,14 @@ def test_init_writes_no_bailiff_file(base_template: TemplateRepo, tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
-# T011 (a): reproduce via scripts/bailiff.py (subprocess)
+# T011 (a): reproduce via the bailiff CLI (subprocess)
 # ---------------------------------------------------------------------------
 
 
 def test_reproduce_via_bailiff_script(
     base_template: TemplateRepo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """scripts/bailiff.py reproduce is byte-identical to a direct runner.reproduce call."""
+    """the bailiff CLI reproduce is byte-identical to a direct runner.reproduce call."""
     dest = tmp_path / "proj"
     _init(base_template, dest)
     before = _tree_digest(dest)
@@ -127,7 +125,7 @@ def test_reproduce_via_bailiff_script(
 
     settings_path = tmp_path / "settings.yml"
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "reproduce", str(dest)],
+        [sys.executable, "-m", "bailiff", "reproduce", str(dest)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)},
@@ -219,13 +217,13 @@ def test_enumerate_answers_files_empty_dir(tmp_path: Path) -> None:
 
 
 def test_bailiff_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
-    """scripts/bailiff.py reproduce exits 1 when there is nothing to reproduce."""
+    """the bailiff CLI reproduce exits 1 when there is nothing to reproduce."""
     empty = tmp_path / "empty"
     empty.mkdir()
     import os
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "reproduce", str(empty)],
+        [sys.executable, "-m", "bailiff", "reproduce", str(empty)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},
@@ -242,7 +240,7 @@ def test_bailiff_script_reproduce_exits_1_no_answers(tmp_path: Path) -> None:
 def test_reproduce_via_bailiff_script_run_spec_json(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init --run-spec then reproduce round-trips byte-identically."""
+    """the bailiff CLI init --run-spec then reproduce round-trips byte-identically."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -260,7 +258,7 @@ def test_reproduce_via_bailiff_script_run_spec_json(
 
     # init via bailiff.py script
     r_init = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -272,7 +270,7 @@ def test_reproduce_via_bailiff_script_run_spec_json(
     # corrupt and reproduce
     (dest / "out.txt").write_text("CORRUPTED\n")
     r_repro = subprocess.run(
-        [sys.executable, str(_SCRIPT), "reproduce", str(dest)],
+        [sys.executable, "-m", "bailiff", "reproduce", str(dest)],
         capture_output=True,
         text=True,
         env=env,

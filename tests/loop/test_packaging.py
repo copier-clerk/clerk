@@ -18,8 +18,6 @@ import yaml  # type: ignore[import-untyped]
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APM_YML = REPO_ROOT / "apm.yml"
 PACKAGES_DIR = REPO_ROOT / "packages" / "bailiff"
-SRC_BAILIFF = REPO_ROOT / "src" / "bailiff"
-SCRIPTS_BAILIFF = REPO_ROOT / "scripts" / "bailiff.py"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -101,10 +99,12 @@ class TestPackageLayout:
         skill_md = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "SKILL.md"
         assert skill_md.is_file(), f"SKILL.md not found at {skill_md} — run 'just vendor' first"
 
-    def test_scripts_bailiff_py_exists(self) -> None:
-        pkg_script = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "scripts" / "bailiff.py"
-        assert pkg_script.is_file(), (
-            f"scripts/bailiff.py not found at {pkg_script} — run 'just vendor' first"
+    def test_no_bundled_script_in_package(self) -> None:
+        # Spec 013 FR-006: the skill package ships ONLY SKILL.md; the engine is
+        # the bailiff PyPI CLI. A scripts/ tree here means a stale vendor step.
+        scripts_dir = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "scripts"
+        assert not scripts_dir.exists(), (
+            f"stale vendored scripts tree at {scripts_dir} — spec 013 removed it"
         )
 
 
@@ -114,27 +114,15 @@ class TestPackageLayout:
 
 
 class TestVendorDrift:
-    """The vendored bailiff/ copy must match src/bailiff/ after `just vendor`."""
+    """The vendored SKILL.md must match the source after `just vendor`."""
 
-    def test_vendored_modules_match_src(self) -> None:
-        vendor_dst = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "scripts" / "bailiff"
-        if not vendor_dst.is_dir():
-            pytest.skip("Vendored bailiff/ not present — run 'just vendor' first")
-
-        src_files = sorted(SRC_BAILIFF.glob("*.py"))
-        assert src_files, "src/bailiff/ contains no .py files"
-
-        for src_file in src_files:
-            dst_file = vendor_dst / src_file.name
-            assert dst_file.is_file(), (
-                f"Vendored copy missing: {dst_file} — run 'just vendor' to regenerate"
-            )
-            src_content = src_file.read_bytes()
-            dst_content = dst_file.read_bytes()
-            assert src_content == dst_content, (
-                f"Vendor drift: {dst_file.name} differs from {src_file} — "
-                "run 'just vendor' to regenerate"
-            )
+    def test_vendored_skill_md_matches_src(self) -> None:
+        src = REPO_ROOT / "skills" / "bailiff" / "SKILL.md"
+        dst = PACKAGES_DIR / ".apm" / "skills" / "bailiff" / "SKILL.md"
+        assert dst.is_file(), f"Vendored SKILL.md missing at {dst} — run 'just vendor'"
+        assert src.read_bytes() == dst.read_bytes(), (
+            "Vendor drift: SKILL.md differs from source — run 'just vendor'"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +175,7 @@ class TestBailiffDoctorExitCodes:
     def test_doctor_exits_zero_with_all_deps(self) -> None:
         """doctor returns 0 when all deps are present (dev venv has them all)."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_BAILIFF), "doctor"],
+            [sys.executable, "-m", "bailiff", "doctor"],
             capture_output=True,
             text=True,
         )
@@ -197,7 +185,7 @@ class TestBailiffDoctorExitCodes:
 
     def test_doctor_output_says_ready(self) -> None:
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_BAILIFF), "doctor"],
+            [sys.executable, "-m", "bailiff", "doctor"],
             capture_output=True,
             text=True,
         )

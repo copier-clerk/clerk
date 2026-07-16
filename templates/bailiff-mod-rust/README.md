@@ -49,7 +49,7 @@ This template runs a trust-gated preflight `_task`:
 
 ```sh
 # Multi-layer (preferred — via bailiff):
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-rust]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-rust]>
 
 # Standalone (renders with defaults; cargo must be on PATH):
 copier copy --trust https://github.com/bailiff-io/bailiff-mod-rust.git <destination>

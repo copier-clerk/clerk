@@ -24,8 +24,6 @@ import yaml
 from bailiff import runner, trust
 from tests.conftest import MultiTemplateSet
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -235,7 +233,7 @@ def test_n1_reproduce_many_matches_reproduce(
 
 
 def test_n1_reproduce_many_via_cli(multi_template_set: MultiTemplateSet, tmp_path: Path) -> None:
-    """scripts/bailiff.py reproduce on a single-template project exits 0 and is byte-identical."""
+    """the bailiff CLI reproduce on a single-template project exits 0 and is byte-identical."""
     tpl_a = multi_template_set.tpl_a
     trust.add_trust(tpl_a.url)
 
@@ -250,7 +248,7 @@ def test_n1_reproduce_many_via_cli(multi_template_set: MultiTemplateSet, tmp_pat
 
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")}
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "reproduce", str(dest)],
+        [sys.executable, "-m", "bailiff", "reproduce", str(dest)],
         capture_output=True,
         text=True,
         env=env,

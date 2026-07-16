@@ -20,8 +20,6 @@ from bailiff import runner, trust
 from bailiff.errors import UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -51,7 +49,7 @@ def test_untrusted_base_refused_before_tasks(
 
 
 def test_untrusted_base_cli_exits_3(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """scripts/bailiff.py init exits 3 for the untrusted base source (SC-004)."""
+    """the bailiff CLI init exits 3 for the untrusted base source (SC-004)."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -68,7 +66,7 @@ def test_untrusted_base_cli_exits_3(bailiff_mod_base: TemplateRepo, tmp_path: Pa
     )
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,

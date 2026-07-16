@@ -9,7 +9,6 @@ empty dependency list and real cycles were silently MISSED.
 The module name contains a hyphen, so it is loaded via importlib rather than a
 plain import.
 """
-
 import importlib.util
 import os
 import sys

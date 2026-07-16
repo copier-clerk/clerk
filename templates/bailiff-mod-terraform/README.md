@@ -67,7 +67,7 @@ The template runs trust-gated `_tasks`, so the source must be trusted before it 
 Prefer bailiff (multi-layer):
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-terraform]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-terraform]>
 ```
 
 Copier-only (standalone):

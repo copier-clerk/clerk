@@ -368,14 +368,11 @@ refresh or transparently builds the cache once (single defined behavior, see FR-
   irreversible public action: the FIRST publish, and any publish that claims a new
   distribution name, MUST be maintainer-confirmed, never unattended. No publish may occur
   before the FR-018 governance gate lands.
-- **FR-005** *(distribution name)*: The PyPI name `bailiff` is TAKEN (verified 2026-07-14
-  against pypi.org: an unrelated `bailiff 0.1.0` exists); `bailiff-io` (the current
-  `pyproject.toml` name) and `bailiff-scaffold` were both available at verification time. The
-  spec REQUIRES: (a) the console command is `bailiff` regardless of distribution name; (b) the
-  distribution name is re-verified as available immediately before first publish (an explicit
-  early task); (c) the final choice of distribution name is
-  [NEEDS CLARIFICATION: `bailiff-io` (status quo, invoked `uvx --from bailiff-io bailiff`)
-  vs `bailiff-scaffold` (closer to `uvx bailiff-…` ergonomics) — maintainer decision].
+- **FR-005** *(distribution name)*: RESOLVED by the product rename (clerk → bailiff,
+  2026-07-15): the distribution name is **`bailiff`**, already claimed and published
+  (0.1.0) on PyPI via OIDC trusted publishing. The spec REQUIRES: (a) the console command
+  is `bailiff` (dist name == command name, so plain `uvx bailiff` works); (b) any publish
+  that would claim a NEW distribution name is re-verified immediately beforehand.
 - **FR-006** *(bundled-script disposition)*: The skill-bundled `scripts/bailiff.py` invocation
   path (`./scripts/bailiff.py` / `uv run scripts/bailiff.py`) MUST keep working for the bailiff repo
   and skill during the transition (the skill procedure references it). Its end-state —
@@ -609,9 +606,9 @@ refresh or transparently builds the cache once (single defined behavior, see FR-
 
 ## Open questions (NEEDS CLARIFICATION — maintainer decisions)
 
-1. **Distribution name** (FR-005): `bailiff-io` (status quo; `uvx --from bailiff-io bailiff`)
-   vs `bailiff-scaffold` — plain `bailiff` is taken on PyPI (verified 2026-07-14). The console
-   command is `bailiff` either way.
+1. **Distribution name** (FR-005): RESOLVED — `bailiff` (product rename superseded the
+   original options; the name is live on PyPI at 0.1.0 via trusted publishing). The
+   console command is `bailiff`.
 2. **Bundled-script end-state** (FR-006): does `scripts/bailiff.py` remain permanently as a thin
    re-export shim for the skill-bundled path, or is it deprecated once the PyPI tool is the
    documented invocation? This shapes the amended Constitution I wording.

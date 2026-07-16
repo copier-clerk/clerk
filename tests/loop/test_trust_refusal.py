@@ -14,8 +14,6 @@ from bailiff import runner, trust
 from bailiff.errors import UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -60,12 +58,12 @@ def test_core_never_writes_trust(base_template: TemplateRepo, tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
-# T016: scripts/bailiff.py trust / init invocation
+# T016: the bailiff CLI trust / init invocation
 # ---------------------------------------------------------------------------
 
 
 def test_bailiff_script_untrusted_exits_3(base_template: TemplateRepo, tmp_path: Path) -> None:
-    """scripts/bailiff.py init exits 3 for an untrusted action-taking source."""
+    """the bailiff CLI init exits 3 for an untrusted action-taking source."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -78,7 +76,7 @@ def test_bailiff_script_untrusted_exits_3(base_template: TemplateRepo, tmp_path:
     )
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -98,7 +96,7 @@ def test_bailiff_script_trust_add_from_source_then_init_succeeds(
 
     # Step 1: trust add --from-source computes and records the prefix
     r_trust = subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "add", "--from-source", base_template.url],
+        [sys.executable, "-m", "bailiff", "trust", "add", "--from-source", base_template.url],
         capture_output=True,
         text=True,
         env=env,
@@ -116,7 +114,7 @@ def test_bailiff_script_trust_add_from_source_then_init_succeeds(
     )
 
     r_init = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -135,7 +133,7 @@ def test_bailiff_script_trust_add_explicit_prefix(tmp_path: Path) -> None:
     prefix = "https://github.com/bailiff-io/"
 
     r_add = subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "add", prefix],
+        [sys.executable, "-m", "bailiff", "trust", "add", prefix],
         capture_output=True,
         text=True,
         env=env,
@@ -144,7 +142,7 @@ def test_bailiff_script_trust_add_explicit_prefix(tmp_path: Path) -> None:
     assert "added" in r_add.stdout
 
     r_list = subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "list"],
+        [sys.executable, "-m", "bailiff", "trust", "list"],
         capture_output=True,
         text=True,
         env=env,
@@ -161,12 +159,12 @@ def test_bailiff_script_trust_add_idempotent(tmp_path: Path) -> None:
     prefix = "https://github.com/bailiff-io/"
 
     subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "add", prefix],
+        [sys.executable, "-m", "bailiff", "trust", "add", prefix],
         capture_output=True,
         env=env,
     )
     r2 = subprocess.run(
-        [sys.executable, str(_SCRIPT), "trust", "add", prefix],
+        [sys.executable, "-m", "bailiff", "trust", "add", prefix],
         capture_output=True,
         text=True,
         env=env,

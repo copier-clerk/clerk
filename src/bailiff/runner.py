@@ -22,6 +22,9 @@ Invariants (constitution III/V):
 
 from __future__ import annotations
 
+import shutil
+import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -36,6 +39,7 @@ from bailiff import discovery, trust
 from bailiff.catalog import TemplateRecord
 from bailiff.errors import (
     BailiffError,
+    CollisionError,
     DirtyWorktreeError,
     DowngradeError,
     InvalidRunSpecError,
@@ -272,12 +276,128 @@ def reproduce(dest: str, *, answers_file: Path | None = None) -> RunResult:
 # ---------------------------------------------------------------------------
 
 
+def _check_capability_conflicts(
+    records: list[TemplateRecord],
+    dest: str,
+    exclusive_capabilities: frozenset[str],
+) -> None:
+    """Warn (never raise) when >1 provider of an exclusive capability is present.
+
+    ``exclusive_capabilities`` is the catalog-wide set of capability names where ANY
+    listed module declares ``exclusive: true`` (group-infection semantics, spec 013
+    FR-008) — pre-computed by the CLI so this function needs no catalog awareness.
+    Providers are collected from the current selection plus any already-installed
+    modules recorded in ``dest``'s ``.copier-answers.*.yml`` files (incremental-add
+    path, FR-011). Capabilities are informational: this NEVER blocks the run.
+    """
+    if not exclusive_capabilities:
+        return
+
+    providers: dict[str, list[str]] = {}
+    for rec in records:
+        base = rec.full_id.rsplit("/", 1)[-1]
+        for cap in rec.provides:
+            providers.setdefault(cap, []).append(base)
+
+    # Incremental add: read installed modules' capabilities at their pinned commit.
+    for af_path in enumerate_answers_files(dest):
+        raw = _read_answers_metadata(af_path)
+        src = raw.get("_src_path")
+        commit = raw.get("_commit")
+        if not src or not commit:
+            continue
+        try:
+            disc = discovery.discover(str(src), str(commit))
+        except BailiffError:
+            continue  # warn-only check is best-effort; never fail the init here
+        base = str(src).rstrip("/").rsplit("/", 1)[-1]
+        base = base.removesuffix(".git")
+        for cap in disc.provides:
+            providers.setdefault(cap, []).append(base)
+
+    for cap, mods in sorted(providers.items()):
+        uniq = list(dict.fromkeys(mods))  # a re-selected installed module counts once
+        if len(uniq) > 1 and cap in exclusive_capabilities:
+            warnings.warn(
+                f"CAPABILITY CONFLICT: {cap!r} is declared exclusive in the catalog, "
+                f"but multiple selected/installed modules provide it: {', '.join(uniq)}. "
+                f"These modules are alternatives — proceeding anyway (capability tags "
+                f"are informational and never block).",
+                stacklevel=2,
+            )
+
+
+def _scan_init_collisions(
+    plan: list[tuple[TemplateRecord, str]],
+    dest: str,
+    accumulated: dict[str, Any],
+    answers_map: dict[str, dict[str, Any]],
+) -> None:
+    """Pre-render overlap scan: hard-stop before any real write (spec 013 FR-013).
+
+    Renders each layer into an isolated temp dir and compares the written file
+    sets (answers files excluded). A static glob of the template tree would miss
+    Jinja conditionals in filenames; the render is the only correct observable
+    output. ``skip_tasks=True`` is a SAFETY REQUIREMENT: without it, task-bearing
+    modules would execute their ``_tasks`` (``gh repo create``, git init, network
+    calls) during what must be a side-effect-free scan. Raises ``CollisionError``
+    on the first overlapping path; temp dirs are always cleaned up. Every layer
+    has already passed the trust/reproducibility/secret pre-checks.
+    """
+    seen: dict[str, str] = {}  # relative path → full_id of the layer that wrote it
+    for record, af_name in plan:
+        layer_answers = answers_map.get(record.full_id, {})
+        data = {**accumulated, **layer_answers}
+        tmp = tempfile.mkdtemp(prefix="bailiff-collision-")
+        try:
+            try:
+                run_copy(
+                    record.source,
+                    tmp,
+                    data=data,
+                    vcs_ref=record.ref or None,
+                    answers_file=af_name,
+                    defaults=True,
+                    overwrite=True,
+                    quiet=True,
+                    pretend=False,
+                    skip_tasks=True,
+                )
+            except UnsafeTemplateError as exc:
+                raise UntrustedSourceError(
+                    suggest_prefix(record.source), source=record.source
+                ) from exc
+            except (ValueError, CopierError) as exc:
+                # The real render (or preflight) owns answer-error reporting with
+                # secret redaction; a layer that cannot render cannot collide.
+                warnings.warn(
+                    f"collision scan could not render {record.full_id!r} "
+                    f"({type(exc).__name__}); overlap check skipped for this layer",
+                    stacklevel=2,
+                )
+                continue
+            tmp_root = Path(tmp)
+            for path in sorted(tmp_root.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = str(path.relative_to(tmp_root))
+                name = path.name
+                if name.startswith(".copier-answers") and name.endswith(".yml"):
+                    continue
+                if rel in seen:
+                    raise CollisionError(rel, [seen[rel], record.full_id])
+                seen[rel] = record.full_id
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def init_many(
     selection: list[tuple[TemplateRecord, dict[str, Any]]],
     dest: str,
     *,
     today: str | None = None,
     check: bool = False,
+    exclusive_capabilities: frozenset[str] = frozenset(),
 ) -> list[RunResult]:
     """Apply (or preflight-check) a multi-template selection in dependency order.
 
@@ -304,6 +424,9 @@ def init_many(
     records = [r for r, _ in selection]
     answers_map: dict[str, dict[str, Any]] = {r.full_id: a for r, a in selection}
     plan = ordering.layer_plan(records)
+    # Capability conflicts warn on BOTH the real run and the preflight (FR-008);
+    # reproduce/update paths never consult capabilities (FR-012 / SC-008).
+    _check_capability_conflicts(records, dest, exclusive_capabilities)
     accumulated: dict[str, Any] = _with_today({}, today)
 
     # Load and fold defaults once per init_many call; select per-layer below (FR-007).
@@ -311,17 +434,26 @@ def init_many(
     _merged_defaults = _defaults.fold_settings_defaults(_raw_defaults)
 
     if not check:
-        results: list[RunResult] = []
-        for record, af_name in plan:
+        # ALL pre-render guards run for every layer BEFORE the collision scan, so
+        # the scan never renders an untrusted/unreproducible source and never sees
+        # a run-spec that violates the secret rules (FR-003a/c). Discover once per
+        # layer here and reuse below (one clone per layer, same as before).
+        descs: dict[str, discovery.Discovery] = {}
+        for record, _af in plan:
             _require_reproducible(record.source, record.ref)
             _require_trust_if_action_taking(record.source, record.ref)
             layer_answers = answers_map.get(record.full_id, {})
-            # Discover once per layer; reuse for both secret checks and redaction.
             desc = discovery.discover(record.source, record.ref)
-            # FR-003a: reject secrets in per-layer answers before any copier call.
             _check_no_secrets(layer_answers, desc)
-            # FR-003c: fail loud on required secrets with no value.
             _check_required_secrets_supplied(layer_answers, desc)
+            descs[record.full_id] = desc
+        # Init-only collision hard-stop (FR-013): renders to isolated temp dirs,
+        # raises CollisionError before any write into dest.
+        _scan_init_collisions(plan, dest, accumulated, answers_map)
+        results: list[RunResult] = []
+        for record, af_name in plan:
+            layer_answers = answers_map.get(record.full_id, {})
+            desc = descs[record.full_id]
             data = {**accumulated, **layer_answers}
             _secret_keys = desc.secret_questions
             user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)

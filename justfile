@@ -62,47 +62,29 @@ generate-catalog *args:
 # diffs manifests, not the vendored copy. `just pack` / `just release` both
 # run vendor first so a stale vendored tree can never ship.
 
-VENDOR_DST := "packages/bailiff/.apm/skills/bailiff/scripts/bailiff"
-VENDOR_SRC := "src/bailiff"
+# Spec 013 (ADR-0008): the deterministic engine ships as the `bailiff` PyPI CLI
+# (`uvx bailiff`), so the skill package vendors ONLY SKILL.md — no script, no
+# module tree.
 
-# Copy src/bailiff/*.py (by glob, auto-tracks new modules) into the package.
-# Also copies scripts/bailiff.py and the source SKILL.md into the package layout.
 vendor:
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p "{{VENDOR_DST}}"
-    # Copy all Python modules from src/bailiff/ — glob auto-tracks new files.
-    cp {{VENDOR_SRC}}/*.py "{{VENDOR_DST}}/"
-    # Copy the bundled entrypoint.
-    cp scripts/bailiff.py packages/bailiff/.apm/skills/bailiff/scripts/
-    # Copy the skill definition.
+    mkdir -p packages/bailiff/.apm/skills/bailiff
     cp skills/bailiff/SKILL.md packages/bailiff/.apm/skills/bailiff/
-    echo "vendor: copied src/bailiff/*.py → {{VENDOR_DST}}/"
+    echo "vendor: copied skills/bailiff/SKILL.md → packages/bailiff/.apm/skills/bailiff/"
 
-# Check that the vendored copy in packages/ matches source — fail on drift.
-# Covers the Python modules AND the vendored scripts/bailiff.py + SKILL.md, since
-# all three are copied by `vendor` and any can drift from source.
-# Run this in CI and before apm pack to catch stale vendored code.
+# Check that the vendored SKILL.md matches source — fail on drift.
+# Run this in CI and before apm pack to catch a stale vendored skill.
 check-vendor:
     #!/usr/bin/env bash
     set -euo pipefail
     PKG="packages/bailiff/.apm/skills/bailiff"
-    fail() {
-        echo "check-vendor FAILED: $1 differs from source." >&2
+    diff -q skills/bailiff/SKILL.md "$PKG/SKILL.md" || {
+        echo "check-vendor FAILED: vendored SKILL.md differs from source." >&2
         echo "Run 'just vendor' to regenerate." >&2
         exit 1
     }
-    TMP=$(mktemp -d)
-    trap 'rm -rf "$TMP"' EXIT
-    TDST="$TMP/bailiff"
-    mkdir -p "$TDST"
-    cp {{VENDOR_SRC}}/*.py "$TDST/"
-    # Python modules.
-    diff -rq "$TDST/" "{{VENDOR_DST}}/" || fail "vendored src/bailiff/*.py"
-    # Bundled entrypoint + skill definition (non-Python, but still vendored).
-    diff -q scripts/bailiff.py "$PKG/scripts/bailiff.py" || fail "vendored scripts/bailiff.py"
-    diff -q skills/bailiff/SKILL.md "$PKG/SKILL.md" || fail "vendored SKILL.md"
-    echo "check-vendor: ok — vendored copy matches source (modules + bailiff.py + SKILL.md)"
+    echo "check-vendor: ok — vendored SKILL.md matches source"
 
 # Build both Claude and Codex marketplace artifacts.
 # Always re-vendors first (BLOCKER-2: --check-clean does not cover vendored files).

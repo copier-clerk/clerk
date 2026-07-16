@@ -250,3 +250,47 @@ def test_catalog_sources_toml_url_used(mono: Path) -> None:
 
     assert captured_urls == ["https://github.com/bailiff-io/bailiff-mod-z.git"]
     assert catalog["modules"][0]["source"] == "https://github.com/bailiff-io/bailiff-mod-z.git"
+
+
+# ---------------------------------------------------------------------------
+# Capability tags (spec 013 T007): provides + exclusive emitted per module
+# ---------------------------------------------------------------------------
+
+_COPIER_YML_WITH_CAPS = """\
+_description: "Python project scaffold"
+_bailiff_provides: [python-project, quality]
+_bailiff_exclusive: true
+project_name:
+  type: str
+  default: myproject
+"""
+
+
+def test_capability_fields_emitted(mono: Path) -> None:
+    _make_templates(mono, {"bailiff-mod-python": _COPIER_YML_WITH_CAPS})
+    _make_catalog_sources(mono, ["bailiff-mod-python"])
+
+    with (
+        patch.object(_gc, "_REPO_ROOT", mono),
+        patch.object(_gc, "list_versions", return_value=["v1.0.0"]),
+    ):
+        catalog = _gc.generate_catalog(mono / "templates")
+
+    mod = catalog["modules"][0]
+    assert mod["provides"] == ["python-project", "quality"]
+    assert mod["exclusive"] is True
+
+
+def test_capability_fields_default_when_absent(mono: Path) -> None:
+    _make_templates(mono, {"bailiff-mod-base": _COPIER_YML_WITH_DESC})
+    _make_catalog_sources(mono, ["bailiff-mod-base"])
+
+    with (
+        patch.object(_gc, "_REPO_ROOT", mono),
+        patch.object(_gc, "list_versions", return_value=["v1.0.0"]),
+    ):
+        catalog = _gc.generate_catalog(mono / "templates")
+
+    mod = catalog["modules"][0]
+    assert mod["provides"] == []
+    assert mod["exclusive"] is False

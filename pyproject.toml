@@ -25,9 +25,15 @@ dependencies = [
   # Static discovery only: PEP 440 tag filtering + copier.yml parsing. No
   # pydantic seam and no deprecated-surface adapter in this slice.
   "packaging>=26.2",
+  "platformdirs>=4.10.0",
   "pyyaml>=6.0.3",
   "tomli-w>=1.2.0",
 ]
+
+[project.scripts]
+# Sanctioned by constitution v3.0.0 / ADR-0008 (spec 013 FR-001): bailiff is the
+# tool on PyPI; `uvx bailiff` / `uv run bailiff` are the invocation paths.
+bailiff = "bailiff.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/bailiff-io/bailiff"
@@ -52,6 +58,9 @@ packages = ["src/bailiff"]
 target-version = "py311"
 line-length = 100
 src = ["src", "scripts"]
+# Vendored tooling (speckit hooks) and speckit test fixtures are not project
+# source; lint would flag code we do not author or maintain.
+extend-exclude = [".claude", ".codex", ".specify"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
@@ -68,7 +77,7 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src/bailiff", "scripts/bailiff.py"]
+files = ["src/bailiff"]
 mypy_path = ["src"]
 explicit_package_bases = true
 

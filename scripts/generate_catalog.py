@@ -29,8 +29,8 @@ from pathlib import Path
 import yaml
 
 # ---------------------------------------------------------------------------
-# Module resolution — same dual-mode shim as scripts/bailiff.py so this script
-# works both in-repo (src/bailiff/ on PYTHONPATH) and as a standalone uv script.
+# Module resolution — add repo src/ to sys.path so this CI script works both
+# in-repo (uv run) and as a standalone uv script.
 # ---------------------------------------------------------------------------
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -127,6 +127,13 @@ def generate_catalog(templates_dir: Path | None = None) -> dict[str, object]:
             )
             continue
 
+        # Capability tags (spec 013 FR-009): same static YAML read; absent keys
+        # normalize to empty/false. First-party well-formedness is enforced by
+        # check_modules.py, so emit as-declared here.
+        raw_provides = copier_raw.get("_bailiff_provides")
+        provides = [str(e) for e in raw_provides] if isinstance(raw_provides, list) else []
+        exclusive = bool(copier_raw.get("_bailiff_exclusive", False))
+
         modules.append(
             {
                 "name": module_name,
@@ -134,6 +141,8 @@ def generate_catalog(templates_dir: Path | None = None) -> dict[str, object]:
                 "source": source_url,
                 "latest_version": tags[-1],
                 "tags": tags,
+                "provides": provides,
+                "exclusive": exclusive,
             }
         )
 

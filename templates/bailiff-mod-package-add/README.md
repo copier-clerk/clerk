@@ -52,7 +52,7 @@ Language-specific tool must be on PATH before applying:
 ## Usage
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-package-add]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-package-add]>
 ```
 
 Or copier-only (monorepo projects only):

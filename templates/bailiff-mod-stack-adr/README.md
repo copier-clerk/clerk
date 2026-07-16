@@ -47,7 +47,7 @@ written once at init; reproduce replays frozen answers without any agent call.
 Prefer bailiff (multi-layer):
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-stack-adr]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-stack-adr]>
 ```
 
 Copier-only (standalone):

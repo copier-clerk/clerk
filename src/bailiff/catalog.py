@@ -26,20 +26,23 @@ deterministic: same sources at same pins → identical output (SC-002).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import tomllib
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import tomli_w
-from platformdirs import user_config_path
+from platformdirs import user_cache_path, user_config_path
 
 from bailiff import discovery
 from bailiff.errors import CatalogError, DiscoveryError
 
 _ENV_VAR = "BAILIFF_CATALOG_PATH"
+_CACHE_ENV_VAR = "BAILIFF_LISTING_CACHE_PATH"
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +286,9 @@ class TemplateRecord:
     reproducible: bool
     has_tasks: bool
     questions: list[str]  # visible-question key list (summary; use discover for full detail)
+    provides: list[str] = field(default_factory=list)  # informational capability tags
+    exclusive: bool = False  # this module's capability slot is pick-one
+    shadowed: bool = False  # bare name already taken by an earlier pointer
 
 
 @dataclass
@@ -323,6 +329,9 @@ class FullListing:
                             "reproducible": t.reproducible,
                             "has_tasks": t.has_tasks,
                             "questions": t.questions,
+                            "provides": t.provides,
+                            "exclusive": t.exclusive,
+                            "shadowed": t.shadowed,
                         }
                         for t in cl.templates
                     ],
@@ -349,6 +358,11 @@ def build_listing(path: Path) -> FullListing:
     """
     model = load(path)
     catalogs: list[CatalogListing] = []
+    # First-listed-wins shadow tracking (spec 013 FR-014): a bare name already
+    # claimed by an earlier pointer marks later same-named entries as shadowed.
+    # Shadowed entries stay in the listing — shadowing affects bare-name
+    # resolution, not visibility.
+    seen_bare_names: set[str] = set()
 
     for ptr in model.pointers:
         templates: list[TemplateRecord] = []
@@ -378,6 +392,10 @@ def build_listing(path: Path) -> FullListing:
             full_id = f"{ptr.name}/{template_name}"
             question_keys = [q.key for q in disc.questions]
 
+            shadowed = template_name in seen_bare_names
+            if not shadowed:
+                seen_bare_names.add(template_name)
+
             templates.append(
                 TemplateRecord(
                     full_id=full_id,
@@ -387,6 +405,9 @@ def build_listing(path: Path) -> FullListing:
                     reproducible=disc.reproducible,
                     has_tasks=disc.has_tasks,
                     questions=question_keys,
+                    provides=disc.provides,
+                    exclusive=disc.exclusive,
+                    shadowed=shadowed,
                 )
             )
 
@@ -398,27 +419,90 @@ def build_listing(path: Path) -> FullListing:
 
 
 # ---------------------------------------------------------------------------
+# Persisted listing cache (spec 013 US6)
+# ---------------------------------------------------------------------------
+
+
+def listing_cache_path() -> Path:
+    """Resolve the listing-cache JSON path (env override → platformdirs default).
+
+    The env override mirrors ``BAILIFF_CATALOG_PATH`` and keeps tests hermetic.
+    """
+    env = os.getenv(_CACHE_ENV_VAR)
+    if env:
+        return Path(env)
+    return user_cache_path("bailiff", appauthor=False) / "listing.json"
+
+
+def persist_listing(listing: FullListing, cache_path: Path | None = None) -> None:
+    """Serialize ``listing`` to JSON at the cache path (atomic tmp+rename)."""
+    path = cache_path if cache_path is not None else listing_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(listing.to_dict(), indent=2) + "\n")
+    tmp.rename(path)  # atomic on POSIX — a reader never sees a partial file
+
+
+def load_listing_cache(cache_path: Path | None = None) -> FullListing | None:
+    """Deserialize the cached listing; ``None`` on absent/corrupt (never raise)."""
+    path = cache_path if cache_path is not None else listing_cache_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text())
+        catalogs = [
+            CatalogListing(
+                name=cl["name"],
+                templates=[TemplateRecord(**t) for t in cl["templates"]],
+                unusable=[UnusableRecord(**u) for u in cl["unusable"]],
+            )
+            for cl in data["catalogs"]
+        ]
+        return FullListing(catalogs=catalogs)
+    except (json.JSONDecodeError, KeyError, TypeError, OSError):
+        return None
+
+
+def build_and_cache_listing(catalog_path: Path, cache_path: Path | None = None) -> FullListing:
+    """Run the expensive discovery pass and persist the result.
+
+    ``catalog add``/``remove`` do NOT invalidate the cache — ``catalog refresh``
+    is the documented rebuild trigger (stale-cache risk accepted; the user
+    controls staleness).
+    """
+    listing = build_listing(catalog_path)
+    persist_listing(listing, cache_path)
+    return listing
+
+
+# ---------------------------------------------------------------------------
 # Selection-validation gate
 # ---------------------------------------------------------------------------
 
 
-def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
+def validate_selection(
+    path: Path, full_ids: list[str], listing: FullListing | None = None
+) -> list[TemplateRecord]:
     """Validate that every requested ``full_id`` names a usable template.
 
     Accepts:
     - ``<catalog>/<template>`` full-ids present in the usable listing.
-    - A bare ``<template>`` name that uniquely matches exactly one usable
-      template across all catalogs (documented convenience — unambiguous only).
+    - A bare ``<template>`` name matching a usable template. If several catalogs
+      carry the name, the FIRST-listed pointer wins and a loud shadow warning is
+      emitted (spec 013 FR-014); shadowed entries stay addressable by full-id.
 
     Refuses (raises ``CatalogError``):
     - Any id not found in the usable listing.
-    - A bare name that matches >1 usable template (ambiguous; full-id required).
     - A full-id that exists but is in ``unusable`` (can't select what can't be used).
 
     Returns the resolved ``TemplateRecord`` list for accepted ids, in the same
     order as the input ``full_ids``.
+
+    ``listing`` lets the CLI pass a cached listing (spec 013 US6) instead of
+    re-running the expensive discovery pass.
     """
-    listing = build_listing(path)
+    if listing is None:
+        listing = build_listing(path)
 
     # Build lookup maps.
     usable_by_full_id: dict[str, TemplateRecord] = {}
@@ -459,11 +543,20 @@ def validate_selection(path: Path, full_ids: list[str]) -> list[TemplateRecord]:
                 resolved.append(matches[0])
                 continue
             if len(matches) > 1:
-                ambiguous = sorted(t.full_id for t in matches)
-                raise CatalogError(
-                    f"bare name {fid!r} is ambiguous — it exists under multiple catalogs: "
-                    f"{', '.join(ambiguous)}. Use the full-id."
+                # First-listed-wins (spec 013 FR-014): matches preserve pointer file
+                # order (usable_by_short appends in listing order), so [0] is the
+                # first pointer's entry. Loud shadow warning — full-ids always
+                # address the shadowed entries directly.
+                winner = matches[0]
+                shadowed = [t.full_id for t in matches[1:]]
+                warnings.warn(
+                    f"SHADOW WARNING: bare name {fid!r} resolves to {winner.full_id!r} "
+                    f"(first pointer wins). Shadowed: {', '.join(shadowed)}. "
+                    f"Use full-ids to select shadowed entries directly.",
+                    stacklevel=2,
                 )
+                resolved.append(winner)
+                continue
 
         raise CatalogError(
             f"unknown template id {fid!r}. Valid ids: {', '.join(valid_ids) or '(none)'}"

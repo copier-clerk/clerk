@@ -23,8 +23,6 @@ import yaml
 from bailiff import runner, trust
 from tests.conftest import MultiTemplateSet, make_multi_run_spec
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -249,7 +247,7 @@ def test_no_bailiff_order_file_in_dest(
 def test_init_many_via_cli_mis_ordered(
     multi_template_set: MultiTemplateSet, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init with multi run-spec (B before A) applies in correct order."""
+    """the bailiff CLI init with multi run-spec (B before A) applies in correct order."""
     tpl_a = multi_template_set.tpl_a
     tpl_b = multi_template_set.tpl_b
     trust.add_trust(tpl_a.url)
@@ -268,7 +266,7 @@ def test_init_many_via_cli_mis_ordered(
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},

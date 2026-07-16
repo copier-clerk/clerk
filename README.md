@@ -25,7 +25,7 @@ bailiff is exactly that layer, and nothing more:
 ## What bailiff is NOT
 
 - **Not a scaffolder.** copier renders; bailiff only decides and fills in.
-- **Not in the reproduce path.** Reproduce is agent-free: `scripts/bailiff.py
+- **Not in the reproduce path.** Reproduce is agent-free: `bailiff
   reproduce` replays the committed answers **at the recorded commit**
   (`recopy --vcs-ref=:current: --defaults --overwrite`), never a bare recopy that
   would silently upgrade — run by a human or CI with no agent. Reproduce also works
@@ -39,7 +39,7 @@ bailiff is exactly that layer, and nothing more:
 
 The agent (skill) inspects a copier template, collects answers from the user,
 records trust consent if the template executes code, and hands the frozen answers
-to the bundled deterministic script — `scripts/bailiff.py` — which drives copier to
+to the deterministic CLI — `bailiff` on PyPI (`uvx bailiff`) — which drives copier to
 render and initialize the project. Any template that takes actions (its `_tasks` /
 migrations / jinja extensions) runs only from a source the user has **trusted** —
 copier's `settings.yml` trust list, recorded by an explicit consent step, never a
@@ -62,7 +62,7 @@ apm marketplace add bailiff-io/bailiff
 apm install bailiff
 
 # Check that runtime deps (copier, pyyaml, packaging, tomli-w) are present:
-python "$(apm skill-path bailiff)/scripts/bailiff.py" doctor
+uvx bailiff doctor
 ```
 
 ### Install into a Codex project
@@ -86,7 +86,7 @@ pip install copier pyyaml packaging tomli-w        # pip
 brew install copier && pip install pyyaml packaging tomli-w   # macOS brew (copier only via brew)
 ```
 
-Or use `uv run scripts/bailiff.py <verb>` — `uv` reads the PEP 723 header and
+Or use `uvx bailiff <verb>` — uvx resolves the published wheel and
 auto-provisions a hermetic ephemeral environment on every invocation.
 
 ---
@@ -96,11 +96,11 @@ auto-provisions a hermetic ephemeral environment on every invocation.
 bailiff ships as a **bundled script** (not an installed CLI or PyPI package):
 
 ```sh
-uv run scripts/bailiff.py discover <source> [--ref REF]   # inspect template (static, safe)
-uv run scripts/bailiff.py trust add <prefix>              # record consent
-uv run scripts/bailiff.py trust add --from-source <src>   # record org-level consent
-uv run scripts/bailiff.py init --run-spec <file> [--check] # generate (or dry-run)
-uv run scripts/bailiff.py reproduce [<dest>]              # faithful reproduce (primary)
+uvx bailiff discover <source> [--ref REF]   # inspect template (static, safe)
+uvx bailiff trust add <prefix>              # record consent
+uvx bailiff trust add --from-source <src>   # record org-level consent
+uvx bailiff init --run-spec <file> [--check] # generate (or dry-run)
+uvx bailiff reproduce [<dest>]              # faithful reproduce (primary)
 
 # Copier-only fallback (no bailiff needed):
 cd <project> && copier recopy --vcs-ref=:current: --defaults --overwrite
@@ -116,13 +116,13 @@ repos you want to scaffold from. bailiff depends on no first-party hub; you brin
 your own templates.
 
 ```sh
-uv run scripts/bailiff.py catalog init                       # create the catalog file if absent
-uv run scripts/bailiff.py catalog add gituser/gitrepo        # add a source (idempotent)
-uv run scripts/bailiff.py catalog add gituser/mod@v2.1.0     # with a display-version override
-uv run scripts/bailiff.py catalog remove gituser/gitrepo     # remove a source (idempotent)
-uv run scripts/bailiff.py catalog list                       # show usable templates + flag unusable sources
-uv run scripts/bailiff.py catalog list --json                # machine-readable listing
-uv run scripts/bailiff.py catalog validate demo/my-template  # gate: exit 0 if valid, non-zero if unknown/ambiguous
+uvx bailiff catalog init                       # create the catalog file if absent
+uvx bailiff catalog add gituser/gitrepo        # add a source (idempotent)
+uvx bailiff catalog add gituser/mod@v2.1.0     # with a display-version override
+uvx bailiff catalog remove gituser/gitrepo     # remove a source (idempotent)
+uvx bailiff catalog list                       # show usable templates + flag unusable sources
+uvx bailiff catalog list --json                # machine-readable listing
+uvx bailiff catalog validate demo/my-template  # gate: exit 0 if valid, non-zero if unknown/ambiguous
 ```
 
 Pass `--catalog PATH` between `catalog` and the subverb to target a non-default
@@ -186,13 +186,13 @@ Move a project from one template version to a newer one:
 
 ```bash
 # Upgrade all layers to the latest PEP 440 tag (single-layer or multi-layer):
-uv run scripts/bailiff.py update <project-dir>
+uvx bailiff update <project-dir>
 
 # Target a specific version:
-uv run scripts/bailiff.py update <project-dir> --vcs-ref v1.2.0
+uvx bailiff update <project-dir> --vcs-ref v1.2.0
 
 # Dry-run preview:
-uv run scripts/bailiff.py update <project-dir> --pretend
+uvx bailiff update <project-dir> --pretend
 ```
 
 Upgrade is the **only** bailiff path that advances a template version — reproduce

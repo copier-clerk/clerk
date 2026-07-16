@@ -22,24 +22,28 @@ import tomli_w
 
 from tests.conftest import _SIMPLE_COPIER_YML, MultiSourceCatalog, build_template_repo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 def _bailiff(
     *args: str,
     catalog: Path,
     env_catalog_fallback: Path | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run ``scripts/bailiff.py catalog --catalog <catalog> <args>``.
+    """Run ``the bailiff CLI catalog --catalog <catalog> <args>``.
 
     Sets BAILIFF_CATALOG_PATH to ``env_catalog_fallback`` (or the same ``catalog``
     path when not given) so that even if the ``--catalog`` flag were absent the
     process would not fall through to the real user config.
     """
     fallback = env_catalog_fallback if env_catalog_fallback is not None else catalog
-    full_env = {**os.environ, "BAILIFF_CATALOG_PATH": str(fallback)}
+    full_env = {
+        **os.environ,
+        "BAILIFF_CATALOG_PATH": str(fallback),
+        # Per-test listing-cache isolation (spec 013 US6): without this, `list`/
+        # `validate` would read/write the real user cache across tests.
+        "BAILIFF_LISTING_CACHE_PATH": str(catalog.parent / "listing-cache.json"),
+    }
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), "catalog", "--catalog", str(catalog), *args],
+        [sys.executable, "-m", "bailiff", "catalog", "--catalog", str(catalog), *args],
         capture_output=True,
         text=True,
         env=full_env,
@@ -209,8 +213,9 @@ def test_catalog_validate_exit_1_for_unknown_id(
     assert "error" in r.stderr.lower()
 
 
-def test_catalog_validate_exit_1_for_ambiguous_bare_name(tmp_path: Path) -> None:
-    # Same basename under different parents → same short name, two pointers → ambiguous.
+def test_catalog_validate_shadowed_bare_name_first_listed_wins(tmp_path: Path) -> None:
+    # Same basename under different parents → same short name, two pointers.
+    # Spec 013 FR-014: first-listed wins (exit 0) with a shadow warning on stderr.
     repo_a = build_template_repo(
         tmp_path / "group-a" / "tpl-shared",
         files={"copier.yml": _SIMPLE_COPIER_YML, "template/out.txt.jinja": "x\n"},
@@ -231,8 +236,9 @@ def test_catalog_validate_exit_1_for_ambiguous_bare_name(tmp_path: Path) -> None
     cat_path.write_bytes(tomli_w.dumps(data).encode())
 
     r = _bailiff("validate", "tpl-shared", catalog=cat_path)
-    assert r.returncode == 1
-    assert "ambiguous" in r.stderr.lower()
+    assert r.returncode == 0
+    assert "c1/tpl-shared" in r.stdout
+    assert "shadow" in r.stderr.lower()
 
 
 # ---------------------------------------------------------------------------

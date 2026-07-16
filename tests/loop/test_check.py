@@ -14,8 +14,6 @@ from bailiff import runner, trust
 from bailiff.errors import InvalidRunSpecError, UntrustedSourceError
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -62,14 +60,14 @@ def test_check_untrusted_reports_untrusted_precedence(
 
 
 # ---------------------------------------------------------------------------
-# T015: scripts/bailiff.py init --check via subprocess
+# T015: the bailiff CLI init --check via subprocess
 # ---------------------------------------------------------------------------
 
 
 def test_check_via_bailiff_script_writes_nothing(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init --check exits 0 and writes nothing."""
+    """the bailiff CLI init --check exits 0 and writes nothing."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -84,7 +82,7 @@ def test_check_via_bailiff_script_writes_nothing(
     )
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--check", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--check", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -100,7 +98,7 @@ def test_check_via_bailiff_script_writes_nothing(
 def test_check_via_bailiff_script_exits_1_on_missing_answer(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init --check exits 1 when a required answer is absent."""
+    """the bailiff CLI init --check exits 1 when a required answer is absent."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -111,7 +109,7 @@ def test_check_via_bailiff_script_exits_1_on_missing_answer(
     run_spec.write_text(json.dumps({"source": base_template.url, "dest": str(dest), "answers": {}}))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--check", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--check", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,

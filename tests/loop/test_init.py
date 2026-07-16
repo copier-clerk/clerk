@@ -14,8 +14,6 @@ import yaml
 from bailiff import runner, trust
 from tests.conftest import TemplateRepo
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 def _trust(repo: TemplateRepo) -> None:
     trust.add_trust(repo.url)  # exact-match trust for the local fixture source
@@ -80,7 +78,7 @@ def test_missing_required_answer_is_refused(base_template: TemplateRepo, tmp_pat
 
 
 # ---------------------------------------------------------------------------
-# T015: scripts/bailiff.py init via subprocess
+# T015: the bailiff CLI init via subprocess
 # ---------------------------------------------------------------------------
 
 
@@ -96,7 +94,7 @@ def _write_run_spec(tmp_path: Path, source: str, dest: Path, **answers: str) -> 
 def test_init_via_bailiff_script(
     base_template: TemplateRepo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """scripts/bailiff.py init --run-spec writes files, records answers, no bailiff artifact."""
+    """the bailiff CLI init --run-spec writes files, records answers, no bailiff artifact."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -106,7 +104,7 @@ def test_init_via_bailiff_script(
     run_spec = _write_run_spec(tmp_path, base_template.url, dest)
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -130,7 +128,7 @@ def test_init_via_bailiff_script(
 def test_init_via_bailiff_script_exits_1_on_missing_answer(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init exits 1 (BailiffError) when a required answer is missing."""
+    """the bailiff CLI init exits 1 (BailiffError) when a required answer is missing."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -142,7 +140,7 @@ def test_init_via_bailiff_script_exits_1_on_missing_answer(
     run_spec.write_text(json.dumps({"source": base_template.url, "dest": str(dest), "answers": {}}))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,
@@ -154,7 +152,7 @@ def test_init_via_bailiff_script_exits_1_on_missing_answer(
 def test_init_via_bailiff_script_exits_3_on_untrusted(
     base_template: TemplateRepo, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init exits 3 (UntrustedSourceError) for untrusted source."""
+    """the bailiff CLI init exits 3 (UntrustedSourceError) for untrusted source."""
     settings_path = tmp_path / "settings.yml"
     env = {**os.environ, "COPIER_SETTINGS_PATH": str(settings_path)}
 
@@ -163,7 +161,7 @@ def test_init_via_bailiff_script_exits_3_on_untrusted(
     run_spec = _write_run_spec(tmp_path, base_template.url, dest)
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(run_spec)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(run_spec)],
         capture_output=True,
         text=True,
         env=env,

@@ -65,7 +65,7 @@ This template runs trust-gated `_tasks`, so the source must be trusted. Prefligh
 Prefer bailiff (multi-layer, in dependency order):
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-cdk]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-cdk]>
 ```
 
 Copier-only (standalone; renders with defaults):

@@ -21,8 +21,6 @@ from bailiff import runner, trust
 from bailiff.errors import OrderingError
 from tests.conftest import MultiTemplateSet
 
-_SCRIPT = Path(__file__).resolve().parent.parent.parent / "scripts" / "bailiff.py"
-
 
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,7 +94,7 @@ def test_cycle_writes_nothing(multi_template_set: MultiTemplateSet, tmp_path: Pa
 
 
 def test_cycle_via_cli_exits_1(multi_template_set: MultiTemplateSet, tmp_path: Path) -> None:
-    """scripts/bailiff.py init with a cycle exits 1 (OrderingError → BailiffError → exit 1)."""
+    """the bailiff CLI init with a cycle exits 1 (OrderingError → BailiffError → exit 1)."""
     tpl_e = multi_template_set.tpl_e
     tpl_f = multi_template_set.tpl_f
     trust.add_trust(tpl_e.url)
@@ -124,7 +122,7 @@ def test_cycle_via_cli_exits_1(multi_template_set: MultiTemplateSet, tmp_path: P
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},
@@ -180,7 +178,7 @@ def test_dangling_edge_writes_nothing(multi_template_set: MultiTemplateSet, tmp_
 def test_dangling_edge_via_cli_exits_1(
     multi_template_set: MultiTemplateSet, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init with dangling edge exits 1."""
+    """the bailiff CLI init with dangling edge exits 1."""
     tpl_b = multi_template_set.tpl_b
     trust.add_trust(tpl_b.url)
 
@@ -200,7 +198,7 @@ def test_dangling_edge_via_cli_exits_1(
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},
@@ -267,7 +265,7 @@ def test_basename_collision_writes_nothing(
 def test_basename_collision_via_cli_exits_1(
     multi_template_set: MultiTemplateSet, tmp_path: Path
 ) -> None:
-    """scripts/bailiff.py init with basename collision exits 1."""
+    """the bailiff CLI init with basename collision exits 1."""
     col1 = multi_template_set.collision_1
     col2 = multi_template_set.collision_2
     trust.add_trust(col1.url)
@@ -295,7 +293,7 @@ def test_basename_collision_via_cli_exits_1(
     spec_path.write_text(json.dumps(spec))
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "init", "--run-spec", str(spec_path)],
+        [sys.executable, "-m", "bailiff", "init", "--run-spec", str(spec_path)],
         capture_output=True,
         text=True,
         env={**os.environ, "COPIER_SETTINGS_PATH": str(tmp_path / "settings.yml")},

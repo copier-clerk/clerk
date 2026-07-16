@@ -63,6 +63,7 @@ source = { editable = "." }
 dependencies = [
     { name = "copier" },
     { name = "packaging" },
+    { name = "platformdirs" },
     { name = "pyyaml" },
     { name = "tomli-w" },
 ]
@@ -79,6 +80,7 @@ dev = [
 requires-dist = [
     { name = "copier", specifier = ">=9.16,<10" },
     { name = "packaging", specifier = ">=26.2" },
+    { name = "platformdirs", specifier = ">=4.10.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "tomli-w", specifier = ">=1.2.0" },
 ]

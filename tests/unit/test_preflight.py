@@ -4,8 +4,8 @@ Hermetic / stdlib-only: monkeypatches importlib.util.find_spec,
 importlib.metadata.version, and shutil.which to simulate dep presence,
 absence, and version mismatches without actually touching the environment.
 
-Also validates that the PEP 723 header in scripts/bailiff.py matches
-_preflight.REQUIRED_DEPS / PEP723_DEPS (FR-005 equality test).
+Also validates that [project.dependencies] in pyproject.toml matches
+_preflight.REQUIRED_DEPS (FR-005 equality test).
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from typing import Any
 from unittest import mock
 
 from bailiff._preflight import (
-    PEP723_DEPS,
     REQUIRED_DEPS,
     DepIssue,
     _satisfies_spec,
@@ -31,7 +30,7 @@ from bailiff._preflight import (
     report,
 )
 
-SCRIPTS_BAILIFF = Path(__file__).resolve().parents[2] / "scripts" / "bailiff.py"
+PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +311,7 @@ class TestHelpAndDoctorWithMissingDeps:
 
     def _run_bailiff(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(SCRIPTS_BAILIFF), *args],
+            [sys.executable, "-m", "bailiff", *args],
             capture_output=True,
             text=True,
         )
@@ -321,7 +320,7 @@ class TestHelpAndDoctorWithMissingDeps:
         """--help should always exit 0 (argparse handles it before preflight)."""
         result = self._run_bailiff("--help")
         assert result.returncode == 0
-        assert "bailiff.py" in result.stdout
+        assert "bailiff" in result.stdout
 
     def test_doctor_all_present(self) -> None:
         """doctor exits 0 when all deps are present (dev venv)."""
@@ -331,39 +330,25 @@ class TestHelpAndDoctorWithMissingDeps:
 
 
 # ---------------------------------------------------------------------------
-# PEP 723 header == REQUIRED_DEPS (FR-005 equality test)
+# pyproject [project.dependencies] == REQUIRED_DEPS (FR-005 equality test)
 # ---------------------------------------------------------------------------
 
 
-class TestPep723HeaderConsistency:
-    """The static PEP 723 header comment must list the same deps as PEP723_DEPS."""
+class TestPyprojectDepsConsistency:
+    """[project.dependencies] must cover every REQUIRED_DEPS entry.
 
-    def _parse_pep723_deps(self) -> list[str]:
-        """Extract the dependencies list from the # /// script header."""
-        text = SCRIPTS_BAILIFF.read_text()
-        # Match the block between `# /// script` and `# ///`
-        match = re.search(
-            r"^# /// script\n(.*?)^# ///$",
-            text,
-            re.MULTILINE | re.DOTALL,
-        )
-        assert match, "PEP 723 header block not found in scripts/bailiff.py"
-        block = match.group(1)
-        # Extract the dependencies = [...] list
-        dep_match = re.search(
-            r"dependencies\s*=\s*\[(.*?)\]",
-            block,
-            re.DOTALL,
-        )
-        assert dep_match, "dependencies field not found in PEP 723 header"
-        raw = dep_match.group(1)
-        # Parse quoted strings from the list
-        return re.findall(r'"([^"]+)"', raw)
+    Replaces the former PEP 723 header check: scripts/bailiff.py is deleted
+    (spec 013 FR-006), so pyproject.toml is the single source of runtime deps.
+    """
 
-    def test_pep723_matches_required_deps(self) -> None:
-        """The header deps must equal PEP723_DEPS (the canonical list in _preflight.py)."""
-        header_deps = self._parse_pep723_deps()
-        assert sorted(header_deps) == sorted(PEP723_DEPS), (
-            f"PEP 723 header deps {header_deps!r} do not match "
-            f"_preflight.PEP723_DEPS {PEP723_DEPS!r}"
-        )
+    def test_required_deps_declared_in_pyproject(self) -> None:
+        import tomllib
+
+        data = tomllib.loads(PYPROJECT.read_text())
+        declared = data["project"]["dependencies"]
+        declared_names = {re.split(r"[<>=!\[ ]", d.strip())[0] for d in declared}
+        for dep in REQUIRED_DEPS:
+            assert dep.install_name in declared_names, (
+                f"REQUIRED_DEPS entry {dep.install_name!r} missing from "
+                f"[project.dependencies]: {sorted(declared_names)}"
+            )
