@@ -1,0 +1,32 @@
+# Release-please for the bailiff engine (PyPI package).
+# Creates/maintains a "Release PR" that accumulates a changelog from conventional
+# commits. On merge of that PR, it tags vX.Y.Z which triggers the pypi-publish
+# job in release.yml.
+#
+# Modules are versioned separately by cog (release.yml fan-out pipeline).
+# This workflow only manages the engine version in pyproject.toml.
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
