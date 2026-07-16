@@ -1,0 +1,10 @@
+{#- .pre-commit.d/bailiff-mod-go.yaml — golangci-lint hook fragment.
+    Contributed only when golangci_hook_rev is set; merged by bailiff-mod-precommit's
+    _post_task bundler (FR-011). -#}
+{%- if golangci_hook_rev %}
+repos:
+  - repo: https://github.com/golangci/golangci-lint
+    rev: "{{ golangci_hook_rev }}"
+    hooks:
+      - id: golangci-lint
+{%- endif %}

@@ -1,23 +1,34 @@
 # copier.yml — bailiff-mod-go
 #
 # The Go language overlay: add Go tooling (go mod, golangci-lint) as a copier
-# layer that `run_after` bailiff-mod-base (spec 011). Threads `project_name` from
-# base; seeds go.mod via `go mod init` (task-output → seed-once); contributes
-# its token to the agent-frozen union answers (M1): Go gitignore token to
-# `gitignore_stack`, go version to `mise_tools`, golangci hook block to
-# `hook_blocks`. Base is the single writer of .gitignore/.mise.toml; precommit
-# the single writer of the hook config file.
+# layer (spec 014). Reads project_name from base via _external_data alias;
+# reads hook_manager from precommit via _external_data alias. Contributes:
+#   - .mise/conf.d/bailiff-mod-go.toml (own tools, mise merges natively)
+#   - .pre-commit.d/bailiff-mod-go.yaml (golangci hook block, precommit bundler merges)
+#   - .gitignore.d/bailiff-mod-go (Go gitignore lines, base concat _post_task merges)
 #
 # Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
-# NO secret: questions; ordering edges are when:false hidden answers.
+# NO secret: questions; ordering edge is depends_on (when:false hidden answer).
 
-# Threaded from base via copier's default: "{{ project_name }}" mechanism
-# (ADR-0003). Standalone fallback: renders empty when no base supplied it
-# (SC-006-style self-containment). NOT hardcoded to base (FR-010).
+# --- Cross-module facts (spec 014 FR-004/_facts.md) --------------------------
+# base is a hard dependency: absent → loud OrderingError at preflight (FR-006).
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+  precommit: .copier-answers.bailiff-mod-precommit.yml
+
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base; used in go mod init)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "The project's name (read from bailiff-mod-base via _external_data)."
+
+# hook_manager read from precommit answers; default empty so a standalone run
+# renders gracefully when precommit is absent.
+hook_manager:
+  type: str
+  default: "{{ _external_data.precommit.hook_manager | default('') }}"
+  help: "Hook manager (read from bailiff-mod-precommit via _external_data; pre-commit/lefthook/none)."
+
+# --- Go toolchain axes -------------------------------------------------------
 
 # Finite modern list — dead/EOL versions are not offered (Constitution).
 go_version:
@@ -27,7 +38,7 @@ go_version:
     - "1.23"
     - "1.22"
     - "1.21"
-  help: "Go toolchain version (pinned in mise_tools + go.mod)."
+  help: "Go toolchain version (pinned in .mise/conf.d/bailiff-mod-go.toml + go.mod)."
 
 # library drops cmd/ entirely (no empty dir); cli/service get cmd/<name>/main.go stub.
 app_kind:
@@ -39,6 +50,8 @@ app_kind:
     - library
   help: "Application layout: cli/service includes cmd/<name>/main.go stub; library omits cmd/."
 
+# test_runner is PRIVATE (collision-class: go {go-test,gotestsum} vs rust vs ts).
+# Private-by-default — NOT a fact, no _external_data alias (FR-007/_facts.md).
 test_runner:
   type: str
   default: go-test
@@ -47,46 +60,18 @@ test_runner:
     - gotestsum
   help: "Test runner: go-test (stdlib) or gotestsum (richer output)."
 
-# Conditional: when true, adds 'vendor/' line to Go gitignore token.
+# Conditional: when true, adds 'vendor/' line to Go gitignore fragment.
 use_vendor_mode:
   type: bool
   default: false
-  help: "When true, adds 'vendor/' to the Go .gitignore token."
+  help: "When true, adds 'vendor/' to the Go .gitignore.d/bailiff-mod-go fragment."
 
-# Injectable string: the rev pinned in the golangci-lint pre-commit hook block
-# contributed to hook_blocks. Agent or --data resolves the concrete tag.
+# Rev pinned in the golangci-lint pre-commit hook fragment.
+# Agent or --data resolves the concrete tag.
 golangci_hook_rev:
   type: str
   default: ""
-  help: "Rev (tag) for golangci/golangci-lint-action in the pre-commit hook block."
-
-# --- Agent-frozen union answers (M1: NOT runtime accumulation) ---------------
-# Phase-1 agent freezes a UNION of all selected modules' contributions and
-# injects them via --data. This module contributes its token but does NOT write
-# .gitignore or .mise.toml (base is the single writer). Default [] so a
-# standalone copier run still renders (SC-006).
-
-gitignore_stack:
-  type: yaml
-  default: []
-  help: "bailiff injects this — Go gitignore token lives here (agent-frozen union, base writes .gitignore)."
-
-mise_tools:
-  type: yaml
-  default: []
-  help: "bailiff injects this — go version token lives here (agent-frozen union, base writes .mise.toml)."
-
-hook_blocks:
-  type: yaml
-  default: []
-  help: "bailiff injects this — golangci hook block lives here (agent-frozen union, precommit writes hook config)."
-
-# hook_manager threaded from whatever upstream layer supplied it (FR-010).
-# Needed so .golangci.yml can reference the right runner and for loop tests.
-hook_manager:
-  type: str
-  default: "{{ hook_manager }}"
-  help: "Hook manager (threaded; pre-commit/lefthook/none)."
+  help: "Rev (tag) for golangci/golangci-lint in .pre-commit.d/bailiff-mod-go.yaml."
 
 # `today` injected by bailiff at init and frozen into recorded answers (FR-007).
 today:
@@ -94,28 +79,20 @@ today:
   default: ""
   help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# --- Dependency edge (spec 014 FR-019/R7: depends_on is the only ordering edge) ---
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
-  when: false
+# Phase: normal (depends on base which is pre); normal may depend on pre (FR-020/R8).
+_bailiff_phase: normal
 
 # Template body lives under template/ so copier renders only that subtree.
 _subdirectory: template
 
 # Exclude cmd/ entirely when app_kind=library (no empty dir — contract requirement).
-# The `{%- -%}` strips whitespace; empty string when cli/service → no exclusion.
 _exclude:
   - "{%- if app_kind == 'library' -%}cmd{%- endif -%}"
 
