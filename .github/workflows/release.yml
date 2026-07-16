@@ -118,7 +118,16 @@ jobs:
           set -euo pipefail
           git config user.name "bailiff-fanout[bot]"
           git config user.email "bailiff-fanout[bot]@users.noreply.github.com"
-          cog bump --auto
+          cog bump --auto || {
+            rc=$?
+            # "tag already exists" (exit 1 + class=Tag) is safe on reruns — the
+            # tags were already pushed; skip bump and let detect-changed find them.
+            if cog bump --auto 2>&1 | grep -q "tag already exists"; then
+              echo "::warning::cog bump skipped — tags already exist (idempotent rerun)"
+            else
+              exit $rc
+            fi
+          }
 
       # Step 2: finalize the monorepo release BEFORE any fan-out.
       # Push the bump commit AND the module tags explicitly. `--follow-tags` alone
@@ -128,15 +137,19 @@ jobs:
       - name: Push bump commit + tags
         run: |
           set -euo pipefail
-          git push origin HEAD:main
-          git push origin --tags
+          git push origin HEAD:main || echo "::warning::nothing new to push (rerun)"
+          git push origin --tags || echo "::warning::tags already pushed (rerun)"
 
       # Step 3: derive the changed module set from the tags on the bump commit.
-      # Emits one <name>-vX.Y.Z per line; empty when nothing bumped.
+      # First tries HEAD (normal cog bump), then falls back to HEAD~1 (rerun after
+      # bump already pushed) so the fan-out is rerun-safe.
       - name: Detect changed modules
         id: changed
         run: |
           tags="$(git tag --points-at HEAD | grep -E '^.+-v[0-9]' || true)"
+          if [ -z "$tags" ]; then
+            tags="$(git tag --points-at HEAD~1 | grep -E '^.+-v[0-9]' || true)"
+          fi
           echo "tags<<EOF" >> "$GITHUB_OUTPUT"
           echo "$tags" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
