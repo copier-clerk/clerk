@@ -1,12 +1,13 @@
-"""spec 012 T010: bailiff-mod-api loop tests (FR-013).
+"""spec 012 T010 / spec 014: bailiff-mod-api loop tests.
 
-Pure render — zero _tasks. Assertions (US7 AS1-3):
+Assertions (spec 014 fragment/merge model + FR-001/013):
 - seed-once openapi.yaml at the REPO ROOT: minimal valid OpenAPI 3.1 skeleton;
   a project edit survives reproduce over the populated tree;
 - managed .spectral.yaml rendered on init;
-- hook_manager=none → files still render and no hook file is written by anyone;
-- spectral hook block flows through precommit (the single writer) when frozen;
-- no secret: questions.
+- managed .mise/conf.d/bailiff-mod-api.toml rendered on init;
+- hook_manager=none → .pre-commit.d/bailiff-mod-api.yaml absent or empty (fragment inert);
+- hook_manager=pre-commit → .pre-commit.d/bailiff-mod-api.yaml contains spectral-lint block;
+- no secret: questions; no mise_tools / hook_blocks union questions.
 """
 
 from __future__ import annotations
@@ -32,18 +33,8 @@ from tests.conftest import (
 
 _OPENAPI = Path("openapi.yaml")
 _SPECTRAL = Path(".spectral.yaml")
-
-# The spectral-lint block api contributes to the frozen hook_blocks union.
-_SPECTRAL_HOOK_BLOCK = (
-    "  - repo: local\n"
-    "    hooks:\n"
-    "      - id: spectral-lint\n"
-    "        name: spectral lint (OpenAPI)\n"
-    "        entry: spectral lint openapi.yaml\n"
-    "        language: system\n"
-    "        files: ^openapi\\.yaml$\n"
-    "        pass_filenames: false\n"
-)
+_MISE_CONF = Path(".mise/conf.d/bailiff-mod-api.toml")
+_PRECOMMIT_FRAGMENT = Path(".pre-commit.d/bailiff-mod-api.yaml")
 
 
 def _copy_api_module(tmp_path: Path) -> TemplateRepo:
@@ -102,7 +93,7 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Seed-once OpenAPI skeleton + managed spectral config (US7 AS1)
+# Seed-once OpenAPI skeleton + managed spectral config + mise conf.d (US7 AS1)
 # ---------------------------------------------------------------------------
 
 
@@ -110,6 +101,7 @@ def test_openapi_skeleton_and_spectral_config(
     bailiff_mod_api: TemplateRepo, tmp_path: Path
 ) -> None:
     dest = tmp_path / "proj"
+    # project_name and description are answered directly (standalone — no base answers file)
     _init(
         bailiff_mod_api,
         dest,
@@ -119,7 +111,6 @@ def test_openapi_skeleton_and_spectral_config(
     oa = dest / _OPENAPI
     assert oa.is_file(), "openapi.yaml not seeded at the repo root"
     parsed = yaml.safe_load(oa.read_text())
-    # Minimal valid OpenAPI 3.1 skeleton (ledger FR-013).
     assert parsed["openapi"] == "3.1.0"
     assert parsed["info"]["title"] == "myapi"
     assert parsed["paths"] == {}
@@ -129,6 +120,11 @@ def test_openapi_skeleton_and_spectral_config(
     sp_parsed = yaml.safe_load(sp.read_text())
     assert "spectral:oas" in sp_parsed["extends"]
 
+    mc = dest / _MISE_CONF
+    assert mc.is_file(), ".mise/conf.d/bailiff-mod-api.toml not rendered"
+    mc_text = mc.read_text()
+    assert "spectral" in mc_text, "spectral tool missing from mise conf.d"
+
 
 # ---------------------------------------------------------------------------
 # Re-run preserves edited openapi.yaml (seed-once) (US7 AS2)
@@ -136,9 +132,13 @@ def test_openapi_skeleton_and_spectral_config(
 
 
 def test_edited_openapi_preserved_on_reproduce(
-    bailiff_mod_base: TemplateRepo, bailiff_mod_api: TemplateRepo, tmp_path: Path
+    bailiff_mod_base: TemplateRepo,
+    bailiff_mod_precommit: TemplateRepo,
+    bailiff_mod_api: TemplateRepo,
+    tmp_path: Path,
 ) -> None:
     trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_precommit.url)
     trust.add_trust(bailiff_mod_api.url)
 
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
@@ -153,8 +153,15 @@ def test_edited_openapi_preserved_on_reproduce(
             },
         ),
         (
+            _record("demo/bailiff-mod-precommit", bailiff_mod_precommit, has_tasks=True),
+            {
+                "hook_manager": "none",
+                "install_hooks": False,
+            },
+        ),
+        (
             _record("demo/bailiff-mod-api", bailiff_mod_api),
-            {"project_name": "myapi", "hook_manager": "none"},
+            {},
         ),
     ]
     dest = tmp_path / "proj"
@@ -177,7 +184,7 @@ def test_edited_openapi_preserved_on_reproduce(
 
 
 # ---------------------------------------------------------------------------
-# hook_manager=none → files render, no hook file anywhere (US7 AS3)
+# hook_manager=none → fragment inert; files still render (US7 AS3)
 # ---------------------------------------------------------------------------
 
 
@@ -187,7 +194,7 @@ def test_hook_manager_none_inert(
     bailiff_mod_api: TemplateRepo,
     tmp_path: Path,
 ) -> None:
-    """hook_manager=none: api renders its files; nobody writes a hook file."""
+    """hook_manager=none: api renders its files; pre-commit.d fragment is absent or empty."""
     for repo in (bailiff_mod_base, bailiff_mod_precommit, bailiff_mod_api):
         trust.add_trust(repo.url)
 
@@ -203,20 +210,15 @@ def test_hook_manager_none_inert(
             },
         ),
         (
-            _record("demo/bailiff-mod-api", bailiff_mod_api),
-            {
-                "project_name": "myapi",
-                "hook_manager": "none",
-                "hook_blocks": [_SPECTRAL_HOOK_BLOCK],
-            },
-        ),
-        (
             _record("demo/bailiff-mod-precommit", bailiff_mod_precommit, has_tasks=True),
             {
                 "hook_manager": "none",
-                "hook_blocks": [_SPECTRAL_HOOK_BLOCK],
                 "install_hooks": False,
             },
+        ),
+        (
+            _record("demo/bailiff-mod-api", bailiff_mod_api),
+            {},
         ),
     ]
     dest = tmp_path / "proj"
@@ -224,21 +226,25 @@ def test_hook_manager_none_inert(
 
     assert (dest / _OPENAPI).is_file(), "api files must render even with hook_manager=none"
     assert (dest / _SPECTRAL).is_file()
-    assert not (dest / ".pre-commit-config.yaml").exists(), "no hook file when none"
-    assert not (dest / "lefthook.yml").exists(), "no hook file when none"
+    fragment = dest / _PRECOMMIT_FRAGMENT
+    # Fragment is either absent or empty when hook_manager=none (conditional Jinja).
+    assert not fragment.is_file() or not fragment.read_text().strip(), (
+        "pre-commit.d fragment must be absent or empty when hook_manager=none"
+    )
 
 
 # ---------------------------------------------------------------------------
-# Spectral hook block flows through precommit when a manager is chosen
+# hook_manager=pre-commit → .pre-commit.d fragment contains spectral-lint
 # ---------------------------------------------------------------------------
 
 
-def test_spectral_hook_block_written_by_precommit(
+def test_spectral_fragment_rendered_for_precommit(
     bailiff_mod_base: TemplateRepo,
     bailiff_mod_precommit: TemplateRepo,
     bailiff_mod_api: TemplateRepo,
     tmp_path: Path,
 ) -> None:
+    """hook_manager=pre-commit: api renders the spectral-lint fragment in .pre-commit.d/."""
     for repo in (bailiff_mod_base, bailiff_mod_precommit, bailiff_mod_api):
         trust.add_trust(repo.url)
 
@@ -254,30 +260,32 @@ def test_spectral_hook_block_written_by_precommit(
             },
         ),
         (
-            _record("demo/bailiff-mod-api", bailiff_mod_api),
+            _record("demo/bailiff-mod-precommit", bailiff_mod_precommit, has_tasks=True),
             {
-                "project_name": "myapi",
                 "hook_manager": "pre-commit",
-                "hook_blocks": [_SPECTRAL_HOOK_BLOCK],
+                "install_hooks": False,
             },
         ),
         (
-            _record("demo/bailiff-mod-precommit", bailiff_mod_precommit, has_tasks=True),
-            {"hook_manager": "pre-commit", "hook_blocks": [_SPECTRAL_HOOK_BLOCK]},
+            _record("demo/bailiff-mod-api", bailiff_mod_api),
+            {},
         ),
     ]
     dest = tmp_path / "proj"
     runner.init_many(selection, str(dest), today="2026-07-14")
 
-    hook_file = dest / ".pre-commit-config.yaml"
-    assert hook_file.is_file(), "precommit must write the hook file"
-    text = hook_file.read_text()
-    assert "spectral-lint" in text, "spectral hook block missing from hook file"
-    assert text.count("spectral-lint") == 1, "hook block injected more than once"
+    fragment = dest / _PRECOMMIT_FRAGMENT
+    assert fragment.is_file(), ".pre-commit.d/bailiff-mod-api.yaml must be rendered"
+    text = fragment.read_text()
+    assert "spectral-lint" in text, "spectral-lint hook missing from fragment"
+    parsed = yaml.safe_load(text)
+    assert parsed is not None, "fragment must be valid YAML"
+    repo_ids = [r["repo"] for r in parsed.get("repos", [])]
+    assert "local" in repo_ids, "spectral-lint must be a local repo hook"
 
 
 # ---------------------------------------------------------------------------
-# Contract: zero tasks, seed-once declared, no secret:
+# Contract: zero tasks, seed-once declared, no secret:, no union questions
 # ---------------------------------------------------------------------------
 
 
@@ -287,3 +295,10 @@ def test_zero_tasks_seed_once_no_secrets() -> None:
     assert "_tasks" not in raw, "api module must have zero _tasks"
     assert "openapi.yaml" in raw.get("_skip_if_exists", []), "openapi.yaml must be seed-once"
     assert not re.search(r"^\s+secret\s*:", raw_text, re.MULTILINE)
+    # spec 014: union questions are gone
+    assert "mise_tools" not in raw, "mise_tools union question must be removed (spec 014)"
+    assert "hook_blocks" not in raw, "hook_blocks union question must be removed (spec 014)"
+    # spec 014: _external_data aliases present
+    assert "_external_data" in raw, "_external_data block must be present (spec 014)"
+    assert "base" in raw["_external_data"], "base alias must be present"
+    assert "precommit" in raw["_external_data"], "precommit alias must be present"

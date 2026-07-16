@@ -7,61 +7,54 @@
 #   SEED-ONCE (_skip_if_exists): openapi.yaml at the REPO ROOT (ledger FR-013:
 #     lowest-friction default — spectral/editors find it without config; the
 #     project can move it and re-runs never clobber). OpenAPI 3.1 skeleton.
-#   MANAGED: .spectral.yaml (byte-identical on reproduce).
+#   MANAGED: .spectral.yaml, .mise/conf.d/bailiff-mod-api.toml (byte-identical
+#     on reproduce).
 #
-# Frozen-union contributions (M1 — tokens only, never a second writer):
-#   spectral            → mise_tools  (base writes .mise.toml)
-#   spectral-lint block → hook_blocks (precommit writes the hook file; inert
-#                          when hook_manager=none — §4 threading contract)
+# Fragment contributions (spec 014 universal fragment/merge model):
+#   spectral tool  → .mise/conf.d/bailiff-mod-api.toml  (mise native drop-in)
+#   spectral-lint  → .pre-commit.d/bailiff-mod-api.yaml  (merged by precommit)
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
-# questions; no jinja2_time; edges are when:false hidden answers.
+# questions; edges are when:false hidden answers.
 
-# --- Threaded identity/facts (FR-010 pattern) ---------------------------------
+# --- External data (spec 014 _external_data aliases) --------------------------
+# Facts are read from producer answers files — never threaded via blanket bleed.
+
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+  precommit: .copier-answers.bailiff-mod-precommit.yml
+
+# --- Facts read from base (project_name, description) -------------------------
 
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base; OpenAPI info.title)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "The project's name (from bailiff-mod-base; OpenAPI info.title)."
 
 description:
   type: str
-  default: ""
-  help: "One-line description (OpenAPI info.description)."
+  default: "{{ _external_data.base.description }}"
+  help: "One-line description (from bailiff-mod-base; OpenAPI info.description)."
+
+# --- Fact read from precommit (hook_manager) ----------------------------------
 
 hook_manager:
   type: str
-  default: "{{ hook_manager }}"
-  help: "Hook manager (threaded from selection; bailiff-mod-precommit is the single writer). none = hook contribution inert."
-
-# --- Frozen unions consumed (declared for threading; NOT written here) --------
-
-mise_tools:
-  type: yaml
-  default: []
-  help: "mise [tools] union (injected by phase-1 agent; base writes .mise.toml). api contributes {spectral: <version>}."
-
-hook_blocks:
-  type: yaml
-  default: []
-  help: "Hook config blocks union (injected by phase-1 agent; precommit writes the hook file). api contributes its spectral-lint block."
+  default: "{{ _external_data.precommit.hook_manager }}"
+  help: "Hook manager (from bailiff-mod-precommit). none = hook fragment inert."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
 
-run_after:
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
+    - bailiff-mod-precommit
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # Template body lives under template/ — copier renders only that subtree.
