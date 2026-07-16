@@ -1,74 +1,32 @@
 # copier.yml — bailiff-mod-ts
 #
-# TypeScript/JavaScript language overlay (spec 011 T007). Applies after
-# bailiff-mod-base (run_after), threads project_name and hook_manager from the
-# phase-1 agent's frozen --data answers.
+# TypeScript/JavaScript language overlay (spec 011 T007 / spec 014 rewrite).
+# Applies after bailiff-mod-base (depends_on), reads project_name and
+# hook_manager from producer answers files via _external_data (spec 014 FR-004).
 #
-# Frozen-union contract (M1): gitignore_stack, mise_tools, and hook_blocks are
-# ALL agent-frozen and injected via --data — this module contributes its token
-# to those unions but does NOT accumulate at runtime (ordering tie-break makes
-# that unreliable). Base writes .gitignore + .mise.toml; precommit writes the
-# hook config file.
+# Private-by-default (spec 014): no answer accretes into this module's namespace
+# from other layers. Cross-module values are read via _external_data aliases
+# at render time; they do NOT appear in this module's answers file.
+#
+# ts is a FACT PRODUCER for the `ts` alias:
+#   js_pkg_manager — read by justfile, package-add
+#   ts_linter      — read by editorconfig
+#
+# Fragment contributions (spec 014 / _fragment-merge.md):
+#   .mise/conf.d/bailiff-mod-ts.toml       — node version (mise native drop-in)
+#   .pre-commit.d/bailiff-mod-ts.yaml      — linter hook block
+#   .gitignore.d/bailiff-mod-ts            — Node gitignore lines
 #
 # Constitution VI: ships template/{{ _copier_conf.answers_file }}.jinja.
 # No secret: questions anywhere in this file.
 
 _subdirectory: template
 
-# --- Frozen-union threading (M1 / FR-010) ------------------------------------
-# The phase-1 agent freezes the full union and injects all of these via --data.
-# Threaded axes use default: "{{ <key> }}" so downstream layers inherit without
-# hardcoding which layer supplied them (FR-010). Defaults here are the empty /
-# zero-state so standalone runs (US2 #2) are a valid no-op.
-
-# Threaded from base via default: "{{ project_name }}" pattern (ADR-0003).
-project_name:
-  type: str
-  default: "{{ project_name }}"
-  help: "Project name (threaded from bailiff-mod-base)."
-
-# hook_manager is a frozen union answer injected by the phase-1 agent (M1 §4).
-# This module does NOT write the hook file; it contributes its hook block to
-# hook_blocks (another frozen union answer). pre-commit is the safe default.
-hook_manager:
-  type: str
-  choices:
-    - pre-commit
-    - lefthook
-    - none
-  default: "{{ hook_manager | default('pre-commit') }}"
-  help: "Hook manager (threaded from phase-1 agent; single writer: bailiff-mod-precommit)."
-
-# gitignore_stack — frozen union injected by the phase-1 agent. Base is the
-# single writer of .gitignore; ts contributes the 'Node' token. Default []
-# keeps standalone runs clean.
-gitignore_stack:
-  type: yaml
-  default: []
-  help: "Gitignore token union (injected by phase-1 agent; base writes .gitignore)."
-
-# mise_tools — frozen union injected by the phase-1 agent. Base is the single
-# writer of .mise.toml; ts contributes {node: <node_version>}. Default []
-# keeps standalone runs clean.
-mise_tools:
-  type: yaml
-  default: []
-  help: "mise [tools] union (injected by phase-1 agent; base writes .mise.toml)."
-
-# hook_blocks — frozen union injected by the phase-1 agent. precommit is the
-# single writer of the hook config file; ts contributes its linter hook block.
-hook_blocks:
-  type: yaml
-  default: []
-  help: "Hook config blocks union (injected by phase-1 agent; precommit writes hook file)."
-
-# today — injected by bailiff at init (Constitution V); never jinja2_time.
-today:
-  type: str
-  default: ""
-  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
-
 # --- TypeScript / JavaScript questions (T007 contract) -----------------------
+# These are bare questions — ts is the producer; consumers read them via alias.
+# ts does not consume cross-module facts: project_name is not used in any ts
+# template or task, and hook_manager is handled by the bundler's post-task.
+# If a future ts template needs a cross-module value, add _external_data then.
 
 # Package manager: yarn DEAD (dropped per spec 011 contract).
 js_pkg_manager:
@@ -91,6 +49,8 @@ ts_linter:
   help: "TypeScript linter/formatter (biome or eslint+prettier)."
 
 # Test runner: jest DEAD (dropped per spec 011 contract).
+# PRIVATE — collision class (ts {none,vitest-*,bun-test,playwright-only} vs
+# go {go-test,gotestsum} vs rust {cargo-test,nextest}). Not a fact.
 test_runner:
   type: str
   choices:
@@ -112,7 +72,7 @@ node_version:
     - "20"
     - "18"
   default: "22"
-  help: "Node.js version (pinned via mise_tools in .mise.toml)."
+  help: "Node.js version (pinned via mise conf.d drop-in)."
 
 # ts_framework: plain means no framework scaffold.
 # nuxi/create-vite are pinned (no @latest) — spec 011 bug fix.
@@ -142,22 +102,24 @@ ui_kit:
   default: none
   help: "UI component kit (shadcn is a separate setup step post-scaffold)."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+# today — injected by bailiff at init (Constitution V); never jinja2_time.
+today:
+  type: str
+  default: ""
+  help: "Generation date (YYYY-MM-DD); bailiff injects this — leave blank."
 
-run_after:
+# --- Dependency edges (when:false hidden answers — spec 014 FR-019) ----------
+# Single depends_on edge (run_after/run_before removed per spec 014 R7).
+
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # --- Seed-once files (FR-012a / M3) ------------------------------------------
@@ -190,7 +152,7 @@ _tasks:
   - >-
     test -f .bailiff-ts-mise-installed ||
     { mise install 2>&1 ||
-    { echo "bailiff-mod-ts: 'mise install' failed — check .mise.toml entries." >&2;
+    { echo "bailiff-mod-ts: 'mise install' failed — check .mise/conf.d/ entries." >&2;
     exit 1; }; touch .bailiff-ts-mise-installed; }
 
   # --- Native manifest scaffold (init-only-guarded, task-output → seed-once) ---
@@ -226,7 +188,7 @@ _tasks:
     when: "{{ ts_framework == 'vite' }}"
 
   # sst init is safe (writes sst.config.ts only, no deploy/bootstrap).
-  # .gitignore entries for sst (.sst/, .open-next/) are in gitignore_stack.
+  # .gitignore entries for sst (.sst/, .open-next/) are in the gitignore fragment.
   # --yes bypasses the interactive "Continue?" prompt so it runs unattended.
   - command: >-
       test -f sst.config.ts ||

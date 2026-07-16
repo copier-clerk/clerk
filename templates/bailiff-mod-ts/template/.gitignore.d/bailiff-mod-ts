@@ -1,0 +1,12 @@
+# Node.js / TypeScript — managed by bailiff-mod-ts (DO NOT EDIT BY HAND)
+# Fragment: bailiff-mod-base's post-task folds all .gitignore.d/* into .gitignore
+# using delimited blocks (spec 014 FR-013).
+
+node_modules/
+dist/
+.next/
+.nuxt/
+.output/
+.sst/
+.open-next/
+*.tsbuildinfo
