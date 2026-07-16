@@ -257,6 +257,64 @@ def test_cdk_preflight_has_language_runtime_checks() -> None:
         )
 
 
+def test_cdk_external_data_declaration() -> None:
+    """_external_data must declare base alias pointing at base answers file (spec 014 / FR-004).
+
+    This replaces the old copier-threading 'default: {{ project_name }}' model.
+    The alias path must be the deterministic literal '.copier-answers.bailiff-mod-base.yml'
+    (FR-006a) so bailiff can statically map it to the producer basename.
+    """
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
+    data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
+
+    ext = data.get("_external_data", {})
+    assert "base" in ext, "_external_data must declare 'base' alias (spec 014)"
+    assert ext["base"] == ".copier-answers.bailiff-mod-base.yml", (
+        "_external_data.base must be the literal '.copier-answers.bailiff-mod-base.yml' (FR-006a)"
+    )
+
+    # project_name default must reference the alias, not thread via copier namespace.
+    pn = data.get("project_name", {})
+    assert isinstance(pn, dict), "project_name must be a question block"
+    default = pn.get("default", "")
+    assert "_external_data.base.project_name" in default, (
+        "project_name default must read _external_data.base.project_name (spec 014 / FR-004), "
+        f"got: {default!r}"
+    )
+    # The old threading pattern must be gone.
+    assert default != "{{ project_name }}", (
+        "project_name must not use old copier threading '{{ project_name }}' (spec 014)"
+    )
+
+
+def test_cdk_depends_on_base_phase_normal() -> None:
+    """depends_on must list bailiff-mod-base; phase must be normal (spec 014 / FR-019/R7).
+
+    The old run_after/run_before split-edge model is replaced by a single depends_on
+    with a phase declaration.
+    """
+    module_dir = _MODULES_DIR / "bailiff-mod-cdk"
+    data = yaml.safe_load((module_dir / "copier.yml").read_text()) or {}
+
+    # depends_on is a when:false hidden answer — check the default value.
+    dep = data.get("depends_on", {})
+    assert isinstance(dep, dict), "depends_on must be a question block"
+    default = dep.get("default", [])
+    assert "bailiff-mod-base" in default, (
+        "depends_on default must include 'bailiff-mod-base' (spec 014)"
+    )
+
+    phase = data.get("phase", {})
+    assert isinstance(phase, dict), "phase must be a question block"
+    assert phase.get("default") == "normal", (
+        "phase default must be 'normal' for cdk (spec 014 / FR-020)"
+    )
+
+    # run_after and run_before must be absent (old model removed).
+    assert "run_after" not in data, "run_after must be removed (spec 014 / R7)"
+    assert "run_before" not in data, "run_before must be removed (spec 014 / R7)"
+
+
 def test_cdk_no_pin_tasks_remain() -> None:
     """Version pin tasks were removed — cdk init determines the installed version.
 

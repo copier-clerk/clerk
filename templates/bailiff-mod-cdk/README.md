@@ -19,10 +19,9 @@ standalone). Spec 011 T021.
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `project_name` | str | `"{{ project_name }}"` | Threaded from base; used in cdk init. |
+| `project_name` | str | `_external_data.base.project_name` | Read from `bailiff-mod-base` via `_external_data` alias; used in cdk init. |
 | `cdk_language` | str (choices) | `typescript` | `typescript`, `python`, `go`, `java`, `csharp`. |
 | `placement_dir` | str | `infrastructure` | Where `cdk init` writes. Use `.` for standalone IaC repos. |
-| `cdk_version` | str | `2.261.0` | CDK version to pin. |
 | `include_cdk_nag` | bool | `false` | Splice `cdk-nag` import into the app entrypoint. |
 | `include_synth_validate` | bool | `false` | Run `cdk synth` for offline empty-stack validation. |
 
@@ -44,13 +43,14 @@ standalone). Spec 011 T021.
 4. **`cdk synth`** (opt-in, `include_synth_validate=true`) — credential-free validation
    of an empty stack. Never runs on reproduce.
 
-## Ordering & threading
+## Ordering & dependency
 
-- `run_after: [bailiff-mod-base]` (a `when:false` hidden answer) — works standalone too
-  (no hard dependency). NO edge to language modules: `cdk init` is self-contained in
+- `depends_on: [bailiff-mod-base]`, `phase: normal` (spec 014 single-edge model).
+  bailiff enforces base is present and ordered before cdk (hard data-dependency via
+  `_external_data` alias). NO edge to language modules: `cdk init` is self-contained in
   `placement_dir` (contract: "NO edge to language modules").
-- `project_name` uses copier's `default: "{{ project_name }}"` threading (ADR-0003);
-  does not hardcode which upstream supplied it (FR-010).
+- `project_name` reads from `_external_data.base.project_name` (spec 014 / FR-004);
+  base is a hard requirement enforced at bailiff preflight.
 
 ## Prerequisites (FR-007b)
 

@@ -16,31 +16,30 @@ _bailiff_provides:
   - iac-tool
 _bailiff_exclusive: true
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# --- Dependency edges (spec 014 — single depends_on + phase) -----------------
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
-run_before:
-  type: yaml
-  default: []
-  when: false
+# --- External data aliases (spec 014 / FR-004 / _facts.md) -------------------
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
 
 # --- Questions ---------------------------------------------------------------
 
-# Threaded from base via copier's default: "{{ project_name }}" mechanism
-# (ADR-0003). Standalone fallback: empty string if no upstream base. FR-010.
+# Read from base answers file via _external_data alias (spec 014 / FR-004).
+# bailiff enforces base is present when this alias is declared.
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "Project name (threaded from bailiff-mod-base; used in cdk init)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "Project name (read from bailiff-mod-base via _external_data; used in cdk init)."
 
 # Target CDK language. Choices are the full set cdk init supports.
 # Dead/unsupported options (JavaScript) are NOT offered per cross-cutting dead-options rule.
