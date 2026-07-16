@@ -52,7 +52,7 @@ review).
 |---|---|
 | `mise_tools` | DELETED as a union. Per-module `.mise/conf.d/<vendor>-<module>.toml`; mise merges natively. No module writes `.mise.toml`. devcontainer runs bare `mise install` (reads merged conf.d), no frozen tool list. |
 | `hook_blocks` | DELETED as an answer union. Per-module `.pre-commit.d/<vendor>-<module>.yaml` fragments; precommit runs ONE post-install merge task → `.pre-commit-config.yaml`. Config-consistent. |
-| `gitignore_stack` | RESOLVED (see Ratified §pre-commit/gitignore below): becomes per-module `.gitignore.d/<vendor>-<module>` fragments (gitnr-produced OR literal static lines) + one idempotent ordered-concat (inline shell task in the gitignore owner). No `gitignore_stack` fact threaded across layers. |
+| `gitignore_stack` | RESOLVED (see Ratified §pre-commit/gitignore below): becomes per-module `.gitignore.d/<vendor>-<module>` fragments (gitnr-produced OR literal static lines) + one idempotent ordered-concat in the gitignore owner, run as a `_post_task` (R11). No `gitignore_stack` fact threaded across layers. |
 | `quality_languages` | NOT shared — declared and consumed by the same module (quality). No change. |
 
 ## Threading model (ratified — vendor prefix DROPPED, superseded by `_external_data`)
@@ -138,9 +138,51 @@ static-parse the R6 data-dependency validation depends on.
 copier SILENTLY IGNORES unknown recorded answer keys (verified: `load_answersfile_data`
 `_user_data.py:597-603` returns `{}`/warns, never errors), so a pre-014 tree with `mise_tools:` recorded
 reproduces WITHOUT the tools and WITHOUT error — the exact silent mis-render SC-006 forbids. "Clear
-documented error" was therefore aspirational. FIX: post-014 modules stamp `_bailiff_schema: 014` into
-their answers files; `reproduce_many` REFUSES (loud error + re-init guidance) when a recorded answers
-file lacks the marker or carries an older schema. This gives SC-006 real teeth.
+documented error" was therefore aspirational. FIX: post-014 answers files carry `_bailiff_schema: 014`;
+`reproduce_many` REFUSES (loud error + re-init guidance) when a recorded answers file lacks the marker
+or carries an older schema. This gives SC-006 real teeth.
+
+**Write path — bailiff writes it, NOT the template (verified against copier source).** The marker
+CANNOT be a copier answer:
+- A `when:false` hidden question is explicitly OMITTED from the answers file (`_main.py:613-616`:
+  `answers.hide()` → "Omit its answer from the answers file"; writer filter drops `answers.hidden` at
+  `_main.py:375`) — the very mechanism our `depends_on` edges use to stay OUT of the file. Wrong: we
+  need it PRESENT.
+- An askable question is written WITHOUT a leading `_` (→ `bailiff_schema:`), pollutes every module's
+  question namespace, needs 27 declarations, and is user-overridable.
+- `--data _bailiff_schema=014` is dropped by the `not k.startswith("_")` filter (`_main.py:374`).
+So bailiff APPENDS `_bailiff_schema: 014` to each `.copier-answers.<basename>.yml` post-render (one
+engine site — it already reads answers files at `runner.py:540`), the same pattern copier itself uses
+to write its own `_commit`/`_src_path` metadata (special-cased before the filter, `_main.py:367-369`).
+Chosen (Option A, POSITIVE allowlist) over negative dissolved-key detection: a pre-014 tree CANNOT
+have the marker, and every future schema-affecting spec just bumps the number — the gate generalizes.
+
+### R11 — Post-tasks: deferred work bailiff runs AFTER the render loop (resolves the precommit merge-ordering contradiction)
+
+The re-critique found a load-bearing contradiction: FR-006 makes `hook_manager` a hard data-dep, so
+precommit is ordered BEFORE every language module; but the pre-commit fragment merge must run AFTER
+every language writes its `.pre-commit.d/*.yaml`. copier runs each layer's `_tasks` INLINE at that
+layer's `run_copy` (`runner.py:461`) — no global post-pass — so a merge in precommit's `_tasks` (precommit
+first) would see NO language fragments → empty `.pre-commit-config.yaml`. FR-020's `post` phase is
+reserved-not-built, so it doesn't rescue this.
+
+FIX (enabled by bailiff driving copier as a LIBRARY, not a subprocess — `runner.py:33`
+`from copier import run_copy...`): a module declares **`_post_tasks`** in its `copier.yml` (a `when:false`
+hidden list, statically read like edges). bailiff COLLECTS `_post_tasks` across all selected modules and
+runs them AFTER the whole render loop, in `depends_on` order (reuse the module DAG + basename tie-break),
+on BOTH `init_many` AND `reproduce_many` (copier `_tasks` run on reproduce too, so the merge must too).
+- precommit renders NORMAL (produces `hook_manager`, ordered first via the data-dep) AND contributes the
+  merge as a `_post_task` (runs last, sees every fragment). The contradiction dissolves — one module acts
+  in two stages.
+- The pre-commit vendored bundler and the gitignore concat both move from inline `_tasks` to `_post_tasks`.
+- **NO `_pre_tasks`**: "run before everything" is already expressible (be the first-ordered module — base —
+  and use a normal `_task`; base's mise/gh preflight already does this). Post fills a gap copier CANNOT
+  express (run after modules ordered before you); pre has no such gap. YAGNI until a real case appears.
+- The pre/normal/post MODULE phase (R8/FR-020) stays for whole-module ORDERING (base=pre, family=normal,
+  post reserved); `_post_tasks` is the orthogonal DEFERRED-WORK mechanism. The sub-render "each phase is a
+  separate copier render + answers file" model was considered and REJECTED: the merge is a file-folding
+  script either way, so a post sub-render would just wrap the same script at the cost of 3× answers files,
+  phase-leaking alias paths, and a 3-pass engine — machinery with no current use case.
 
 ### FR-006 INVERTED (ratified)
 
@@ -183,8 +225,9 @@ history; the accepted answers:
 - **Per surface (weight-differentiated):**
   - **mise** — native `.mise/conf.d/*.toml` merge at `mise install`. NO script, NO merge task.
   - **gitignore** — per-module `.gitignore.d/<vendor>-<module>` fragments (gitnr-produced OR literal
-    static lines) + one **idempotent ordered-concat inline shell task** in the gitignore owner
-    (delimited blocks so reproduce does not duplicate). No script file; no `gitignore_stack` fact.
+    static lines) + one **idempotent ordered-concat** in the gitignore owner (delimited blocks so
+    reproduce does not duplicate), run as a `_post_task` (R11 — after the render loop). No script file;
+    no `gitignore_stack` fact.
   - **pre-commit** — the only surface needing a real script. `bailiff-mod-precommit` **vendors one
     Python bundler** (e.g. `scripts/_merge_precommit.py`) into the project, run as its post-install
     task. It reads ALL `.pre-commit.d/*.yaml`, dedups repos, emits `.pre-commit-config.yaml`

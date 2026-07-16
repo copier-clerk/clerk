@@ -49,7 +49,8 @@ redesigned by the 2026-07-16 grill + engineering critique — see R0.8).
 
 - **Decision**: each hook module writes `.pre-commit.d/<vendor>-<module>.yaml`;
   `bailiff-mod-precommit` vendors ONE Python bundler (`scripts/_merge_precommit.py`), run as a
-  post-install `_task`, that folds all fragments into `.pre-commit-config.yaml` deterministically;
+  **`_post_task`** (R11 — NOT inline, since precommit is ordered first as a `hook_manager` producer),
+  that folds all fragments into `.pre-commit-config.yaml` deterministically after the render loop;
   on a rev-pin conflict it picks the **highest rev and warns** (R2 revised — never aborts).
 - **Rationale**: pre-commit config model — a single `.pre-commit-config.yaml`, no include/drop-in;
   the combine is irreducible. Owner-side single reader is the only place that (a) orders
@@ -65,12 +66,13 @@ redesigned by the 2026-07-16 grill + engineering critique — see R0.8).
 ## R0.5 — gitignore has no committed-file merge → owner-side idempotent concat
 
 - **Decision**: per-module `.gitignore.d/<vendor>-<module>` fragments (gitnr-produced OR literal
-  static lines); the gitignore owner runs ONE idempotent ordered-concat (inline shell `_task`,
+  static lines); the gitignore owner runs ONE idempotent ordered-concat as a **`_post_task`** (R11,
   delimited blocks). No `gitignore_stack` fact.
 - **Rationale**: git composes ignores by precedence (root, per-dir, info/exclude, global), NOT by
   merging multiple committed root files — so no native drop-in. Concat is trivial (delimited blocks
-  → idempotent, no duplicate on reproduce), so it needs no vendored script, just an inline task in
-  the owner (the same shape as today's gitnr task). Supports non-gitnr/static-list packages.
+  → idempotent, no duplicate on reproduce), so it needs no vendored script — but it runs as a
+  post-task (after the render loop) so it sees every contributor's fragment regardless of layer order.
+  Supports non-gitnr/static-list packages.
 - **Alternatives rejected**: keep `gitignore_stack` as a frozen shared fact + single gitnr call —
   workable but keeps a cross-layer fact where a fragment/concat is simpler and vendor-open.
 
@@ -148,3 +150,26 @@ not itself originate. Findings (file:line evidence in the audit; summarized here
   in the file, not synthesized by a memorized rule). (d) `run_before` kept — 0 uses, doubles cycle surface.
 - **Migration gate (R10)**: copier silently ignores unknown recorded keys, so a `_bailiff_schema: 014`
   marker + refuse-on-mismatch in `reproduce_many` is REQUIRED to make the documented break loud (SC-006).
+
+## R0.9 — post-tasks + marker write-path (2026-07-16 re-critique of the redesigned model)
+
+The re-critique verified the redesign and found ONE load-bearing NEW hole + corrected the marker mechanism:
+- **CONFIRMED sound**: `_external_data` is statically parseable (copier reads it as a plain top-level
+  `_`-key, `_template.py:340` — same `yaml.safe_load` discovery already does), so FR-006 enforcement is
+  implementable; and the real fact graph (base→all; precommit→languages; ts→justfile/package-add/
+  editorconfig; moon→ci) is ACYCLIC (precommit reads nothing ts produces). base is fact-free as a consumer.
+- **NEW hole → R11 (post-tasks)**: FR-006 orders precommit FIRST (languages read `hook_manager`), but the
+  pre-commit merge must run LAST (needs language fragments). copier runs `_tasks` INLINE per layer
+  (`runner.py:461`, no global post-pass), so an inline merge in precommit sees no fragments → empty
+  `.pre-commit-config.yaml` (fails US4). FIX: `_post_tasks` — bailiff (driving copier as a library) runs
+  collected post-tasks after the render loop, on init AND reproduce. NO `_pre_tasks` ("run first" = be
+  the first module + a normal `_task`). Rejected: building the `post` MODULE-phase finalizer now
+  (heavier); the sub-render "phase = separate copier render" model (3× answers files, phase-leaking alias
+  paths, 3-pass engine, for a merge that's a script either way).
+- **Marker write-path (R10 refined)**: the marker CANNOT be a copier answer — a `when:false` hidden
+  question is OMITTED from the answers file (`_main.py:613-616` `answers.hide()` → "Omit its answer from
+  the answers file"; the very mechanism `depends_on` edges use to stay out), an askable question drops the
+  leading `_` + pollutes the namespace + is user-overridable, and `--data _key` is stripped by the
+  `not k.startswith("_")` filter (`_main.py:374`). So bailiff APPENDS `_bailiff_schema: 014` post-render
+  (one engine site), mirroring copier's own special-cased `_commit`/`_src_path` writes (`_main.py:367-369`).
+  POSITIVE allowlist chosen over negative dissolved-key detection (generalizes to 015+; pre-014 can't fake it).

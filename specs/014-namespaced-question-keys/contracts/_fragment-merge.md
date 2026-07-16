@@ -31,28 +31,33 @@ N-writers-of-one-file (a 013 collision) becomes N-writers-of-N-files (no collisi
 - Each hook-contributing module renders `.pre-commit.d/<vendor>-<module>.yaml` — its hook block
   only, MAY be conditional on the module's own answers.
 - `bailiff-mod-precommit` ships ONE vendored bundler `scripts/_merge_precommit.py` (template
-  content) run as a post-install `_task` (init-only-guarded). It:
+  content) run as a **`_post_task`** (FR-021, R11) — NOT an inline `_task`. This is load-bearing:
+  precommit is ordered FIRST (languages read `hook_manager` from it via `_external_data`), so an
+  inline task at precommit's layer would see NO language fragments. As a post-task, bailiff runs it
+  AFTER the whole render loop, when every fragment exists. It:
   - reads ALL `.pre-commit.d/*.yaml`;
   - emits `.pre-commit-config.yaml` deterministically, order-independent (same fragment set →
     equivalent config regardless of layer order);
   - deduplicates repos;
-  - **HARD-ERRORS on a rev-pin conflict** — if two fragments pin the SAME hook repo at DIFFERENT
-    revs, abort with an explicit error (R2). All conflicting modules are first-party, so this forces
-    reconciliation at source.
+  - on a rev-pin conflict (two fragments pin the SAME hook repo at DIFFERENT revs) picks the
+    **HIGHEST rev and WARNS** — never aborts (R2 revised: a hard error would let a lagging third-party
+    module veto a valid stack, colliding with the open-ecosystem premise).
 - EXACTLY ONE merger (precommit). When precommit is absent or `hook_manager=none`, no merge runs and
   no `.pre-commit-config.yaml` is produced (fragments are inert) — FR-012.
 - Per-contributor merging is FORBIDDEN: N writers on one output re-creates the multi-writer collision
-  014 removes, and no contributor can see all fragments to enforce the rev-pin rule.
-- Dependencies: Python + PyYAML only (never the bailiff CLI). Reproduce: config-consistent (same
-  hooks), NOT byte-identical. `check_modules.py` MAY lint the single-merger invariant.
+  014 removes, and no contributor can see all fragments to resolve the rev-pin rule.
+- Dependencies: Python + PyYAML only (never the bailiff CLI). Runs on init AND reproduce (post-tasks,
+  like copier `_tasks`, run on both). Reproduce: config-consistent (same hooks), NOT byte-identical.
+  `check_modules.py` MAY lint the single-merger invariant.
 
 ## Surface 3 — gitignore (no committed-file merge → owner-side idempotent concat), FR-013
 
 - Each contributing module renders `.gitignore.d/<vendor>-<module>` — gitnr-produced OR literal
   static lines (supports non-gitnr / static-list packages).
-- The gitignore owner (base) runs ONE idempotent ordered-concat as an inline shell `_task`
-  (delimited blocks, e.g. `# >>> <module> >>> … # <<< <module> <<<`) folding fragments into
-  `.gitignore`. NO vendored script (concat is trivial); NO `gitignore_stack` fact.
+- The gitignore owner (base) runs ONE idempotent ordered-concat as a **`_post_task`** (FR-021,
+  delimited blocks, e.g. `# >>> <module> >>> … # <<< <module> <<<`) folding fragments into
+  `.gitignore` after the render loop. A post-task (not inline) so it sees every contributor's fragment
+  regardless of layer order. NO vendored script (concat is trivial); NO `gitignore_stack` fact.
 - Idempotent: reproduce MUST NOT duplicate entries (delimited blocks are replaced, not appended).
   Guarantee is config-consistency (same ignore rules), not byte-identity.
 

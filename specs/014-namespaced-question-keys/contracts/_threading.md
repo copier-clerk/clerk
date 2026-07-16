@@ -67,14 +67,27 @@ Two DISTINCT dependency kinds, both hard-enforced:
 **Stratified DAG (FR-020):** modules carry a phase `pre | normal(default) | post`. Sort = (phase) →
 (`depends_on` DAG) → (basename). Edge legality VALIDATED at discovery: pre→pre only; normal→pre+normal;
 post→anything; a forward cross-phase edge is rejected (cycles cannot cross phases). `base = pre`;
-family = `normal`; `post` reserved for a future finalizer. Solves "run first / run last" structurally.
+family = `normal`; `post` reserved for a future finalizer. Solves "run first" structurally.
+
+**Post-tasks (FR-021; R11):** a module MAY declare `_post_tasks` (a `when:false` hidden list, statically
+read like edges). bailiff COLLECTS `_post_tasks` across all modules and runs them AFTER the whole render
+loop, in `depends_on` order, on BOTH init AND reproduce. This is DISTINCT from the module `phase`: phase
+orders whole-module RENDERS; `_post_tasks` defers WORK. It exists because copier runs inline `_tasks` at
+each layer's own render (`runner.py:461`) — so a module ordered FIRST (e.g. precommit, a `hook_manager`
+producer) cannot run a merge that needs LATER layers' output via an inline task. As a post-task the merge
+runs after every fragment exists. The pre-commit bundler + gitignore concat use this. NO `_pre_tasks`
+("run first" = be the first module + a normal `_task`, as base's preflight already does). Enabled by
+bailiff driving copier as a LIBRARY (`runner.py:33`) — it owns the loop.
 
 ## Migration gate (FR-014; R10)
 
 copier silently ignores unknown recorded answer keys (`load_answersfile_data` returns `{}`), so a
 pre-014 tree with `mise_tools:` recorded would reproduce WITHOUT tools and WITHOUT error. Post-014
-modules stamp `_bailiff_schema: 014` into their answers files; `reproduce_many` REFUSES (loud error +
-re-init guidance) on a missing/older marker. This is what makes the documented break loud, not silent.
+answers files carry `_bailiff_schema: 014`; `reproduce_many` REFUSES (loud error + re-init guidance) on a
+missing/older marker. **bailiff writes the marker itself post-render** — it CANNOT be a copier answer (a
+`when:false` question is omitted from the file `_main.py:616`; an askable one drops the `_` + pollutes the
+namespace + is user-overridable; `--data _key` is stripped by the `startswith("_")` filter). Mirrors how
+copier writes `_commit`/`_src_path`. POSITIVE allowlist (pre-014 can't have it; generalizes to 015+).
 
 ## What this replaces in the 011 cross-cutting contract
 

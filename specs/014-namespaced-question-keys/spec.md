@@ -208,10 +208,10 @@ render of a single module — no cross-layer dependency).
 
 Modules that contribute pre-commit hooks each render their OWN fragment
 (`.pre-commit.d/<vendor>-<module>.yaml`) containing only their hook block. Because pre-commit
-has no native drop-in, a single bailiff post-install merge task folds all fragments into the
-one `.pre-commit-config.yaml` pre-commit expects — deterministically ordered and deduplicated.
-The merged file is config-consistent on reproduce (same hooks; not necessarily identical
-bytes).
+has no native drop-in, `bailiff-mod-precommit`'s vendored bundler — run as a `_post_task`
+(FR-021), after the render loop — folds all fragments into the one `.pre-commit-config.yaml`
+pre-commit expects, deterministically ordered and deduplicated. The merged file is
+config-consistent on reproduce (same hooks; not necessarily identical bytes).
 
 **Why this priority**: pre-commit is the canonical "no native drop-in" case — it proves the
 universal fragment/merge pattern for tools that lack conf.d. It is NOT an answer union: no
@@ -349,6 +349,16 @@ detected and reported with a documented remediation (never a silent wrong render
   clear error (cycles cannot cross phases). `base = pre`; the module family = `normal`; `post` is
   RESERVED for a future finalizer (none exists today). This gives structural "run first / run last"
   without a last-mover enumerating N edges. (decisions-ledger R8.)
+- **FR-021** *(post-tasks — deferred work after the render loop)*: A module MAY declare `_post_tasks`
+  (a `when:false` hidden list, statically read like edges). bailiff COLLECTS `_post_tasks` across all
+  selected modules and runs them AFTER the whole render loop — in `depends_on` order (module DAG +
+  basename tie-break) — on BOTH `init_many` AND `reproduce_many` (copier `_tasks` run on reproduce, so
+  post-tasks must too). This is what the fragment merges use (pre-commit bundler, gitignore concat): it
+  lets a module render EARLY (e.g. precommit producing `hook_manager`, ordered first) yet run deferred
+  work LATE (the merge, after every fragment exists) — a "run after modules ordered before me" gap that
+  copier's inline per-layer `_tasks` cannot express. Enabled by bailiff driving copier as a LIBRARY
+  (it owns the loop). NO `_pre_tasks` (ordering + a first-module `_task` already covers "run first").
+  (decisions-ledger R11.)
 
 ### Functional Requirements — mise drop-in (union dissolution)
 
@@ -371,12 +381,14 @@ detected and reported with a documented remediation (never a silent wrong render
   `.pre-commit.d/<vendor>-<module>.yaml` fragment (its hook block only; MAY be conditional on
   the module's own answers). `bailiff-mod-precommit` **vendors a single Python bundler**
   (`scripts/_merge_precommit.py`, owner-side — sees all fragments; NOT a `bailiff merge` CLI) run as
-  a post-install task that folds all fragments into `.pre-commit-config.yaml`. The merge MUST be
-  deterministic and order-independent (same fragment set → equivalent config regardless of layer
-  order) and config-consistent on reproduce. On a rev-pin conflict (two fragments pinning the SAME
-  hook repo at DIFFERENT revs) the bundler picks the **highest rev and WARNS** — it does NOT abort
-  (decisions-ledger R2, revised: a hard error would let one lagging third-party module veto an
-  otherwise-valid stack, colliding with the open-ecosystem premise).
+  a **`_post_task`** (FR-021) — NOT an inline `_task` — so it runs AFTER every language layer has
+  written its fragment. (An inline task would run at precommit's own layer, which is ordered FIRST
+  because languages read `hook_manager` from it via `_external_data` — so it would see no fragments.
+  See R11.) The merge MUST be deterministic and order-independent (same fragment set → equivalent
+  config regardless of layer order) and config-consistent on reproduce. On a rev-pin conflict (two
+  fragments pinning the SAME hook repo at DIFFERENT revs) the bundler picks the **highest rev and
+  WARNS** — it does NOT abort (R2 revised: a hard error would let one lagging third-party module veto
+  an otherwise-valid stack, colliding with the open-ecosystem premise).
 - **FR-012** *(single merger, inert without it, no collision)*: Exactly one module (precommit)
   runs the merge. When precommit is absent or `hook_manager=none`, no merge runs and no
   `.pre-commit-config.yaml` is produced (fragments are inert). Because each contributor owns a
@@ -387,17 +399,22 @@ detected and reported with a documented remediation (never a silent wrong render
 
 - **FR-013** *(gitignore disposition — RESOLVED)*: `gitignore_stack` is eliminated as a threaded
   fact. Each contributing module writes a per-module `.gitignore.d/<vendor>-<module>` fragment
-  (gitnr-produced OR literal static lines). The gitignore owner runs ONE idempotent ordered-concat
-  (an inline shell task, delimited blocks) folding the fragments into `.gitignore`. No `bailiff merge`
-  CLI and no vendored script for this surface (concat is trivial). Reproduce MUST NOT duplicate
-  entries (config-consistent guarantee via delimited blocks).
+  (gitnr-produced OR literal static lines). The gitignore owner runs ONE idempotent ordered-concat as
+  a **`_post_task`** (FR-021, delimited blocks) folding the fragments into `.gitignore` after the render
+  loop. No `bailiff merge` CLI and no vendored script for this surface (concat is trivial). Reproduce
+  MUST NOT duplicate entries (config-consistent guarantee via delimited blocks).
 - **FR-014** *(rename migration + detection gate)*: A documented BREAK + re-init is ratified (R3;
   near-zero pre-014 population). But "clear error, not silent mis-render" needs a MECHANISM: copier
   silently ignores unknown recorded answer keys (verified: `load_answersfile_data` returns `{}`, never
   errors), so a pre-014 tree with `mise_tools:` recorded would reproduce WITHOUT the tools and WITHOUT
-  error. Therefore post-014 modules MUST stamp `_bailiff_schema: 014` into their answers files, and
-  `reproduce_many` MUST REFUSE (loud error + re-init guidance) when a recorded answers file lacks the
-  marker or carries an older schema. This gives SC-006 real teeth. (decisions-ledger R10.)
+  error. Therefore post-014 answers files MUST carry `_bailiff_schema: 014`, and `reproduce_many` MUST
+  REFUSE (loud error + re-init guidance) when a recorded answers file lacks the marker or carries an
+  older schema. **bailiff writes the marker itself post-render** (appends to each answers file) — it
+  CANNOT be a copier answer: a `when:false` hidden question is omitted from the file (`_main.py:616`),
+  an askable question drops the leading `_` + pollutes the namespace + is user-overridable, and
+  `--data _bailiff_schema=…` is stripped by copier's `not k.startswith("_")` filter. Mirrors how copier
+  writes its own `_commit`/`_src_path`. Chosen as a POSITIVE allowlist (pre-014 trees can't have it;
+  generalizes to future schema bumps) over negative dissolved-key detection. (decisions-ledger R10.)
 
 ### Functional Requirements — governance & scope
 
@@ -483,11 +500,11 @@ detected and reported with a documented remediation (never a silent wrong render
 ## Open questions — ALL RESOLVED (2026-07-16; see decisions-ledger.md §RATIFIED R1–R10)
 
 1. **pre-commit merge mechanism** → R1: engine does zero merging; `.d/` dirs are the contract;
-   `bailiff-mod-precommit` vendors ONE Python bundler (owner-side, sees all fragments). No `bailiff
-   merge` CLI. Rev-pin conflict → R2 (revised): **highest-pin-wins + warn**, not a hard error
-   (open-ecosystem: a lagging third-party module must not veto a valid stack).
+   `bailiff-mod-precommit` vendors ONE Python bundler (owner-side, sees all fragments), run as a
+   `_post_task` (R11). No `bailiff merge` CLI. Rev-pin conflict → R2 (revised): **highest-pin-wins +
+   warn**, not a hard error (open-ecosystem: a lagging third-party module must not veto a valid stack).
 2. **gitignore disposition** (FR-013) → R1: per-module `.gitignore.d/` fragments + one idempotent
-   ordered-concat inline shell task in the gitignore owner. No `gitignore_stack` fact.
+   ordered-concat as a `_post_task` in the gitignore owner. No `gitignore_stack` fact.
 3. **Rename migration** (FR-014) → R3 + R10: documented break + re-init AND a `_bailiff_schema: 014`
    marker with refuse-on-mismatch in `reproduce_many` (copier won't error on stale keys; bailiff must).
 4. **First-party shared-fact set** (FR-007) → R4 (expanded after exhaustive audit): producers =

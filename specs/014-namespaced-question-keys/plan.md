@@ -99,7 +99,7 @@ on main, `498315f`).*
 | Principle | Verdict | How spec 014 satisfies it |
 |---|---|---|
 | **I — Skills + Templates + Minimal Glue (C-11)** | PASS (larger footprint, justified) | The threading change is a *removal* of glue (deletes the bespoke cross-layer bleed, delegates reads to copier-native `_external_data`). The ADDED engine surface — `_external_data` static-parse + validation, the single-edge + stratified-DAG rewrite of `ordering.py`, the `_bailiff_schema` gate — is coordination logic copier cannot do (validating cross-template data-deps, ordering, migration safety), which is exactly the C-11-sanctioned glue category, not a copier re-implementation. No `bailiff merge` CLI (owner-side vendored merging). 013 governs the engine touch; Complexity Tracking records the widened footprint. |
-| **II — Two-Phase; skill conducts, helpers execute** | PASS | Agent-tier facts (stack facts, CI facts) stay phase-1 `--data` answers; the reproduce path stays agent-free. `_external_data` resolution is copier-deterministic. The pre-commit bundler runs as a deterministic post-install `_task`, no LLM. |
+| **II — Two-Phase; skill conducts, helpers execute** | PASS | Agent-tier facts (stack facts, CI facts) stay phase-1 `--data` answers; the reproduce path stays agent-free. `_external_data` resolution is copier-deterministic. The pre-commit bundler runs as a deterministic `_post_task` (bailiff-run, after the render loop), no LLM. |
 | **III — Reproduce is faithful + agent-free** | PASS | Managed single-module renders stay byte-identical; merged artifacts are **config-consistent** (same tools/hooks/ignore rules) — the invariant reframe already ratified + prose-swept (main `498315f`). Reproduce accumulator gets the SAME private isolation (FR-003) so it reconstructs per-layer, not a flattened namespace. |
 | **IV — copier CLI + static config** | PASS | `_external_data` is copier's supported public mechanism; edges stay `when:false` hidden answers statically read; no Template/Worker adapter. |
 | **V — Determinism via pinning; trust by source** | PASS | conf.d/fragment/merge tasks are trust-gated + init-only-guarded as today; tool versions pinned via mise; `today`/facts injected, no `jinja2_time`. |
@@ -134,9 +134,9 @@ specs/014-namespaced-question-keys/
 
 ```text
 # Engine (C-11 013 exception — spans runner + ordering + discovery):
-src/bailiff/runner.py            # _merge_layer_answers → private-by-default (init + reproduce); _external_data validation; _bailiff_schema gate
+src/bailiff/runner.py            # private-by-default threading; _external_data validation; _post_tasks collect+run (init+reproduce); _bailiff_schema write+gate
 src/bailiff/ordering.py          # single depends_on edge (drop run_after/run_before); pre/normal/post stratified DAG + edge-legality validation
-src/bailiff/discovery.py         # static _external_data parse + path lint (FR-006a)
+src/bailiff/discovery.py         # static _external_data parse + path lint (FR-006a); _post_tasks parse
 tests/loop/test_*isolation*.py   # NEW negative isolation test (SC-001/SC-007)
 tests/loop/test_external_data*.py# NEW fact-resolution + absent-producer-error test (SC-002)
 tests/loop/test_ordering*.py     # NEW single-edge + stratified-DAG + schema-gate tests (SC-008)
@@ -152,7 +152,7 @@ templates/bailiff-mod-devcontainer/...           # postCreateCommand → bare `m
 
 # pre-commit fragments + one vendored bundler:
 templates/bailiff-mod-precommit/template/scripts/_merge_precommit.py.jinja  # the owner-side bundler (rev-pin highest-wins+warn)
-templates/bailiff-mod-precommit/copier.yml       # post-install merge _task; hook_blocks union deleted
+templates/bailiff-mod-precommit/copier.yml       # merge as _post_tasks (not inline); hook_blocks union deleted
 templates/bailiff-mod-*/template/.pre-commit.d/<vendor>-<module>.yaml.jinja # per-contributor fragment
 
 # gitignore fragments + one idempotent concat:
@@ -223,23 +223,31 @@ armed fan-out publishes each to `bailiff-io/bailiff-mod-<name>`.
    - **mise (native)**: each tool module renders `.mise/conf.d/<vendor>-<module>.toml`; mise merges
      natively at `mise install`. NO `.mise.toml`, NO merge task, NO `mise_tools` union. devcontainer
      runs bare `mise install`. The 013 collision check passes (distinct paths).
-   - **pre-commit (owner-side vendored bundler)**: each hook module renders
+   - **pre-commit (owner-side vendored bundler, run as a POST-TASK)**: each hook module renders
      `.pre-commit.d/<vendor>-<module>.yaml` (its block only). `bailiff-mod-precommit` vendors ONE
-     Python bundler (`scripts/_merge_precommit.py`) run as a post-install `_task`: reads ALL
-     fragments, dedups repos, emits `.pre-commit-config.yaml` deterministically (order-independent),
-     and on a rev-pin conflict picks the **highest rev + WARNS** (R2 revised — a hard error would let a
-     lagging third-party module veto a valid stack). Inert when precommit absent / `hook_manager=none`.
-     Per-contributor merging is forbidden (multi-writer + cannot see all fragments).
-   - **gitignore (owner-side inline concat)**: per-module `.gitignore.d/<vendor>-<module>` fragments
-     (gitnr-produced OR literal static lines); the gitignore owner runs ONE idempotent ordered-concat
-     (inline shell `_task`, delimited blocks so reproduce does not duplicate). No `gitignore_stack`
-     fact, no script file (concat is trivial).
+     Python bundler (`scripts/_merge_precommit.py`) run as a **`_post_task`** (FR-021, R11) — NOT inline,
+     because precommit is ordered FIRST (languages read `hook_manager` from it), so an inline task would
+     see no fragments. bailiff runs it after the render loop: reads ALL fragments, dedups repos, emits
+     `.pre-commit-config.yaml` deterministically (order-independent), and on a rev-pin conflict picks the
+     **highest rev + WARNS** (R2 revised — a hard error would let a lagging third-party module veto a
+     valid stack). Inert when precommit absent / `hook_manager=none`. Per-contributor merging forbidden.
+   - **gitignore (owner-side concat, also a POST-TASK)**: per-module `.gitignore.d/<vendor>-<module>`
+     fragments (gitnr-produced OR literal static lines); the gitignore owner runs ONE idempotent
+     ordered-concat as a `_post_task` (delimited blocks so reproduce does not duplicate). No
+     `gitignore_stack` fact, no vendored script (concat is trivial).
 
-5. **Migration gate (FR-014 / R10).** Post-014 modules stamp `_bailiff_schema: 014` into their answers
-   files; `reproduce_many` REFUSES (loud error + re-init guidance) on a missing/older marker. copier
-   silently ignores unknown recorded keys, so this gate is what makes the documented break loud.
+5. **Post-tasks (FR-021 / R11).** A module declares `_post_tasks` (a `when:false` hidden list); bailiff
+   collects them across modules and runs them AFTER the render loop, in `depends_on` order, on init AND
+   reproduce. Distinct from the module `phase` (which orders renders). Resolves the precommit
+   merge-ordering contradiction (render early as a `hook_manager` producer; merge late). Enabled by
+   bailiff driving copier as a library. NO `_pre_tasks` (ordering + a first-module `_task` covers it).
 
-6. **Config-consistency invariant.** Merged artifacts are config-equivalent, not byte-identical;
+6. **Migration gate (FR-014 / R10).** bailiff WRITES `_bailiff_schema: 014` into each answers file
+   post-render (it can't be a copier answer — `_`-keys/non-questions are filtered, hidden questions
+   omitted); `reproduce_many` REFUSES (loud error + re-init) on a missing/older marker. copier silently
+   ignores unknown recorded keys, so this positive-allowlist gate is what makes the break loud.
+
+7. **Config-consistency invariant.** Merged artifacts are config-equivalent, not byte-identical;
    the reproduce byte-assertions on merged files are dropped surgically (the in-flight byte-drop
    worktree) while single-module managed renders keep their byte assertions. This is what makes the
    merge model sound and is already reframed in prose on main.

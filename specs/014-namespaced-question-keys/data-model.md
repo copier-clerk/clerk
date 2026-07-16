@@ -55,8 +55,8 @@ per module ⇒ no file collision (013 check passes). Three instances:
 | Surface | Directory | Fragment path | Combined into | Combiner |
 |---|---|---|---|---|
 | mise | `.mise/conf.d/` | `<vendor>-<module>.toml` | (none — mise merges natively at `mise install`) | mise runtime |
-| pre-commit | `.pre-commit.d/` | `<vendor>-<module>.yaml` | `.pre-commit-config.yaml` | vendored bundler in precommit |
-| gitignore | `.gitignore.d/` | `<vendor>-<module>` | `.gitignore` | idempotent inline concat in the gitignore owner |
+| pre-commit | `.pre-commit.d/` | `<vendor>-<module>.yaml` | `.pre-commit-config.yaml` | vendored bundler in precommit, run as a `_post_task` (FR-021) |
+| gitignore | `.gitignore.d/` | `<vendor>-<module>` | `.gitignore` | idempotent concat in the gitignore owner, run as a `_post_task` (FR-021) |
 
 **Validation rules:**
 - FR-008/010: each tool module writes exactly one `.mise/conf.d/*.toml`; NO module writes
@@ -75,7 +75,7 @@ The single owner-side merge program, shipped as template content by `bailiff-mod
 | path | `scripts/_merge_precommit.py` (rendered into the project) |
 | input | all `.pre-commit.d/*.yaml` fragments |
 | output | `.pre-commit-config.yaml` |
-| invocation | post-install `_task` in precommit's `copier.yml`, init-only-guarded |
+| invocation | precommit's `_post_tasks` (FR-021) — bailiff runs it AFTER the render loop (NOT an inline `_task`; precommit is ordered first as a `hook_manager` producer, so inline would see no fragments) |
 | ordering | deterministic + order-independent (same fragment set → equivalent config regardless of layer order) |
 | dedup | repos deduplicated |
 | rev-pin conflict | **HIGHEST-PIN-WINS + WARN** — same repo pinned at two revs → pick max, warn, never abort (R2 revised; open-ecosystem) |
@@ -120,9 +120,10 @@ The ordering model. ONE edge type + a phase per module.
 | Field | Value |
 |---|---|
 | `depends_on` | list of module basenames this module requires present + ordered-before (side-effect deps) |
-| `phase` | `pre` \| `normal` (default) \| `post` |
+| `phase` | `pre` \| `normal` (default) \| `post` — orders whole-module RENDERS |
+| `_post_tasks` | `when:false` hidden list of deferred tasks bailiff runs AFTER the render loop (FR-021) — orders WORK, distinct from `phase` |
 | derived data-dep | each `_external_data` alias → its producer basename is ALSO required present + ordered-before (FR-006), validated separately from `depends_on` |
-| sort order | (phase) → (`depends_on` DAG, stable) → (basename tie-break) |
+| sort order | (phase) → (`depends_on` DAG, stable) → (basename tie-break); `_post_tasks` run after ALL renders, in the same `depends_on` order |
 
 **Validation rules:**
 - FR-019: `depends_on` is the SOLE edge; `run_after` + `run_before` dropped from `ordering.py`.
@@ -130,6 +131,8 @@ The ordering model. ONE edge type + a phase per module.
 - FR-020: edge legality at discovery — `pre`→pre only; `normal`→pre+normal; `post`→anything; a
   forward cross-phase edge is rejected (cycles cannot cross phases). base=`pre`; family=`normal`;
   `post` reserved.
+- FR-021: `_post_tasks` collected across all modules; run after the render loop, in `depends_on` order,
+  on init AND reproduce. NO `_pre_tasks`. Used by the pre-commit bundler + gitignore concat.
 
 ## Entity 6 — Schema marker (migration gate, FR-014 / R10)
 
