@@ -1,0 +1,119 @@
+# Agent Assignments
+# Feature: 014-namespaced-question-keys
+# Command: /speckit.agent-assign.assign
+# Note: this deployment is executed via the `orchestrate` skill; the "agent"
+# values below name the orchestrate-run ROLE each task routes to. Module
+# rewrite tasks are owned end-to-end by ONE workflow-coder per module dir
+# (across slices) to avoid same-file worktree collisions (see tasks.md conflict note).
+
+agents_scanned:
+  - name: "workflow-coder"
+    source: "user"
+    description: "Implementation subagent for one DAG node in an orchestrate run; own git worktree, self-commits, review loop."
+  - name: "workflow-reviewer"
+    source: "user"
+    description: "Independent code reviewer in an orchestrate run; read-only verdict per node."
+  - name: "speckit-implement-task"
+    source: "project"
+    description: "Implements non-code or tightly-scoped tasks from tasks.md."
+  - name: "speckit-verify"
+    source: "project"
+    description: "Validates implemented code against a spec's FR/SC requirements."
+  - name: "integration-gatekeeper"
+    source: "user"
+    description: "Owns branch integration/merge order in an orchestrate run."
+  - name: "ledger-scribe"
+    source: "user"
+    description: "Persistent ledger owner for an orchestrate run; run-summary reporting."
+
+assignments:
+  # Phase 1 — setup (main loop; baseline checks, no isolation)
+  T001: { agent: "default", reason: "Baseline suite run + branch confirm; main-loop task." }
+  T002: { agent: "default", reason: "check_modules parity baseline; main-loop task." }
+  T003: { agent: "default", reason: "Read test harness signatures; read-only orientation." }
+
+  # Phase 2 — engine + contract gate (blocking node; code + tests)
+  T004: { agent: "workflow-coder", reason: "Negative isolation loop test (code)." }
+  T005: { agent: "workflow-coder", reason: "_external_data fact-resolution test (code)." }
+  T006: { agent: "workflow-coder", reason: "Dependency-model + schema-gate tests (code)." }
+  T007: { agent: "workflow-coder", reason: "_post_tasks collection test (code)." }
+  T008: { agent: "workflow-coder", reason: "runner.py private-by-default accretion removal." }
+  T009: { agent: "workflow-coder", reason: "reproduce_many isolation parity." }
+  T010: { agent: "workflow-coder", reason: "discovery.py _external_data static parse + path lint + _post_tasks read." }
+  T011: { agent: "workflow-coder", reason: "runner.py preflight data-dep enforcement." }
+  T012: { agent: "workflow-coder", reason: "ordering.py single depends_on edge." }
+  T013: { agent: "workflow-coder", reason: "ordering.py stratified DAG + edge legality." }
+  T014: { agent: "workflow-coder", reason: "runner.py _post_tasks collection + execution." }
+  T015: { agent: "workflow-coder", reason: "runner.py _bailiff_schema migration gate." }
+  T016: { agent: "workflow-coder", reason: "Make Phase-2 tests green." }
+  T017: { agent: "workflow-reviewer", reason: "Contract-freeze review of engine node against contracts/." }
+
+  # Phase 3 — US3 mise conf.d (one workflow-coder per module dir)
+  T018: { agent: "workflow-coder", reason: "mise conf.d loop test (code)." }
+  T019: { agent: "workflow-coder", reason: "base mise conf.d + union removal (pattern origin, first)." }
+  T020: { agent: "workflow-coder", reason: "python module: owns all slices for its dir." }
+  T021: { agent: "workflow-coder", reason: "ts module: owns all slices for its dir." }
+  T022: { agent: "workflow-coder", reason: "go module: owns all slices for its dir." }
+  T023: { agent: "workflow-coder", reason: "rust module: owns all slices for its dir." }
+  T024: { agent: "workflow-coder", reason: "cocogitto module." }
+  T025: { agent: "workflow-coder", reason: "moon module: owns all slices for its dir." }
+  T026: { agent: "workflow-coder", reason: "api module: owns all slices for its dir." }
+  T027: { agent: "workflow-coder", reason: "mkdocs module." }
+  T028: { agent: "workflow-coder", reason: "terraform module: owns all slices for its dir." }
+  T029: { agent: "workflow-coder", reason: "devcontainer bare mise install." }
+  T030: { agent: "workflow-reviewer", reason: "Slice-A verification (no residual union)." }
+
+  # Phase 4 — US2 _external_data facts
+  T031: { agent: "workflow-coder", reason: "base adds default_branch (producer)." }
+  T032: { agent: "workflow-coder", reason: "precommit producer confirm." }
+  T033: { agent: "workflow-coder", reason: "ts producer confirm." }
+  T034: { agent: "workflow-coder", reason: "moon producer confirm." }
+  T035: { agent: "workflow-coder", reason: "project_name consumers alias wiring." }
+  T036: { agent: "workflow-coder", reason: "layout consumers alias wiring." }
+  T037: { agent: "workflow-coder", reason: "description consumers alias wiring." }
+  T038: { agent: "workflow-coder", reason: "default_branch consumers (ci)." }
+  T039: { agent: "workflow-coder", reason: "hook_manager consumers alias wiring." }
+  T040: { agent: "workflow-coder", reason: "js_pkg_manager/ts_linter consumers." }
+  T041: { agent: "workflow-coder", reason: "moon-fact consumers." }
+  T042: { agent: "workflow-reviewer", reason: "Facts verification + path-lint check." }
+
+  # Phase 5 — US4 pre-commit + gitignore merges
+  T043: { agent: "workflow-coder", reason: "pre-commit merge loop test (code)." }
+  T044: { agent: "workflow-coder", reason: "precommit vendored bundler + _post_task." }
+  T045: { agent: "workflow-coder", reason: "hook-fragment contributors." }
+  T046: { agent: "workflow-reviewer", reason: "single-merger invariant review." }
+  T047: { agent: "workflow-coder", reason: "gitignore concat loop test (code)." }
+  T048: { agent: "workflow-coder", reason: "base gitignore concat _post_task + union removal." }
+  T049: { agent: "workflow-coder", reason: "gitignore-fragment contributors." }
+  T050: { agent: "workflow-reviewer", reason: "gitignore idempotency review." }
+
+  # Phase 6 — FORGE (R12)
+  T051: { agent: "workflow-coder", reason: "forge-metadata loop test (code)." }
+  T052: { agent: "workflow-coder", reason: "base delete .github/ + github_host." }
+  T053: { agent: "workflow-coder", reason: "github-repo gains .github/ + create_remote." }
+  T054: { agent: "workflow-coder", reason: "gitlab-repo gains .gitlab/ + create_remote." }
+  T055: { agent: "workflow-coder", reason: "dep-updates self-default." }
+  T056: { agent: "workflow-reviewer", reason: "forge cleanup verification (SC-009)." }
+
+  # Phase 7 — US1/US5 isolation regression + migration
+  T057: { agent: "workflow-coder", reason: "Python+TS framework integration test." }
+  T058: { agent: "workflow-coder", reason: "migration-gate test (code)." }
+  T059: { agent: "speckit-implement-task", reason: "Migration note (non-code prose)." }
+
+  # Phase 8 — FR-018 docs (non-code prose, parallel)
+  T060: { agent: "speckit-implement-task", reason: "Rewrite 011 cross-cutting contract." }
+  T061: { agent: "speckit-implement-task", reason: "SKILL.md authoring steps." }
+  T062: { agent: "speckit-implement-task", reason: "_meta/module-template scaffold." }
+  T063: { agent: "speckit-implement-task", reason: "README prose sweep." }
+  T064: { agent: "speckit-implement-task", reason: "Concrete authoring guide." }
+
+  # Phase 9 — verify
+  T065: { agent: "speckit-verify", reason: "Full non-network suite (detached)." }
+  T066: { agent: "speckit-verify", reason: "Integration suite." }
+  T067: { agent: "speckit-verify", reason: "check_modules + doctor." }
+  T068: { agent: "speckit-verify", reason: "SC-001..009 traceability." }
+
+  # Phase 10 — re-fanout + release (maintainer-gated, never unattended)
+  T069: { agent: "default", reason: "Catalog regen; maintainer-gated." }
+  T070: { agent: "default", reason: "27-mirror re-fanout; maintainer-confirmed batch." }
+  T071: { agent: "default", reason: "release-please engine release; maintainer-gated." }
