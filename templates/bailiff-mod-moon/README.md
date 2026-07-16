@@ -2,7 +2,7 @@
 
 Monorepo task orchestration via [moon](https://moonrepo.dev) (spec 012 /
 FR-010). Renders a managed `.moon/workspace.yml` wired to base's monorepo
-package layout, and supplies the `monorepo_tool=moon` frozen answer the CI
+package layout, and supplies the `monorepo_tool=moon` answer the CI
 modules read for their `monorepo-affected` model (`moon ci` — FR-010a).
 
 Monorepo tools are per-tool **sibling** splits (ratified: "too distinct");
@@ -13,6 +13,7 @@ turbo and nx are later siblings, not axes of this module.
 | File | Lifecycle | Notes |
 |---|---|---|
 | `.moon/workspace.yml` | **managed** | config-consistent on reproduce |
+| `.mise/conf.d/bailiff-mod-moon.toml` | **managed** | moon tool; mise merges at runtime |
 
 - `monorepo_packages` frozen → explicit `projects:` map (one entry per path).
 - monorepo layout without frozen packages → glob discovery over the standard
@@ -22,27 +23,23 @@ turbo and nx are later siblings, not axes of this module.
   will be minimal" and renders a valid root-project workspace — never a
   refusal, never a broken file.
 
-## Frozen-union contribution (M1 — token only)
-
-| Union | Token | Single writer |
-|---|---|---|
-| `mise_tools` | `moon` | `bailiff-mod-base` (`.mise.toml`) |
-
 ## Questions
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `project_name` | str | threaded from base | — |
-| `layout` | str | threaded from base | sizes the workspace config |
 | `monorepo_packages` | yaml | `[]` | frozen fact; explicit projects map |
-| `monorepo_tool` | str | `moon` | the frozen answer this module supplies |
-| `mise_tools` | yaml | `[]` | frozen union (declared for threading) |
+| `monorepo_tool` | str | `moon` | the answer this module supplies (producer for `moon` alias) |
+
+Facts read from base via `_external_data`:
+
+| Fact | Source |
+|---|---|
+| `layout` | `_external_data.base.layout` |
 
 Tasks: one trust-gated mise preflight, init-only-guarded via the committed
 `.bailiff-moon-preflight` sentinel.
 
-Edge: `run_after: [bailiff-mod-base]`; CI consumes `monorepo_tool` via frozen
-`--data`, not run-order.
+Edge: `depends_on: [bailiff-mod-base]`; phase `normal`.
 
 ## Usage
 

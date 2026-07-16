@@ -1,8 +1,8 @@
 # copier.yml — bailiff-mod-moon
 #
 # Monorepo task orchestration via moon (spec 012 / FR-010). Renders a MANAGED
-# `.moon/workspace.yml` wired to base's monorepo package layout (threaded
-# `layout` / frozen `monorepo_packages`).
+# `.moon/workspace.yml` wired to base's monorepo package layout (base fact
+# `layout` / bare question `monorepo_packages`).
 #
 # A selection including moon freezes `monorepo_tool=moon`, closing the dangling
 # answer the CI modules read for their `monorepo-affected` model (FR-010a).
@@ -14,59 +14,45 @@
 # deliberate choice. The preflight prints the warning; the rendered workspace
 # uses a minimal '.' project map — valid, never broken.
 #
-# Frozen-union contribution (M1): moon → mise_tools (base writes .mise.toml).
+# mise tool contribution: renders .mise/conf.d/bailiff-mod-moon.toml (own
+# tools only; mise merges conf.d at runtime — FR-008).
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
 # questions; no jinja2_time; edges are when:false hidden answers.
 
-# --- Threaded identity/shape facts (FR-010 pattern) ---------------------------
+# --- Cross-module facts via _external_data (spec 014 / FR-004) ---------------
+#
+# base is a HARD dependency: absent → loud preflight OrderingError (FR-006).
 
-project_name:
-  type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base)."
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
 
-layout:
-  type: str
-  default: "{{ layout }}"
-  help: "Project layout (threaded from bailiff-mod-base): single or monorepo."
+# --- Own bare questions (this module's answers file — producer for moon alias) ----
 
 monorepo_packages:
   type: yaml
   default: []
-  help: "Monorepo package paths (frozen fact; wires workspace projects). bailiff injects this."
+  help: "Monorepo package paths (wires workspace projects). bailiff injects this."
 
 # monorepo_tool — this module IS the supplier: a selection including moon
-# freezes monorepo_tool=moon for CI consumption (via frozen --data, not
-# run-order). Declared so the answer is recorded for reproduce.
+# freezes monorepo_tool=moon for CI consumption. Declared so the answer is
+# recorded in this module's answers file for reproduce.
 monorepo_tool:
   type: str
   default: moon
   help: "Monorepo tool answer this module supplies (moon); consumed by CI modules' monorepo-affected model."
 
-# --- Frozen union consumed (declared for threading; NOT written here) ---------
-
-mise_tools:
-  type: yaml
-  default: []
-  help: "mise [tools] union (injected by phase-1 agent; base writes .mise.toml). moon contributes {moon: <version>}."
-
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
 
-run_after:
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # Template body lives under template/ — copier renders only that subtree.
@@ -81,7 +67,7 @@ _subdirectory: template
 _tasks:
   - >-
     test -f .bailiff-moon-preflight || {
-    {% if layout != 'monorepo' %}
+    {% if _external_data.base.layout != 'monorepo' %}
     echo "bailiff-mod-moon: WARNING — moon is primarily a monorepo workspace tool; single-package config will be minimal." >&2;
     {% endif %}
     command -v mise >/dev/null 2>&1 ||
