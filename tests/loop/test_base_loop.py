@@ -1,14 +1,14 @@
-"""spec 011 T004: bailiff-mod-base v1.0.0 loop tests.
+"""spec 011 T004 / spec 014: bailiff-mod-base v1.0.0 loop tests.
 
 Covers the full init→reproduce loop for the thinned base scaffold including:
 - Both layouts (single + monorepo): thinned dirs PRESENT, moved-out ABSENT.
-- github_host=false → no .github/ at all.
 - docs_subdirs gates lean core subdirs.
 - AGENTS.md seed-once: substituted with project_name / description / branch_strategy.
-- .mise.toml MANAGED: rendered from frozen mise_tools.
+- .mise/conf.d/bailiff-mod-base.toml MANAGED: rendered (no .mise.toml — spec 014).
 - .gitignore and LICENSE TASK-OUTPUT: present after init, guarded on reproduce.
 - Sentinel .bailiff-base-init-done: present after init, skips heavy tasks on reproduce.
 - reproduce leaves TASK-OUTPUT and MANAGED dirs present and guard-idempotent.
+- No .github/ in base (moved to bailiff-mod-github-repo — spec 014 R12).
 """
 
 from __future__ import annotations
@@ -47,10 +47,11 @@ _MONOREPO_TARGETS = [
     "tools",
 ]
 
-# Dirs moved out of base — MUST be absent.
+# Dirs moved out of base — MUST be absent (spec 014: .github/ moved to github-repo).
 _ABSENT_DIRS = [
     ".agents",
     ".codex",
+    ".github",
     ".github/workflows",
     "infrastructure",
     "specs",
@@ -127,38 +128,15 @@ def test_init_monorepo_thinned_dirs_present(bailiff_mod_base: TemplateRepo, tmp_
 
 
 # ---------------------------------------------------------------------------
-# github_host gate
+# No .github/ in base (spec 014 R12 — moved to bailiff-mod-github-repo)
 # ---------------------------------------------------------------------------
 
 
-def test_init_github_host_false_no_github(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """github_host=false → no .github/ at all."""
+def test_init_no_github_dir_in_base(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """base emits no .github/ — forge metadata moved to bailiff-mod-github-repo (spec 014 R12)."""
     dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_base,
-        dest,
-        {"project_name": "myproj", "org": "acme", "license": "mit", "github_host": False},
-    )
-    assert not (dest / ".github").exists(), "github_host=false must not scaffold .github/"
-
-
-def test_init_github_host_true_no_workflows(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """github_host=true → minimal .github/ present; workflows/ absent (belongs to ci)."""
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_base,
-        dest,
-        {"project_name": "myproj", "org": "acme", "license": "mit", "github_host": True},
-    )
-    assert (dest / ".github" / "CODEOWNERS").is_file(), "CODEOWNERS missing"
-    # dependabot.yml moved OUT of base to bailiff-mod-dep-updates (spec 012 amendment,
-    # applied pre-v1.0.0 so base ships clean).
-    assert not (dest / ".github" / "dependabot.yml").exists(), (
-        "dependabot.yml must not be scaffolded by base — owned by bailiff-mod-dep-updates (012)"
-    )
-    assert not (dest / ".github" / "workflows").exists(), (
-        ".github/workflows must not be scaffolded by base"
-    )
+    _init(bailiff_mod_base, dest, {"project_name": "myproj", "org": "acme", "license": "mit"})
+    assert not (dest / ".github").exists(), ".github/ must not be scaffolded by base (spec 014 R12)"
 
 
 # ---------------------------------------------------------------------------
@@ -221,26 +199,18 @@ def test_init_agents_md_seed_once_not_overwritten(
 
 
 # ---------------------------------------------------------------------------
-# .mise.toml MANAGED: rendered from mise_tools
+# .mise/conf.d/bailiff-mod-base.toml MANAGED (spec 014: no .mise.toml in base)
 # ---------------------------------------------------------------------------
 
 
-def test_init_mise_toml_managed_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """MANAGED: .mise.toml rendered from frozen mise_tools answer."""
+def test_init_mise_confd_base_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """MANAGED: .mise/conf.d/bailiff-mod-base.toml rendered; no root .mise.toml (spec 014)."""
     dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_base,
-        dest,
-        {
-            "project_name": "gamma",
-            "license": "mit",
-            "mise_tools": [{"python": "3.13"}, {"node": "22"}],
-        },
+    _init(bailiff_mod_base, dest, {"project_name": "gamma", "license": "mit"})
+    assert (dest / ".mise" / "conf.d" / "bailiff-mod-base.toml").is_file(), (
+        ".mise/conf.d/bailiff-mod-base.toml missing after init"
     )
-    mise = (dest / ".mise.toml").read_text()
-    assert "[tools]" in mise, ".mise.toml must have [tools] section"
-    assert "python" in mise and "3.13" in mise, "python 3.13 not in .mise.toml"
-    assert "node" in mise and "22" in mise, "node 22 not in .mise.toml"
+    assert not (dest / ".mise.toml").exists(), ".mise.toml must NOT be present (spec 014)"
 
 
 # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

@@ -1,20 +1,19 @@
 # copier.yml — bailiff-mod-base v1.0.0
 #
-# Thinned universal scaffold + identity/license.  Major revision (spec 011 /
-# FR-019): `.agents/`, `.codex/`, `infrastructure/`, `.github/workflows/`,
-# `specs/`, `archive/`, `assets/`, and 5 extra docs subdirs are MOVED OUT to
-# their respective modules. Base owns only the minimal always-on scaffold.
+# Thinned universal scaffold + identity/license.  Major revision (spec 014):
+# `.mise.toml` removed (each module contributes its own `.mise/conf.d/*.toml`);
+# `.github/` moved to bailiff-mod-github-repo (R12 forge cleanup);
+# `github_host` removed; `gitignore_stack` union removed (idempotent concat
+# post-task folds `.gitignore.d/*` fragments into `.gitignore`).
+# Phase: pre — runs before all normal modules (R8).
 #
 # Lifecycles:
 #   MANAGED (re-rendered byte-identically): dir-scaffold .gitkeep files,
-#     .mise.toml, .github/ (when github_host), .copier-answers file.
+#     .mise/conf.d/bailiff-mod-base.toml, .copier-answers file.
 #   SEED-ONCE (_skip_if_exists): AGENTS.md.
 #   TASK-OUTPUT (process-deterministic, outside the byte-identical set):
 #     .gitignore (gitnr, pinned), LICENSE (gh api), .git/ + optional commit.
-#
-# Single writers (cross-cutting §2/§6): base owns .mise.toml (from frozen
-# mise_tools union) and .gitignore (from gitignore_stack via gitnr). Language
-# modules contribute tokens to those frozen answers, not additional writers.
+#   POST-TASK OUTPUT: .gitignore updated with .gitignore.d/* fragment concat.
 
 # Note: no _answers_file override — copier's default (.copier-answers.yml) is
 # used, matching examples/bailiff-template-example. bailiff passes a per-layer
@@ -45,6 +44,13 @@ layout:
     - monorepo
   default: single
   help: "Project layout. monorepo adds 15 monorepo target directories."
+
+# --- Branching ---------------------------------------------------------------
+
+default_branch:
+  type: str
+  default: main
+  help: "Default branch name (consumed by ci-github and ci-gitlab via _external_data)."
 
 # --- License (13-SPDX set, gh Licenses API) ----------------------------------
 
@@ -89,11 +95,6 @@ docs_subdirs:
   default: true
   help: "Create lean core docs subdirs (architecture/, decisions/, runbooks/)?"
 
-github_host:
-  type: bool
-  default: true
-  help: "Scaffold minimal .github/ (issue/PR templates, CODEOWNERS)? No workflows (bailiff-mod-ci-*) or dependabot (bailiff-mod-dep-updates)."
-
 extra_dirs:
   type: yaml
   default: []
@@ -118,11 +119,6 @@ initial_commit:
 
 # --- Frozen agent facts (cross-cutting §2) -----------------------------------
 
-mise_tools:
-  type: yaml
-  default: []
-  help: "Frozen list of mise tool name/version maps (e.g. [{python: '3.13'}]); bailiff injects this."
-
 architecture_md:
   type: str
   default: ""
@@ -133,13 +129,6 @@ agent_editable_globs:
   default: []
   help: "Frozen list of glob patterns agents may freely edit (agent-authored in phase 1)."
 
-# --- gitignore stack (single writer, cross-cutting §6) -----------------------
-
-gitignore_stack:
-  type: yaml
-  default: []
-  help: "Frozen list of gitnr template tokens (e.g. ghg:macOS, Python); bailiff injects this."
-
 # --- Injected today (never from jinja2_time — Constitution V) ----------------
 
 today:
@@ -148,24 +137,16 @@ today:
   help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
-# base is the root: no cross-module edges. Declared so discovery parses them.
+# base is the root and runs in the pre phase: no cross-module edges.
 
 depends_on:
   type: yaml
   default: []
   when: false
 
-run_after:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
-  when: false
-
 _subdirectory: template
+
+_bailiff_phase: pre
 
 # AGENTS.md is seed-once: scaffolded once, then project-owned. A re-run must
 # not clobber project edits. On a fresh-checkout reproduce it re-renders once
@@ -198,14 +179,13 @@ _tasks:
     test -f .bailiff-base-init-done || mise install
 
   # (2) gitnr → .gitignore (TASK-OUTPUT, init-only-guarded via sentinel).
-  #     gitnr is pinned to 0.3.0; a version mismatch warns. Stack tokens come
-  #     from the frozen gitignore_stack answer. Pinned: gitnr 0.3.0.
+  #     gitnr is pinned to 0.3.0; a version mismatch warns. Default tokens cover
+  #     common editor/OS ignores. Pinned: gitnr 0.3.0.
   - >-
     test -f .bailiff-base-init-done || {
     gitnr --version 2>&1 | grep -q '0.3.0' ||
     echo "bailiff-mod-base: WARNING gitnr is not the pinned 0.3.0 — .gitignore may drift." >&2;
-    gitnr create --save
-    {% if gitignore_stack %}{{ gitignore_stack | map('string') | join(' ') }}{% else %}ghg:macOS ghg:Linux ghg:Windows ghg:JetBrains ghg:VisualStudioCode ghg:Vim{% endif %}; }
+    gitnr create --save ghg:macOS ghg:Linux ghg:Windows ghg:JetBrains ghg:VisualStudioCode ghg:Vim; }
 
   # (3) gh → LICENSE (TASK-OUTPUT, guarded test -f). Fetches the canonical body
   #     from the GitHub Licenses API; fills bracket placeholders from frozen
@@ -250,3 +230,40 @@ _tasks:
       git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false commit
       -qm "Initial project scaffold (bailiff-mod-base)"
     when: "{{ initial_commit and run_git_init }}"
+
+# --- Deferred post-tasks (run after the full render loop) --------------------
+# Idempotent ordered-concat: fold .gitignore.d/* fragments into .gitignore using
+# delimited blocks (# >>> <module> >>> … # <<< <module> <<<). Runs as a
+# _post_task so all contributor fragments are present when it executes (FR-021).
+# Reproduce: existing blocks are replaced — no duplicates (config-consistent).
+_post_tasks:
+  - |-
+    python3 -c "
+    import pathlib, re, sys
+    gi = pathlib.Path('.gitignore')
+    d = pathlib.Path('.gitignore.d')
+    if not d.is_dir():
+        sys.exit(0)
+    frags = sorted(d.iterdir())
+    if not frags:
+        sys.exit(0)
+    base = gi.read_text() if gi.exists() else ''
+    for frag in frags:
+        module = frag.name
+        content = frag.read_text().rstrip()
+        if not content:
+            continue
+        block = '# >>> ' + module + ' >>>\n' + content + '\n# <<< ' + module + ' <<<'
+        pat = re.compile(
+            r'# >>> ' + re.escape(module) + r' >>>.*?# <<< ' + re.escape(module) + r' <<<',
+            re.DOTALL,
+        )
+        if pat.search(base):
+            base = pat.sub(block, base)
+        else:
+            ends2 = base.endswith('\n\n')
+            ends1 = base.endswith('\n')
+            sep = '' if ends2 else ('\n' if ends1 else '\n\n')
+            base = base + sep + block + '\n'
+    gi.write_text(base)
+    "

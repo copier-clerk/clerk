@@ -1,6 +1,0 @@
-# .mise.toml — managed by bailiff-mod-base; do not edit by hand.
-# Tool versions are injected by the phase-1 agent via the frozen `mise_tools` answer.
-# Re-rendered byte-identically at reproduce (MANAGED lifecycle).
-[tools]
-{% for item in mise_tools %}{% for tool, version in item.items() %}{{ tool }} = "{{ version }}"
-{% endfor %}{% endfor %}
