@@ -1,0 +1,12 @@
+{#-
+  .mise/conf.d/bailiff-mod-terraform.toml — MANAGED (byte-identical on reproduce).
+  Own tools only: the IaC binary (terraform or opentofu) + tflint.
+  mise merges all .mise/conf.d/*.toml at runtime; no .mise.toml written here.
+-#}
+[tools]
+{% if tf_flavor == 'opentofu' -%}
+opentofu = "{{ opentofu_version }}"
+{%- else -%}
+terraform = "{{ terraform_version }}"
+{%- endif %}
+tflint = "{{ tflint_version }}"

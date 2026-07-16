@@ -1,0 +1,19 @@
+{#-
+  .pre-commit.d/bailiff-mod-terraform.yaml — own hook block only.
+  Rendered when hook_manager is not 'none'; inert when precommit is absent.
+  bailiff-mod-precommit's bundler merges all .pre-commit.d/*.yaml into
+  .pre-commit-config.yaml as a _post_task (FR-011/012, _fragment-merge.md).
+-#}
+{% if hook_manager != 'none' -%}
+- repo: https://github.com/antonbabenko/pre-commit-terraform
+  {% if pre_commit_terraform_rev -%}
+  rev: "{{ pre_commit_terraform_rev }}"
+  {% else -%}
+  rev: ""  # pin via pre_commit_terraform_rev answer or update manually
+  {% endif -%}
+  hooks:
+    - id: terraform_fmt
+    - id: terraform_validate
+    - id: tflint
+    - id: terraform_trivy
+{% endif -%}

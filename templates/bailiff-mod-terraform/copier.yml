@@ -2,17 +2,31 @@
 #
 # IaC overlay for Terraform / OpenTofu projects. Generic skeleton — does NOT
 # ask cloud_provider or state_backend (user configures those via commented
-# examples in backend.tf). Works standalone or run_after bailiff-mod-base.
+# examples in backend.tf). Works standalone or depends_on bailiff-mod-base
+# (and bailiff-mod-precommit for hook_manager).
 #
 # MANAGED: versions.tf, .tflint.hcl, .terraform-version
 # SEED-ONCE: main.tf, variables.tf, outputs.tf, backend.tf, terraform.tfvars.example
 # TASK-OUTPUT: .terraform.lock.hcl (via init; COMMITTED, not gitignored)
-# .terraform/ IS gitignored (contributed to gitignore_stack M1 union)
+# .terraform/ IS gitignored (fragment at template/.gitignore.d/bailiff-mod-terraform)
 #
 # Contract (Constitution VI / FR-021): ships template/{{ _copier_conf.answers_file }}.jinja;
 # NO secret: questions; edges are when:false hidden answers.
 
+# --- Cross-module facts (spec 014 FR-006 / _facts.md) ----------------------
+# base produces project_name; precommit produces hook_manager.
+# Reading _external_data.<alias>.<key> makes the producer a HARD dependency.
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+  precommit: .copier-answers.bailiff-mod-precommit.yml
+
 # --- Questions ---------------------------------------------------------------
+
+# project_name read from base's answers file via _external_data alias.
+project_name:
+  type: str
+  default: "{{ _external_data.base.project_name }}"
+  help: "Project name (read from base via _external_data; standalone: empty)."
 
 # Flavor: terraform (HashiCorp) or opentofu (CNCF fork with MPL-free license).
 # The choice drives which binary is invoked in tasks and which lockfile backend
@@ -39,68 +53,58 @@ opentofu_version:
   when: "{{ tf_flavor == 'opentofu' }}"
   help: "OpenTofu version to pin (used when tf_flavor=opentofu)."
 
-# tflint version — pinned in .mise.toml (via mise_tools union) and .tflint.hcl.
+# tflint version — pinned in .mise/conf.d/bailiff-mod-terraform.toml and .tflint.hcl.
 tflint_version:
   type: str
   default: "0.57.0"
   help: "tflint version to pin."
 
+# Injectable rev for antonbabenko/pre-commit-terraform hook repo.
+# Agent or --data resolves the concrete tag; empty string = fragment has no rev pin.
+pre_commit_terraform_rev:
+  type: str
+  default: ""
+  help: "Rev (tag) for antonbabenko/pre-commit-terraform in the pre-commit fragment."
+
 # placement_dir controls the subdirectory inside the repo where IaC files land.
 # Default 'infrastructure'; use '.' for a standalone IaC-only repo.
+# bare-private: exclusive IaC sibling (terraform/cdk/cloudformation — never co-occur).
 placement_dir:
   type: str
   default: "infrastructure"
   help: "Subdirectory for IaC files (default: infrastructure; use '.' for repo root)."
 
-# Threaded from base when present (FR-010 / ADR-0003).
-project_name:
+# hook_manager read from precommit's answers file via _external_data alias.
+# Controls whether the pre-commit.d fragment is active.
+hook_manager:
   type: str
-  default: "{{ project_name }}"
-  help: "Project name (threaded from bailiff-mod-base when used together)."
+  default: "{{ _external_data.precommit.hook_manager }}"
+  help: "Hook manager (read from precommit via _external_data; pre-commit/lefthook/none)."
 
 today:
   type: str
   default: ""
   help: "Generation date (YYYY-MM-DD); injected by bailiff — leave blank."
 
-# --- Agent-frozen union answers (M1 / cross-cutting §2 + §4) -----------------
-# The phase-1 agent assembles the full union and injects via --data; bailiff-mod-base
-# is the SINGLE WRITER of .mise.toml; bailiff-mod-precommit is the SINGLE WRITER of
-# .pre-commit-config.yaml. This module contributes tokens only — it does NOT write
-# those files itself.
-mise_tools:
-  type: yaml
-  default: []
-  help: "Frozen union of mise tool pins; injected by the phase-1 agent via --data."
-
-hook_blocks:
-  type: yaml
-  default: []
-  help: "Frozen union of pre-commit hook blocks; injected by the phase-1 agent via --data."
-
-hook_manager:
-  type: str
-  default: "pre-commit"
-  help: "Hook manager choice (threaded from phase-1 agent)."
-
-gitignore_stack:
-  type: yaml
-  default: []
-  help: "Frozen gitignore token union; injected by the phase-1 agent via --data."
-
 # --- Capability tags (spec 013 — engine enforces warn-only exclusion) --------
 _bailiff_provides:
   - iac-tool
 _bailiff_exclusive: true
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# --- Phase + dependency edges (FR-019/FR-020/R7/R8) -------------------------
+_bailiff_phase: normal
+
+# depends_on: both base (for project_name fact) and precommit (for hook_manager fact)
+# are HARD data-dependencies declared via _external_data above; the engine also
+# enforces them via ordering. run_after/run_before are unused (R7).
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
+    - bailiff-mod-precommit
   when: false
 
-depends_on:
+run_after:
   type: yaml
   default: []
   when: false
