@@ -1,0 +1,44 @@
+# .pre-commit.d/bailiff-mod-ts.yaml — managed by bailiff-mod-ts (DO NOT EDIT BY HAND)
+# Hook fragment: bailiff-mod-precommit's bundler merges all .pre-commit.d/*.yaml
+# into .pre-commit-config.yaml as a _post_task (spec 014 FR-011).
+# This fragment is inert when bailiff-mod-precommit is absent or hook_manager=none.
+{% if ts_linter == 'biome' %}
+  # ---------------------------------------------------------------------------
+  # Biome — lint + format (replaces eslint+prettier for JS/TS/JSON/CSS)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: biome-ci
+        additional_dependencies: ["@biomejs/biome@1.9.4"]
+
+  # ---------------------------------------------------------------------------
+  # Prettier (md/yaml scope only — biome does not cover these file types)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [markdown, yaml]
+{% elif ts_linter == 'eslint-prettier' %}
+  # ---------------------------------------------------------------------------
+  # Prettier — full scope (JS/TS/JSON/CSS/md/yaml)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+
+  # ---------------------------------------------------------------------------
+  # ESLint — TypeScript lint
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.27.0
+    hooks:
+      - id: eslint
+        files: \.(js|ts|jsx|tsx)$
+        additional_dependencies:
+          - "@typescript-eslint/parser@8.32.0"
+          - "@typescript-eslint/eslint-plugin@8.32.0"
+          - "eslint-config-prettier@10.1.5"
+{% endif %}

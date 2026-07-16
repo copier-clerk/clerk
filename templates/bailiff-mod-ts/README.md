@@ -1,30 +1,38 @@
 # bailiff-mod-ts
 
-TypeScript/JavaScript language overlay for the bailiff copier framework (spec 011).
+TypeScript/JavaScript language overlay for the bailiff copier framework.
 
-Applies after `bailiff-mod-base` (`run_after: [bailiff-mod-base]`), threads `project_name`,
-and seeds a `package.json` via the chosen package manager's native init (task-output,
-then seed-once). Ships managed byte-identical configs: `tsconfig.json`, biome or
-eslint+prettier config, and vitest/playwright config per `test_runner`.
+Depends on `bailiff-mod-base` (`depends_on: [bailiff-mod-base]`, `phase: normal`).
+Seeds a `package.json` via the chosen package manager's native init (task-output, then seed-once).
+Ships managed byte-identical configs: `tsconfig.json`, biome or eslint+prettier config, and vitest/playwright config per `test_runner`.
 
 ## Questions
 
 | Key | Choices | Default | Notes |
 |-----|---------|---------|-------|
-| `js_pkg_manager` | `bun`, `pnpm`, `npm` | `bun` | yarn DEAD |
-| `ts_linter` | `biome`, `eslint-prettier` | `biome` | |
-| `test_runner` | `none`, `vitest-node`, `vitest-browser`, `vitest+playwright`, `bun-test`, `playwright-only` | `none` | jest DEAD |
+| `js_pkg_manager` | `bun`, `pnpm`, `npm` | `bun` | yarn DEAD; fact for `ts` alias |
+| `ts_linter` | `biome`, `eslint-prettier` | `biome` | fact for `ts` alias |
+| `test_runner` | `none`, `vitest-node`, `vitest-browser`, `vitest+playwright`, `bun-test`, `playwright-only` | `none` | jest DEAD; private (collision class) |
 | `node_version` | finite modern list | `22` | |
 | `ts_framework` | `plain`, `nuxt`, `vite`, `sst` | `plain` | `vite_template` asked when `ts_framework=vite` |
 | `ui_kit` | `none`, `shadcn` | `none` | |
-| `project_name` | — | threaded | from `bailiff-mod-base` |
-| `hook_manager` | — | threaded | from phase-1 agent |
 
-## Frozen-union contributions (M1)
+## Fragment contributions (spec 014)
 
-- Gitignore token → `gitignore_stack` (base writes `.gitignore`)
-- Node version entry → `mise_tools` (base writes `.mise.toml`)
-- Hook block → `hook_blocks` (precommit writes hook file)
+| Surface | Path | Notes |
+|---------|------|-------|
+| mise tools | `.mise/conf.d/bailiff-mod-ts.toml` | `node = "<node_version>"`; mise merges natively |
+| pre-commit hooks | `.pre-commit.d/bailiff-mod-ts.yaml` | biome or eslint+prettier hooks; bundled by precommit's post-task |
+| gitignore lines | `.gitignore.d/bailiff-mod-ts` | Node/TS ignore patterns; concatenated by base's post-task |
+
+## Facts produced (alias `ts`)
+
+Consumers wire `_external_data: {ts: .copier-answers.bailiff-mod-ts.yml}` and read:
+
+| fact | consumers |
+|------|-----------|
+| `js_pkg_manager` | justfile, package-add |
+| `ts_linter` | editorconfig |
 
 ## Bug fixes included
 

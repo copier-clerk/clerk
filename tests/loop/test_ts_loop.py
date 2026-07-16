@@ -1,12 +1,12 @@
-"""spec 011 T007: bailiff-mod-ts loop tests.
+"""spec 011 T007 / spec 014: bailiff-mod-ts loop tests.
 
 Init [bailiff-mod-base, bailiff-mod-ts] and assert:
-- run_after edge sequences base before ts;
-- project_name threaded from base into the ts overlay;
-- package.json stub marker present (task-output lifecycle);
+- depends_on edge sequences base before ts (private-by-default, spec 014);
+- ts answers file contains ts's own questions (js_pkg_manager, ts_linter,
+  test_runner, node_version, ts_framework, ui_kit) but NOT project_name
+  (read via _external_data.base, never recorded in ts's namespace);
 - managed configs present: tsconfig.json, biome.json (ts_linter=biome),
   eslint/.prettierrc (ts_linter=eslint-prettier);
-- gitignore_stack / mise_tools / hook_blocks tokens contributed (frozen-union M1);
 - answers files committed for both layers.
 
 Reproduce assertions:
@@ -70,18 +70,18 @@ def bailiff_mod_ts_pnpm(tmp_path: Path) -> TemplateRepo:
 # ---------------------------------------------------------------------------
 
 
-def test_base_ts_ordered_and_threaded(
+def test_base_ts_ordered_and_private(
     bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo, tmp_path: Path
 ) -> None:
-    """SC-002: [base, ts] applies base first, threads project_name, creates outputs."""
+    """spec 014 private-by-default: [base, ts] applies base first; ts answers are ts-only."""
     trust.add_trust(bailiff_mod_base.url)
     trust.add_trust(bailiff_mod_ts_bun.url)
 
     dest = tmp_path / "proj"
-    # Mis-order input (ts first) — run_after must reorder.
+    # Mis-order input (ts first) — depends_on must reorder.
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["js_pkg_manager", "ts_linter"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -89,10 +89,6 @@ def test_base_ts_ordered_and_threaded(
                 "node_version": "22",
                 "ts_framework": "plain",
                 "ui_kit": "none",
-                # frozen-union tokens contributed by this module
-                "gitignore_stack": ["ghg:macOS", "Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
             },
         ),
         (
@@ -104,7 +100,6 @@ def test_base_ts_ordered_and_threaded(
                 "org": "acme",
                 "license": "mit",
                 "layout": "single",
-                "gitignore_stack": ["ghg:macOS", "Node"],
             },
         ),
     ]
@@ -125,8 +120,19 @@ def test_base_ts_ordered_and_threaded(
 
     import yaml
 
+    af_base = yaml.safe_load(af_base_path.read_text())
     af_ts = yaml.safe_load(af_ts_path.read_text())
-    assert af_ts["project_name"] == "mytsapp", "project_name not threaded base→ts"
+
+    # project_name is base's question — must appear in base's answers file.
+    assert af_base["project_name"] == "mytsapp", "project_name missing from base answers"
+
+    # project_name must NOT appear in ts's answers file (private-by-default: ts
+    # reads it via _external_data.base, never records it in its own namespace).
+    assert "project_name" not in af_ts, (
+        "project_name leaked into ts answers — private-by-default violated"
+    )
+
+    # ts's own facts are recorded in ts's answers file.
     assert af_ts["js_pkg_manager"] == "bun"
     assert af_ts["ts_linter"] == "biome"
     assert bailiff_mod_ts_bun.url in af_ts["_src_path"]
@@ -153,15 +159,27 @@ def test_base_ts_ordered_and_threaded(
         # inactive with biome linter — must be empty
         assert prettierrc_path.read_bytes() == b""
 
+    # mise conf.d fragment rendered.
+    confd_path = dest / ".mise" / "conf.d" / "bailiff-mod-ts.toml"
+    assert confd_path.is_file(), ".mise/conf.d/bailiff-mod-ts.toml missing"
+    confd = confd_path.read_text()
+    assert 'node = "22"' in confd, "mise conf.d: node version missing"
 
-def test_ordering_run_after_edge(
+    # gitignore fragment rendered.
+    gi_fragment = dest / ".gitignore.d" / "bailiff-mod-ts"
+    assert gi_fragment.is_file(), ".gitignore.d/bailiff-mod-ts missing"
+    gi_content = gi_fragment.read_text()
+    assert "node_modules/" in gi_content, ".gitignore.d/bailiff-mod-ts: node_modules/ missing"
+
+
+def test_ordering_depends_on_edge(
     bailiff_mod_base: TemplateRepo, bailiff_mod_ts_bun: TemplateRepo
 ) -> None:
-    """run_after: [bailiff-mod-base] sequences base before ts regardless of input order."""
+    """depends_on: [bailiff-mod-base] sequences base before ts regardless of input order."""
     from bailiff import ordering
 
     recs = [
-        _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name"]),
+        _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["js_pkg_manager"]),
         _record("demo/bailiff-mod-base", bailiff_mod_base, ["project_name"]),
     ]
     plan = ordering.layer_plan(recs)
@@ -179,7 +197,7 @@ def test_ts_eslint_prettier_variant(
     dest = tmp_path / "proj"
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "ts_linter"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["js_pkg_manager", "ts_linter"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "eslint-prettier",
@@ -187,9 +205,6 @@ def test_ts_eslint_prettier_variant(
                 "node_version": "22",
                 "ts_framework": "plain",
                 "ui_kit": "none",
-                "gitignore_stack": ["Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
             },
         ),
         (
@@ -201,7 +216,6 @@ def test_ts_eslint_prettier_variant(
                 "org": "acme",
                 "license": "mit",
                 "layout": "single",
-                "gitignore_stack": ["Node"],
             },
         ),
     ]
@@ -248,11 +262,10 @@ def test_edited_package_json_preserved_on_reproduce(
                 "org": "acme",
                 "license": "mit",
                 "layout": "single",
-                "gitignore_stack": ["Node"],
             },
         ),
         (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "js_pkg_manager"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["js_pkg_manager"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -260,9 +273,6 @@ def test_edited_package_json_preserved_on_reproduce(
                 "node_version": "22",
                 "ts_framework": "plain",
                 "ui_kit": "none",
-                "gitignore_stack": ["Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
             },
         ),
     ]
@@ -319,11 +329,10 @@ def test_test_runner_variants(
                 "org": "acme",
                 "license": "mit",
                 "layout": "single",
-                "gitignore_stack": ["Node"],
             },
         ),
         (
-            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["project_name", "test_runner"]),
+            _record("demo/bailiff-mod-ts", bailiff_mod_ts_bun, ["js_pkg_manager", "test_runner"]),
             {
                 "js_pkg_manager": "bun",
                 "ts_linter": "biome",
@@ -331,9 +340,6 @@ def test_test_runner_variants(
                 "node_version": "22",
                 "ts_framework": "plain",
                 "ui_kit": "none",
-                "gitignore_stack": ["Node"],
-                "mise_tools": [{"node": "22"}],
-                "hook_blocks": [],
             },
         ),
     ]
@@ -423,3 +429,111 @@ def test_yarn_jest_not_offered() -> None:
     test_runner_spec = raw.get("test_runner", {})
     test_choices = test_runner_spec.get("choices", []) if isinstance(test_runner_spec, dict) else []
     assert "jest" not in test_choices, f"jest must not be offered; choices={test_choices}"
+
+
+def test_ts_is_fact_producer() -> None:
+    """ts copier.yml exposes js_pkg_manager and ts_linter as bare questions (producer contract)."""
+    from pathlib import Path
+
+    import yaml
+
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
+    )
+    raw = yaml.safe_load(copier_yml.read_text()) or {}
+
+    # Both facts must be plain bare questions (no default threading from another module).
+    for fact_key in ("js_pkg_manager", "ts_linter"):
+        assert fact_key in raw, f"{fact_key} missing from ts copier.yml"
+        spec = raw[fact_key]
+        assert isinstance(spec, dict), f"{fact_key} is not a dict spec"
+        default = spec.get("default", "")
+        # A threaded default looks like "{{ other_key }}"; bare defaults are static.
+        assert not (isinstance(default, str) and default.startswith("{{")), (
+            f"{fact_key} default looks threaded ('{default}') — should be a static value"
+        )
+
+    # test_runner must be present but NOT in the producer set (collision-class, private).
+    assert "test_runner" in raw, "test_runner missing from ts copier.yml"
+
+    # project_name must NOT appear as a question in ts (private-by-default: ts has no template
+    # that uses it; it is base's question and must not accrete into ts's namespace).
+    assert "project_name" not in raw, (
+        "project_name is a question in ts copier.yml — remove it (private-by-default)"
+    )
+
+    # hook_manager must NOT appear as a question in ts (private-by-default: ts's hook fragment
+    # uses ts_linter, not hook_manager; precommit owns hook_manager).
+    assert "hook_manager" not in raw, (
+        "hook_manager is a question in ts copier.yml — remove it (private-by-default)"
+    )
+
+
+def test_ts_no_union_answers() -> None:
+    """gitignore_stack, mise_tools, hook_blocks must not be questions in ts copier.yml."""
+    from pathlib import Path
+
+    import yaml
+
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
+    )
+    raw = yaml.safe_load(copier_yml.read_text()) or {}
+
+    for union_key in ("gitignore_stack", "mise_tools", "hook_blocks"):
+        assert union_key not in raw, (
+            f"union answer '{union_key}' still present in ts copier.yml — "
+            "spec 014 removes all cross-module unions"
+        )
+
+
+def test_ts_fragment_files_present() -> None:
+    """All three fragment paths exist in the ts template tree (spec 014 FR-008/011/013)."""
+    from pathlib import Path
+
+    ts_template = (
+        Path(__file__).resolve().parent.parent.parent / "templates" / "bailiff-mod-ts" / "template"
+    )
+
+    assert (ts_template / ".mise" / "conf.d" / "bailiff-mod-ts.toml.jinja").is_file(), (
+        ".mise/conf.d/bailiff-mod-ts.toml.jinja missing"
+    )
+    assert (ts_template / ".pre-commit.d" / "bailiff-mod-ts.yaml.jinja").is_file(), (
+        ".pre-commit.d/bailiff-mod-ts.yaml.jinja missing"
+    )
+    assert (ts_template / ".gitignore.d" / "bailiff-mod-ts").is_file(), (
+        ".gitignore.d/bailiff-mod-ts missing"
+    )
+
+
+def test_ts_depends_on_edge() -> None:
+    """depends_on: [bailiff-mod-base] declared; run_after/run_before absent (spec 014 R7)."""
+    from pathlib import Path
+
+    import yaml
+
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ts"
+        / "copier.yml"
+    )
+    raw = yaml.safe_load(copier_yml.read_text()) or {}
+
+    depends_on_spec = raw.get("depends_on", {})
+    assert isinstance(depends_on_spec, dict), "depends_on is not a dict spec"
+    assert "bailiff-mod-base" in (depends_on_spec.get("default") or []), (
+        "depends_on default must include bailiff-mod-base"
+    )
+
+    # run_after and run_before must not be used (spec 014 R7).
+    assert "run_after" not in raw, "run_after still present — replaced by depends_on (spec 014 R7)"
+    assert "run_before" not in raw, (
+        "run_before still present — replaced by depends_on (spec 014 R7)"
+    )
