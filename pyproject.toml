@@ -25,6 +25,7 @@ dependencies = [
   # Static discovery only: PEP 440 tag filtering + copier.yml parsing. No
   # pydantic seam and no deprecated-surface adapter in this slice.
   "packaging>=26.2",
+  "platformdirs>=4.10.0",
   "pyyaml>=6.0.3",
   "tomli-w>=1.2.0",
 ]

@@ -149,7 +149,7 @@ must not appear in a release commit before T003 is in).
   (5) Ensure `mypy` is configured to check `src/bailiff/cli.py` (add to `files` in `[tool.mypy]`).
   (6) Write `tests/test_cli_extraction.py`: import `from bailiff.cli import main`; invoke each verb via `main(["--version"])`, `main(["doctor"])`, `main(["catalog", "--help"])` (no network required); verify exit code contract.
 
-- [ ] T014 [US3] Packaging correctness — dependency declaration and single-source version:
+- [x] T014 [US3] Packaging correctness — dependency declaration and single-source version:
   (1) Add `"platformdirs"` to `[project.dependencies]` in `pyproject.toml`. Verify: `python -c "import importlib.metadata; print(importlib.metadata.requires('bailiff'))"` shows `platformdirs` in the declared deps (after `uv sync`).
   (2) Replace the literal `__version__ = "0.1.0"` in `src/bailiff/__init__.py` with:
   ```python
