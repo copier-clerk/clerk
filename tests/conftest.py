@@ -759,11 +759,11 @@ _MODULES_DIR = _REPO_ROOT / "templates"
 _BASE_STUB_TASKS = dedent(
     """\
     _tasks:
-      # Stub gitnr: write a deterministic .gitignore marker recording the stack.
+      # Stub gitnr: write a deterministic .gitignore marker (no stack union — spec 014).
       - >-
         test -f .bailiff-base-init-done ||
         test -f .gitignore ||
-        printf '# stub gitignore\\nstack={{ gitignore_stack | join(",") }}\\n' > .gitignore
+        printf '# stub gitignore\\n' > .gitignore
       # Stub gh LICENSE fetch: guarded, idempotent, offline.
       - >-
         test -f LICENSE ||
