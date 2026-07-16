@@ -49,8 +49,6 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
     )
 
 
-
-
 @pytest.fixture
 def bailiff_mod_ts_bun(tmp_path: Path) -> TemplateRepo:
     """bailiff-mod-ts with bun pkg manager, biome linter, tasks stubbed offline."""
