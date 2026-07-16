@@ -7,10 +7,9 @@
 #   MANAGED: mkdocs.yml (byte-identical on reproduce).
 #   SEED-ONCE (_skip_if_exists): docs/index.md — project-owned after init.
 #
-# Pin strategy (ledger, FR-011 resolution): mkdocs + mkdocs-material pin via
-# the `mise_tools` frozen union REGARDLESS of bailiff-mod-python co-selection —
-# every non-runtime tool pins through mise (one mental model, no conditional
-# pin behavior). This module contributes the tokens; base writes .mise.toml.
+# Pin strategy (spec 014 / FR-008): mkdocs + mkdocs-material pin via the
+# per-module conf.d drop-in (`.mise/conf.d/bailiff-mod-mkdocs.toml`); mise
+# merges all conf.d fragments at runtime.
 #
 # Docs engines are per-engine sibling splits; vitepress is a later sibling,
 # NOT an axis here.
@@ -18,41 +17,35 @@
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
 # questions; no jinja2_time; edges are when:false hidden answers.
 
-# --- Threaded identity (FR-010 pattern) ---------------------------------------
+# --- External data (FR-004 / spec 014) ----------------------------------------
+# Reads project_name + description from base's answers file (hard dependency).
+
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+
+# --- Questions ----------------------------------------------------------------
 
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base; mkdocs site_name)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "The project's name (read from bailiff-mod-base via _external_data; mkdocs site_name)."
 
 description:
   type: str
-  default: ""
-  help: "One-line site description (mkdocs site_description; threaded from base)."
-
-# --- Frozen union consumed (declared for threading; NOT written here) ---------
-
-mise_tools:
-  type: yaml
-  default: []
-  help: "mise [tools] union (injected by phase-1 agent; base writes .mise.toml). mkdocs contributes mkdocs + mkdocs-material tokens."
+  default: "{{ _external_data.base.description }}"
+  help: "One-line site description (read from bailiff-mod-base via _external_data; mkdocs site_description)."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
 
-run_after:
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # Template body lives under template/ — copier renders only that subtree.

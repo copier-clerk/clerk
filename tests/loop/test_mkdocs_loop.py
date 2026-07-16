@@ -162,3 +162,58 @@ def test_zero_tasks_and_skip_if_exists() -> None:
 def test_no_secret_questions() -> None:
     text = (_MODULES_DIR / "bailiff-mod-mkdocs" / "copier.yml").read_text()
     assert not re.search(r"^\s+secret\s*:", text, re.MULTILINE)
+
+
+# ---------------------------------------------------------------------------
+# spec 014 T027: mise conf.d drop-in rendered; no .mise.toml (FR-008)
+# ---------------------------------------------------------------------------
+
+
+def test_mise_confd_rendered(bailiff_mod_mkdocs: TemplateRepo, tmp_path: Path) -> None:
+    """mkdocs renders its own .mise/conf.d fragment; no .mise.toml is produced."""
+    dest = tmp_path / "proj"
+    _init(
+        bailiff_mod_mkdocs,
+        dest,
+        {"project_name": "myapp", "description": "docs"},
+    )
+
+    confd = dest / ".mise" / "conf.d" / "bailiff-mod-mkdocs.toml"
+    assert confd.is_file(), ".mise/conf.d/bailiff-mod-mkdocs.toml not rendered (T027)"
+
+    # Fragment must carry [tools] with mkdocs + mkdocs-material — no other tools.
+    import tomllib
+
+    with confd.open("rb") as fh:
+        parsed = tomllib.load(fh)
+    assert "tools" in parsed, "conf.d fragment missing [tools] section"
+    tools = parsed["tools"]
+    assert "mkdocs" in tools, "mkdocs not in conf.d [tools]"
+    assert "mkdocs-material" in tools, "mkdocs-material not in conf.d [tools]"
+
+    # No .mise.toml written by this module (base owned the union writer; it is
+    # also gone after T019, but mkdocs must never be the fallback writer).
+    assert not (dest / ".mise.toml").exists(), ".mise.toml must not be written by mkdocs module"
+
+
+# ---------------------------------------------------------------------------
+# spec 014 T035/T037: _external_data alias declared for base facts (FR-004)
+# ---------------------------------------------------------------------------
+
+
+def test_external_data_alias_declared() -> None:
+    """copier.yml declares _external_data: {base: .copier-answers.bailiff-mod-base.yml}."""
+    raw = yaml.safe_load((_MODULES_DIR / "bailiff-mod-mkdocs" / "copier.yml").read_text())
+    ext = raw.get("_external_data", {})
+    assert ext.get("base") == ".copier-answers.bailiff-mod-base.yml", (
+        "_external_data.base must point to .copier-answers.bailiff-mod-base.yml"
+    )
+
+
+def test_depends_on_edge_and_phase() -> None:
+    """copier.yml uses depends_on (not run_after) and declares phase: normal (spec 014 T027)."""
+    raw = yaml.safe_load((_MODULES_DIR / "bailiff-mod-mkdocs" / "copier.yml").read_text())
+    assert "run_after" not in raw, "run_after must be removed; use depends_on"
+    deps = raw.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-base" in deps, "depends_on must include bailiff-mod-base"
+    assert raw.get("phase", {}).get("default") == "normal", "phase must be normal"
