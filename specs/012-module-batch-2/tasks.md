@@ -215,7 +215,7 @@ Every module task implicitly includes ALL of the following before it is consider
 
 ## Phase 5: Polish & Integration
 
-- [ ] **T011** Full local gate over all 27 modules (19 existing + 8 new):
+- [x] **T011** Full local gate over all 27 modules (19 existing + 8 new):
   `just check-modules` (three-way parity); `just test` (full suite including secrets-policy
   lint). Confirm: (a) no `secret:` in any 012 module; (b) reproduce without toolchain/
   network for every 012 module; (c) FR-009 annotations present in 011 spec artifacts;
