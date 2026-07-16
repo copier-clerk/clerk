@@ -86,7 +86,7 @@ _external_data:
   base: .copier-answers.bailiff-mod-base.yml
 project_name:
   type: str
-  default: "{{ _external_data.base.project_name }}"   # falls back to own default if base absent
+  default: "{{ _external_data.base.project_name }}"   # base is a HARD dependency (FR-006, inverted)
 ```
 
 The borrowed value lives under the **alias namespace** (`_external_data.base.project_name`) —
@@ -154,15 +154,18 @@ distinct alias.
 
 **Independent Test**: A consumer declares `_external_data: {base: .copier-answers.bailiff-mod-base.yml}`
 and reads `{{ _external_data.base.project_name }}`; with base in the stack it resolves base's
-value; without base it falls back to the consumer's own default.
+value; WITHOUT base, bailiff raises a loud preflight error naming the missing producer (the read is
+a hard data-dependency — FR-006 inverted).
 
 **Acceptance Scenarios**:
 
 1. **Given** base (producer) writing `project_name` to its answers file and a consumer aliasing
    base as external data, **When** both are in a stack, **Then** the consumer renders base's
-   `project_name`.
+   `project_name` (and base is ordered before the consumer).
 2. **Given** the same consumer with NO producer in the stack, **When** inited alone, **Then**
-   it falls back to its own default (no hard failure on a missing producer/answers file).
+   bailiff raises a LOUD preflight error naming the `_external_data.base` alias's missing producer —
+   NOT a silent empty render (copier's own behavior would return `{}` → empty string; bailiff
+   produces the error copier will not).
 3. **Given** a non-base producer (e.g. moon writing `monorepo_tool`), **When** a CI module
    aliases moon and reads `_external_data.moon.monorepo_tool`, **Then** it resolves — the
    mechanism is not base-specific.
@@ -261,13 +264,13 @@ detected and reported with a documented remediation (never a silent wrong render
 
 ### Edge Cases
 
-- **A private key that a module WANTS to expose later**: it must explicitly rename it to
-  `<vendor>__<name>` and publish it as shared — there is no implicit promotion.
-- **Two vendors both prefix `bailiff__`**: forbidden — the `bailiff__` namespace is
-  first-party-reserved; third parties MUST use their own vendor prefix (lint-enforced for
-  first-party; runtime-warn for third-party, mirroring 013's capability lint split).
-- **A shared fact whose producer is absent from the stack**: consumer falls back to its own
-  default; never a hard failure (US2 AS2).
+- **A private key that a module WANTS to expose later**: no rename needed — the producer already
+  writes it to its answers file as a normal bare question; a consumer opts in by declaring an
+  `_external_data` alias at the producer's answers file and reading `{{ _external_data.<alias>.<key> }}`.
+  There is no implicit promotion and no shared-key namespace to reserve.
+- **A shared fact whose producer is absent from the stack**: LOUD preflight error naming the alias's
+  missing producer — the read is a hard data-dependency (FR-006 inverted; US2 AS2), never a silent
+  fallback (copier's own missing-file behavior returns `{}` → empty render, which SC-006 forbids).
 - **mise conf.d on a system without mise**: the drop-in files are inert config; `mise install`
   is the only step that needs mise, and it is init-only-guarded per the existing task
   contract.
@@ -291,8 +294,11 @@ detected and reported with a documented remediation (never a silent wrong render
   shared (FR-004). `_merge_layer_answers` (runner.py:532) MUST be changed from "merge all
   non-`_` keys" to "merge only declared-shared keys."
 - **FR-002** *(isolation is the default)*: Each layer renders with its own per-layer answers
-  plus injected shared facts (FR-004) plus copier/bailiff builtins (`_copier_conf`, today,
-  run-ordering keys) — never another module's private answers.
+  plus copier/bailiff builtins (`_copier_conf`, `today`, run-ordering keys) plus any facts it
+  reads via `_external_data` (FR-004) — never another module's private answers threaded through
+  `data=`. NOTE (verified): `accumulated` is seeded ONLY with `today` (runner.py:430); there is
+  NO run-level `--data` channel in the input model (the multi-run-spec exposes only per-layer
+  `answers`, cli.py:286). Private-by-default = `accumulated` stays `{today}` and never accretes.
 - **FR-003** *(reproduce/update parity)*: The reproduce and update accumulators MUST apply the
   same isolation rule (FR-012 of 013 keeps capability/collision out of those paths; this spec
   keeps private-answer bleed out of them too). A committed tree reproduces per-layer, not from
@@ -304,20 +310,45 @@ detected and reported with a documented remediation (never a silent wrong render
   produced MUST read it through copier `_external_data`: declare a local alias pointing at the
   producer's answers file and reference `{{ _external_data.<alias>.<key> }}`. The producer
   simply writes the key to its own answers file as a normal question. NO vendor prefix and NO
-  cross-layer threading of the key.
+  cross-layer threading of the key. The producer set is **base, precommit, ts, moon** (final fact
+  set in decisions-ledger R4).
 - **FR-005** *(deterministic producer path)*: Consumers rely on the deterministic per-layer
   answers-file name `.copier-answers.<module-basename>.yml` (`ordering.py:answers_file_name`).
   This name is a stable contract; changing the naming scheme is a breaking change gated
   separately.
-- **FR-006** *(graceful absence)*: A consumer reading `_external_data.<alias>.<key>` MUST fall
-  back to its own default when the producer (or its answers file) is absent from the stack —
-  never a hard failure. (copier evaluates the default expression; the plan phase confirms the
-  guard idiom.)
+- **FR-006** *(a fact read is a HARD data-dependency — INVERTED)*: Reading `_external_data.<alias>.<key>`
+  makes the aliased producer a HARD dependency. bailiff statically parses the consumer's
+  `_external_data` block, maps each alias → producer basename, and at preflight: producer ABSENT →
+  LOUD error (reuse `OrderingError`, naming the offending alias); producer PRESENT → ordered before
+  the consumer. There is NO graceful fallback (the prior FR-006 is REPLACED): copier's own behavior on
+  a missing external-data file is to return `{}` → an unguarded `{{ _external_data.base.project_name }}`
+  renders EMPTY STRING, i.e. the silent mis-render SC-006 forbids. bailiff produces the error copier
+  will not. See decisions-ledger R6 + "FR-006 INVERTED".
+- **FR-006a** *(`_external_data` path lint — discovery)*: For the static alias→producer mapping to
+  work, an `_external_data` value MUST be a literal `.copier-answers.<basename>.yml` (no Jinja
+  expression, no path traversal, no URL). Discovery rejects non-literal/non-convention paths for
+  first-party modules with a clear error (decisions-ledger R9).
 - **FR-007** *(no vendor prefix, no shared-key lint)*: The `<vendor>__<name>` prefix scheme and
   its lint are explicitly REJECTED — copier alias namespacing isolates cross-module reads
   structurally and works across vendors without convention. `check_modules.py` gains no
   shared-key naming lint. Every question key stays a normal (bare) key, private by default
   (FR-001), shared only by being read through an alias.
+
+### Functional Requirements — dependency model (single edge + stratified DAG)
+
+- **FR-019** *(single `depends_on` edge)*: The edge vocabulary collapses to ONE edge: `depends_on`
+  (target present + ordered-before; ABSENT target → loud `OrderingError`, the existing dangling-edge
+  behavior made explicit). `run_after` and `run_before` are DROPPED (`ordering.py` stops handling them;
+  the ~23 `run_after: bailiff-mod-base` migrate to `depends_on: bailiff-mod-base`). Rationale: today the
+  two are byte-identical in code and only `run_after: base` is used; `run_before` has zero uses and
+  doubles DAG cycle surface. `depends_on` expresses SIDE-EFFECT dependencies (X needs a tool Y installed
+  or a file Y wrote) — distinct from the DATA dependency FR-006 covers. (decisions-ledger R6/R7.)
+- **FR-020** *(pre/normal/post stratified DAG)*: Modules carry a phase — `pre` | `normal` (default) |
+  `post`. Sort = (phase) → (`depends_on` DAG) → (basename). Edge legality is VALIDATED at discovery:
+  `pre`→pre only; `normal`→pre+normal; `post`→anything; a forward cross-phase edge is rejected with a
+  clear error (cycles cannot cross phases). `base = pre`; the module family = `normal`; `post` is
+  RESERVED for a future finalizer (none exists today). This gives structural "run first / run last"
+  without a last-mover enumerating N edges. (decisions-ledger R8.)
 
 ### Functional Requirements — mise drop-in (union dissolution)
 
@@ -338,11 +369,14 @@ detected and reported with a documented remediation (never a silent wrong render
 - **FR-011** *(fragment + merge, not answer union)*: `hook_blocks` as a threaded answer union
   MUST be eliminated. Each contributing module renders its OWN
   `.pre-commit.d/<vendor>-<module>.yaml` fragment (its hook block only; MAY be conditional on
-  the module's own answers). `bailiff-mod-precommit` ships a single post-install merge task
-  that folds all fragments into `.pre-commit-config.yaml`. The merge MUST be deterministic and
-  order-independent (same fragment set → equivalent config regardless of layer order) and
-  config-consistent on reproduce. The merge runs as an init-only-guarded task (existing task
-  contract).
+  the module's own answers). `bailiff-mod-precommit` **vendors a single Python bundler**
+  (`scripts/_merge_precommit.py`, owner-side — sees all fragments; NOT a `bailiff merge` CLI) run as
+  a post-install task that folds all fragments into `.pre-commit-config.yaml`. The merge MUST be
+  deterministic and order-independent (same fragment set → equivalent config regardless of layer
+  order) and config-consistent on reproduce. On a rev-pin conflict (two fragments pinning the SAME
+  hook repo at DIFFERENT revs) the bundler picks the **highest rev and WARNS** — it does NOT abort
+  (decisions-ledger R2, revised: a hard error would let one lagging third-party module veto an
+  otherwise-valid stack, colliding with the open-ecosystem premise).
 - **FR-012** *(single merger, inert without it, no collision)*: Exactly one module (precommit)
   runs the merge. When precommit is absent or `hook_manager=none`, no merge runs and no
   `.pre-commit-config.yaml` is produced (fragments are inert). Because each contributor owns a
@@ -351,17 +385,19 @@ detected and reported with a documented remediation (never a silent wrong render
 
 ### Functional Requirements — gitignore & migration
 
-- **FR-013** *(gitignore disposition)*: `gitignore_stack` is a frozen token list (task-output
-  via gitnr, already config-consistent not byte-asserted), not a managed-render union. It MUST
-  either (a) remain a shared fact (`bailiff__gitignore_stack`) consumed by base's single gitnr
-  call, or (b) become per-module fragment + idempotent merge/append. The choice is a plan-phase
-  decision; whichever is chosen, reproduce MUST NOT duplicate entries (config-consistent
-  guarantee).
-- **FR-014** *(rename migration)*: The spec MUST define the disposition for pre-014 committed
-  trees whose answers files record old bare keys (US5). Given the near-zero real population
-  (greenfield, no external users, 27 mirrors just published), an explicit documented break
-  with a re-init recommendation is acceptable IF ratified; otherwise an alias/migration path
-  MUST be specified. Silent mis-render is prohibited.
+- **FR-013** *(gitignore disposition — RESOLVED)*: `gitignore_stack` is eliminated as a threaded
+  fact. Each contributing module writes a per-module `.gitignore.d/<vendor>-<module>` fragment
+  (gitnr-produced OR literal static lines). The gitignore owner runs ONE idempotent ordered-concat
+  (an inline shell task, delimited blocks) folding the fragments into `.gitignore`. No `bailiff merge`
+  CLI and no vendored script for this surface (concat is trivial). Reproduce MUST NOT duplicate
+  entries (config-consistent guarantee via delimited blocks).
+- **FR-014** *(rename migration + detection gate)*: A documented BREAK + re-init is ratified (R3;
+  near-zero pre-014 population). But "clear error, not silent mis-render" needs a MECHANISM: copier
+  silently ignores unknown recorded answer keys (verified: `load_answersfile_data` returns `{}`, never
+  errors), so a pre-014 tree with `mise_tools:` recorded would reproduce WITHOUT the tools and WITHOUT
+  error. Therefore post-014 modules MUST stamp `_bailiff_schema: 014` into their answers files, and
+  `reproduce_many` MUST REFUSE (loud error + re-init guidance) when a recorded answers file lacks the
+  marker or carries an older schema. This gives SC-006 real teeth. (decisions-ledger R10.)
 
 ### Functional Requirements — governance & scope
 
@@ -383,9 +419,13 @@ detected and reported with a documented remediation (never a silent wrong render
   docs MUST be able to write a correct new module without reverse-engineering an existing one.
 - **FR-016** *(decisions ledger prerequisite)*: The ratified `decisions-ledger.md` MUST exist
   and be accepted before the plan phase begins (011/013 precedent).
-- **FR-017** *(constitution check)*: Engine changes to `runner.py` are within the C-11
-  relaxation established by 013 (engine is the governed exception). No new constitution
-  amendment is anticipated; the plan phase confirms.
+- **FR-017** *(constitution check)*: Engine changes are within the C-11 relaxation established by
+  013 (engine is the governed exception). 014's engine footprint is LARGER than a single threading
+  tweak — it spans `runner.py` (neuter `_merge_layer_answers`; `_external_data` validation in the
+  preflight; `_bailiff_schema` gate in `reproduce_many`), `ordering.py` (drop `run_after`/`run_before`;
+  add the pre/normal/post stratified sort + edge-legality validation), and `discovery.py` (static
+  `_external_data` parse + path lint). All fall under the 013 engine exception; no new constitution
+  amendment is anticipated (the byte→config invariant reframe already landed). The plan phase confirms.
 
 ### Out of scope
 
@@ -401,13 +441,23 @@ detected and reported with a documented remediation (never a silent wrong render
 - **SC-001**: A stack selecting two modules with the same private question key and disjoint
   domains inits successfully; the Python+TS `framework` regression passes without the point-fix
   rename (i.e., isolation alone would have prevented it).
-- **SC-002**: Cross-module facts resolve only through declared `<vendor>__<name>` shared keys;
-  no private answer appears in another layer's render context (verified by an isolation test).
+- **SC-002**: Cross-module facts resolve only through declared `_external_data` aliases at a
+  producer's answers file; no private answer appears in another layer's render context (verified by
+  an isolation test). A consumer whose producer is ABSENT triggers a LOUD preflight error naming the
+  alias — never a silent empty render (FR-006, inverted).
 - **SC-003**: A multi-tool stack produces per-module `.mise/conf.d/*.toml` files, no
   `.mise.toml`, and `mise install` (bare) installs the union; the 013 collision check passes.
 - **SC-004**: the pre-commit fragment merge is order-independent and config-consistent on
-  reproduce (same hooks regardless of layer order; no duplicate hooks across re-runs).
-- **SC-005**: `check_modules.py` rejects a first-party bare or wrong-vendor shared key.
+  reproduce (same hooks regardless of layer order; no duplicate hooks across re-runs); two fragments
+  pinning the same hook repo at different revs resolve to the HIGHEST rev with a warning, not an abort
+  (FR-011, R2 revised).
+- **SC-008**: The dependency model is proven: `depends_on` is the sole edge; an `_external_data`
+  read with its producer absent errors loud (FR-006); a forward cross-phase edge (`normal`→`post`)
+  is rejected at discovery (FR-020); a pre-014 answers file (no `_bailiff_schema`) makes reproduce
+  refuse (FR-014).
+- **SC-005**: The private-by-default engine change is proven by a negative isolation test: two
+  layers with the same bare key and disjoint domains render without cross-layer bleed. (No shared-key
+  naming lint exists — FR-007 rejects it.)
 - **SC-006**: Reproduce/update over a post-014 committed tree is faithful; the pre-014
   disposition (FR-014) behaves as ratified (migrate, alias, or documented error — never silent
   mis-render).
@@ -430,15 +480,23 @@ detected and reported with a documented remediation (never a silent wrong render
 - The 013 engine (init_many pre-check/threading, discovery static parsing, `_external_data`
   availability, collision check, `ClerkError` hierarchy) is consumed as-is and extended.
 
-## Open questions (NEEDS CLARIFICATION — resolved in decisions-ledger before plan)
+## Open questions — ALL RESOLVED (2026-07-16; see decisions-ledger.md §RATIFIED R1–R10)
 
-1. **pre-commit merge mechanism**: the merge task lives in precommit and folds
-   `.pre-commit.d/*.yaml` fragments — confirm the merge implementation (a pinned bailiff helper
-   invoked as a task vs a small vendored script) and the rev-pin conflict rule.
-2. **gitignore disposition** (FR-013): shared frozen fact + single gitnr call, vs per-module
-   fragment + idempotent merge?
-3. **Rename migration** (FR-014): documented break + re-init, vs alias/migration shim?
-4. **Exact first-party shared-fact set** (FR-007): ratify the final list.
-5. **Vendor-prefix separator**: `bailiff__name` (double underscore) confirmed — reconfirm no
-   copier parsing conflict (copier reserves single leading `_`; `bailiff__` has no leading
-   underscore, so it is a normal key — verify no tooling assumes `__` semantics).
+1. **pre-commit merge mechanism** → R1: engine does zero merging; `.d/` dirs are the contract;
+   `bailiff-mod-precommit` vendors ONE Python bundler (owner-side, sees all fragments). No `bailiff
+   merge` CLI. Rev-pin conflict → R2 (revised): **highest-pin-wins + warn**, not a hard error
+   (open-ecosystem: a lagging third-party module must not veto a valid stack).
+2. **gitignore disposition** (FR-013) → R1: per-module `.gitignore.d/` fragments + one idempotent
+   ordered-concat inline shell task in the gitignore owner. No `gitignore_stack` fact.
+3. **Rename migration** (FR-014) → R3 + R10: documented break + re-init AND a `_bailiff_schema: 014`
+   marker with refuse-on-mismatch in `reproduce_many` (copier won't error on stale keys; bailiff must).
+4. **First-party shared-fact set** (FR-007) → R4 (expanded after exhaustive audit): producers =
+   **base** (`project_name`, `layout`, `github_host`, `description`, `default_branch`-new) +
+   **precommit** (`hook_manager`) + **ts** (`js_pkg_manager`, `ts_linter`) + **moon** (`monorepo_tool`,
+   `monorepo_packages`). Collision-class `test_runner` stays PRIVATE; exclusive-sibling +
+   `org`/`copyright_name`/`branch_strategy` stay bare-private.
+5. **Vendor-prefix separator** → R5: **MOOT** — dropped for `_external_data` aliases; bare keys only.
+6. **Dependency model** (grill 2026-07-16) → R6–R9: a fact read is a HARD data-dependency (FR-006
+   inverted — loud error on absent producer, no fallback); single `depends_on` edge, `run_after`/
+   `run_before` DROPPED (FR-019); pre/normal/post stratified DAG with edge-legality validation
+   (FR-020); `_external_data` path lint (FR-006a).
