@@ -22,7 +22,6 @@ standalone). Spec 011 T021.
 | `project_name` | str | `_external_data.base.project_name` | Read from `bailiff-mod-base` via `_external_data` alias; used in cdk init. |
 | `cdk_language` | str (choices) | `typescript` | `typescript`, `python`, `go`, `java`, `csharp`. |
 | `placement_dir` | str | `infrastructure` | Where `cdk init` writes. Use `.` for standalone IaC repos. |
-| `cdk_version` | str | `2.261.0` | CDK version to pin. |
 | `include_cdk_nag` | bool | `false` | Splice `cdk-nag` import into the app entrypoint. |
 | `include_synth_validate` | bool | `false` | Run `cdk synth` for offline empty-stack validation. |
 
