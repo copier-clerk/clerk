@@ -41,7 +41,7 @@ specific dirs have been moved to their own modules.
 ## Usage
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec.(json|yml)>
+uvx bailiff init --run-spec <run-spec.(json|yml)>
 ```
 
 Copier standalone:

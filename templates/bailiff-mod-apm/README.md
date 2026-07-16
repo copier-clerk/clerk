@@ -58,7 +58,7 @@ Prefer bailiff (handles trust, ordering, answer threading, `today` injection, an
 the injected `apm_packages` list):
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec.(json|yml)>
+uvx bailiff init --run-spec <run-spec.(json|yml)>
 ```
 
 Copier-only (single layer; inject the package list via `--data`):

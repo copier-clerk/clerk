@@ -49,7 +49,7 @@ renders. Preflight checks:
 Prefer bailiff (multi-layer):
 
 ```sh
-uv run scripts/bailiff.py init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-python]>
+uvx bailiff init --run-spec <run-spec with [bailiff-mod-base, bailiff-mod-python]>
 ```
 
 Copier-only (standalone; renders with defaults):
