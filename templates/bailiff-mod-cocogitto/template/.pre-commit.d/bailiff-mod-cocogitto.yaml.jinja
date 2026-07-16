@@ -1,0 +1,11 @@
+# .pre-commit.d/bailiff-mod-cocogitto.yaml — managed by bailiff-mod-cocogitto.
+# Fragment consumed by bailiff-mod-precommit's _merge_precommit.py post-task.
+# Do not edit by hand; update via `bailiff reproduce`.
+repos:
+  - repo: local
+    hooks:
+      - id: cocogitto-commit-msg
+        name: cocogitto verify (conventional commits)
+        entry: cog verify --file
+        language: system
+        stages: [commit-msg]

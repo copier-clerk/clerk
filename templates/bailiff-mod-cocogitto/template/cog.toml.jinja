@@ -1,14 +1,14 @@
 # cog.toml — managed by bailiff-mod-cocogitto; do not edit by hand.
-# Cocogitto configuration for {{ project_name | default('this project', true) }}.
+# Cocogitto configuration for {{ _external_data.base.project_name | default('this project', true) }}.
 # Release actions (cog bump / cog changelog) are the project's to run —
 # bailiff never bumps, tags, or writes changelog entries at scaffold time.
-{% if layout == 'monorepo' %}
+{% if _external_data.base.layout == 'monorepo' %}
 # Monorepo mode: per-package tags <package>-vX.Y.Z; no umbrella global tag.
 generate_mono_repository_global_tag = false
 tag_prefix = "v"
 
 [monorepo]
-{% for pkg in monorepo_packages %}
+{% for pkg in _external_data.moon.monorepo_packages %}
 [monorepo.packages.{{ pkg | replace('/', '-') }}]
 path = "{{ pkg }}"
 {% endfor %}
