@@ -45,10 +45,16 @@ from bailiff.errors import (
     InvalidRunSpecError,
     MergeConflictError,
     NotReproducibleError,
+    OrderingError,
     SecretInAnswersError,
     UntrustedSourceError,
 )
 from bailiff.trust import suggest_prefix
+
+# spec 014 FR-014/R10: schema marker written to each answers file post-render.
+# reproduce_many refuses when this marker is absent or carries a different version.
+_BAILIFF_SCHEMA_KEY = "_bailiff_schema"
+_BAILIFF_SCHEMA_VERSION = "014"
 
 
 @dataclass(frozen=True)
@@ -224,6 +230,11 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     except CopierError as exc:
         msg = _redact_secrets(str(exc), _secret_keys, data)
         raise BailiffError(f"copier could not complete the operation: {msg}") from exc
+    # spec 014 FR-014/R10: write schema marker to the answers file so reproduce_many
+    # can gate on it.  Single-template init writes `.copier-answers.yml` (the default
+    # copier name when no custom answers_file is supplied).
+    if not check:
+        _write_schema_marker(spec.dest, ".copier-answers.yml")
     return RunResult(dest=spec.dest, src=spec.source, ref=spec.ref, pretend=check)
 
 
@@ -391,6 +402,108 @@ def _scan_init_collisions(
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _check_external_data_deps(
+    plan: list[tuple[TemplateRecord, str]],
+    descs: dict[str, discovery.Discovery],
+) -> None:
+    """Enforce _external_data hard data-dependencies (spec 014 FR-006/R6).
+
+    For each module in the plan, inspect its ``external_data_aliases`` mapping.
+    Each alias points to a producer basename.  If that basename is absent from
+    the selection, raise a loud ``OrderingError`` naming the alias and the
+    missing producer — never a silent empty render (FR-006 inverted).
+
+    Producer presence is enough; ordering (producer before consumer) is already
+    guaranteed by the layer plan because discovery now exposes the mapping and
+    callers add a depends_on edge for the producer.  This function is the
+    preflight that CATCHES the missing-producer case before any render.
+    """
+    basename_set = {record.full_id.rsplit("/", 1)[-1] for record, _ in plan}
+
+    for record, _ in plan:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        desc = descs.get(record.full_id)
+        if not desc:
+            continue
+        for alias, producer_basename in desc.external_data_aliases.items():
+            if producer_basename not in basename_set:
+                raise OrderingError(
+                    f"missing _external_data producer: {basename!r} declares "
+                    f"_external_data alias {alias!r} pointing at producer "
+                    f"{producer_basename!r}, but {producer_basename!r} is not in "
+                    f"the selection. Add {producer_basename!r} to the selection or "
+                    f"remove the alias. (spec 014 FR-006/R6 — a fact read is a hard "
+                    f"data-dependency; copier would silently return {{}} → empty render.)"
+                )
+
+
+def _write_schema_marker(dest: str, af_name: str) -> None:
+    """Append ``_bailiff_schema: '014'`` to the answers file post-render (spec 014 R10).
+
+    Uses an APPEND-ONLY write: if the marker is already present (idempotent re-run),
+    do nothing.  Otherwise append a single YAML line to the end of the file.
+    This preserves copier's exact serialization of the answers content rather than
+    re-emitting through PyYAML (which can reorder keys / change quote style and would
+    perturb the committed reproduce state).
+
+    The marker line is ``_bailiff_schema: '014'`` — single-quoted to match the YAML
+    string literal form copier uses for its own metadata keys.
+    """
+    af_path = Path(dest) / af_name
+    if not af_path.is_file():
+        return
+    existing = af_path.read_text()
+    # Idempotent: skip if marker already present anywhere in the file.
+    if f"{_BAILIFF_SCHEMA_KEY}:" in existing:
+        return
+    # Append marker as a single YAML line.  Ensure file ends with newline first.
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    af_path.write_text(existing + f"{_BAILIFF_SCHEMA_KEY}: '{_BAILIFF_SCHEMA_VERSION}'\n")
+
+
+def _run_post_tasks(
+    plan: list[tuple[TemplateRecord, str]],
+    descs: dict[str, discovery.Discovery],
+    dest: str,
+) -> None:
+    """Run _post_tasks for all modules in plan order, after the render loop (spec 014 FR-021/R11).
+
+    Collects _post_tasks across all selected modules in depends_on order and
+    executes them in the destination directory.
+
+    Trust gate: ``_require_trust_if_action_taking`` is called here for each module
+    that has post-tasks (Constitution V — post-tasks run arbitrary shell).
+    ``has_tasks=True`` is already set by discovery when ``_post_tasks`` is present,
+    so the pre-render loop's trust check would also catch untrusted sources, but we
+    re-check here as the authoritative guard for the post-task execution path.
+
+    Failure handling: a non-zero exit code raises ``BailiffError``, mirroring how
+    copier surfaces inline ``_tasks`` failures — a failing post-task must not pass
+    silently.
+
+    Execution is delegated to ``discovery.run_post_task`` so that runner.py stays
+    process-invocation-free (FR-004: secrets must never appear in argv).
+    """
+    for record, _ in plan:
+        desc = descs.get(record.full_id)
+        if not desc or not desc.post_tasks:
+            continue
+        # Trust gate: refuse to run post-tasks from an untrusted source (Constitution V).
+        _require_trust_if_action_taking(record.source, record.ref)
+        basename = record.full_id.rsplit("/", 1)[-1]
+        for i, task in enumerate(desc.post_tasks):
+            # task may be a string or a dict with 'command' + optional 'when'
+            cmd = task.get("command", "") if isinstance(task, dict) else str(task)
+            if not cmd:
+                continue
+            rc = discovery.run_post_task(cmd, dest)
+            if rc != 0:
+                raise BailiffError(
+                    f"_post_task #{i} from {basename!r} failed with exit code {rc}: {cmd!r}"
+                )
+
+
 def init_many(
     selection: list[tuple[TemplateRecord, dict[str, Any]]],
     dest: str,
@@ -402,15 +515,18 @@ def init_many(
     """Apply (or preflight-check) a multi-template selection in dependency order.
 
     ``selection`` is a list of ``(record, answers)`` pairs where ``answers`` is the
-    per-layer answer dict from the run-spec.  Earlier layers' answers are threaded
-    into later layers via the accumulating ``data=`` dict (ADR-0003: ``data=``, not
-    ``_external_data``).
+    per-layer answer dict from the run-spec.
 
-    For each layer in topological order (stable basename tie-break):
+    spec 014 FR-001/002: accumulated stays ``{today}`` — no private answers bleed
+    across layers.  Cross-module facts flow exclusively via copier's ``_external_data``
+    mechanism; bailiff enforces that each declared alias has its producer present in
+    the selection (FR-006/R6).
+
+    For each layer in topological order (phase → DAG → basename tie-break):
     1. Pre-checks trust + reproducibility (same guards as single-template ``init``).
-    2. Runs ``run_copy`` with the accumulated answers merged with the layer's own
-       answers, using a layer-specific ``answers_file`` name.
-    3. Merges the written answers file back into the accumulator for later layers.
+    2. Runs ``run_copy`` with ``{today, ...per-layer answers}`` — no cross-layer bleed.
+    3. Writes ``_bailiff_schema: '014'`` to the answers file (FR-014/R10).
+    4. After the full render loop, runs ``_post_tasks`` in module order (FR-021/R11).
 
     ``check=True`` (all-gaps preflight, C-10): runs every layer with ``pretend=True``,
     collects errors across ALL layers, and raises a single aggregated
@@ -427,6 +543,8 @@ def init_many(
     # Capability conflicts warn on BOTH the real run and the preflight (FR-008);
     # reproduce/update paths never consult capabilities (FR-012 / SC-008).
     _check_capability_conflicts(records, dest, exclusive_capabilities)
+    # accumulated is seeded ONLY with today — it NEVER accretes private answers
+    # from rendered layers (spec 014 FR-001/002/003).
     accumulated: dict[str, Any] = _with_today({}, today)
 
     # Load and fold defaults once per init_many call; select per-layer below (FR-007).
@@ -447,6 +565,9 @@ def init_many(
             _check_no_secrets(layer_answers, desc)
             _check_required_secrets_supplied(layer_answers, desc)
             descs[record.full_id] = desc
+        # spec 014 FR-006/R6: enforce _external_data hard data-dependencies.
+        # Producer absent → loud OrderingError before any render.
+        _check_external_data_deps(plan, descs)
         # Init-only collision hard-stop (FR-013): renders to isolated temp dirs,
         # raises CollisionError before any write into dest.
         _scan_init_collisions(plan, dest, accumulated, answers_map)
@@ -454,6 +575,8 @@ def init_many(
         for record, af_name in plan:
             layer_answers = answers_map.get(record.full_id, {})
             desc = descs[record.full_id]
+            # spec 014 FR-001/002: data= is {today} + per-layer answers only.
+            # No accumulated cross-layer bleed.
             data = {**accumulated, **layer_answers}
             _secret_keys = desc.secret_questions
             user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
@@ -481,7 +604,10 @@ def init_many(
                 msg = _redact_secrets(str(exc), _secret_keys, data)
                 raise BailiffError(f"copier could not complete the operation: {msg}") from exc
             results.append(RunResult(dest=dest, src=record.source, ref=record.ref, pretend=False))
-            _merge_layer_answers(accumulated, dest, af_name)
+            # spec 014 FR-014/R10: write schema marker post-render (not a copier answer).
+            _write_schema_marker(dest, af_name)
+        # spec 014 FR-021/R11: run _post_tasks after the full render loop.
+        _run_post_tasks(plan, descs, dest)
         return results
 
     # check=True: all-gaps preflight — run all layers, collect all errors.
@@ -496,6 +622,7 @@ def init_many(
         _check_no_secrets(layer_answers, desc)
         # FR-003c: fail loud on required secrets with no value.
         _check_required_secrets_supplied(layer_answers, desc)
+        # spec 014 FR-001/002: no cross-layer bleed in preflight either.
         data = {**accumulated, **layer_answers}
         _secret_keys = desc.secret_questions
         user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
@@ -520,8 +647,6 @@ def init_many(
         except CopierError as exc:
             msg = _redact_secrets(str(exc), _secret_keys, data)
             errors.append(f"{record.full_id}: {msg}")
-        # pretend=True writes nothing — thread what we have so later layers get the
-        # best possible coverage even in preflight mode.
     if errors:
         raise InvalidRunSpecError(
             "preflight found missing or invalid answers:\n" + "\n".join(f"  - {e}" for e in errors)
@@ -551,17 +676,50 @@ def _merge_layer_answers(accumulated: dict[str, Any], dest: str, af_name: str) -
             accumulated[k] = v
 
 
+def _check_schema_gate(af_path: Path) -> None:
+    """Refuse reproduce when answers file lacks or mismatches ``_bailiff_schema`` (spec 014 R10).
+
+    A pre-014 tree cannot have the marker.  copier silently ignores unknown recorded
+    answer keys, so a stale tree would silently mis-render.  This gate makes the
+    break explicit with a loud error and re-init guidance (FR-014/SC-006).
+    """
+    try:
+        raw = yaml.safe_load(af_path.read_text()) or {}
+    except Exception:  # noqa: BLE001
+        raw = {}
+    schema = raw.get(_BAILIFF_SCHEMA_KEY)
+    if schema is None:
+        raise BailiffError(
+            f"answers file {af_path!r} is missing the {_BAILIFF_SCHEMA_KEY!r} marker. "
+            f"This tree was scaffolded before spec 014 (or by a version of bailiff that "
+            f"did not write the schema marker). Reproduce is refused to prevent a silent "
+            f"mis-render from stale recorded answers. "
+            f"Re-init the project with the current module versions to generate a fresh "
+            f"014-schema tree: delete the project directory and run `bailiff init` again. "
+            f"(spec 014 FR-014/R10)"
+        )
+    if str(schema) != _BAILIFF_SCHEMA_VERSION:
+        raise BailiffError(
+            f"answers file {af_path!r} has {_BAILIFF_SCHEMA_KEY}={schema!r} "
+            f"but this bailiff requires schema {_BAILIFF_SCHEMA_VERSION!r}. "
+            f"Re-init the project to upgrade to the current schema version. "
+            f"(spec 014 FR-014/R10)"
+        )
+
+
 def reproduce_many(dest: str) -> list[RunResult]:
     """Recompute the multi-layer order from committed state and reproduce each layer.
 
     Algorithm (spec 003 recompute-not-freeze contract):
     1. Enumerate committed ``.copier-answers*.yml`` files.
-    2. For each file, read the recorded ``_src_path`` + ``_commit`` (the exact
-       source and pinned commit copier wrote at init time).
-    3. Re-discover each template at its pinned commit to re-read its edges.
-    4. Rebuild the DAG + topo-sort (same stable basename tie-break) → the
+    2. For each file, check the ``_bailiff_schema`` gate (spec 014 FR-014/R10).
+    3. Read the recorded ``_src_path`` + ``_commit`` (the exact source and pinned
+       commit copier wrote at init time).
+    4. Re-discover each template at its pinned commit to re-read its edges + phase.
+    5. Rebuild the DAG + topo-sort (phase → DAG → basename tie-break) → the
        recomputed order.
-    5. Drive ``reproduce(dest, answers_file=<that file>)`` per layer in that order.
+    6. Drive ``reproduce(dest, answers_file=<that file>)`` per layer in that order.
+    7. Run ``_post_tasks`` after the full loop (spec 014 FR-021/R11).
 
     Fails loudly per-layer if a source is unreachable (reproduce/CI never silently
     skips a layer).  N=1 behaves identically to single-template ``reproduce`` (uniform
@@ -577,9 +735,15 @@ def reproduce_many(dest: str) -> list[RunResult]:
     # and simultaneously collect their edges by re-discovering at the pinned commit.
     records: list[TemplateRecord] = []
     edges_by_basename: dict[str, dict[str, Any]] = {}
+    phases_by_basename: dict[str, str] = {}
+    ext_data_by_basename: dict[str, dict[str, str]] = {}
     file_by_basename: dict[str, Path] = {}
+    descs_by_basename: dict[str, discovery.Discovery] = {}
 
     for af_path in answers_files:
+        # spec 014 FR-014/R10: refuse pre-014 or wrong-schema trees before any render.
+        _check_schema_gate(af_path)
+
         try:
             raw = yaml.safe_load(af_path.read_text()) or {}
         except Exception as exc:  # noqa: BLE001
@@ -598,7 +762,7 @@ def reproduce_many(dest: str) -> list[RunResult]:
                 f"answers file {af_path!r} has no _commit; cannot reproduce this layer"
             )
 
-        # Re-discover at the pinned commit to re-read edges (recompute, not freeze).
+        # Re-discover at the pinned commit to re-read edges + phase (recompute, not freeze).
         disc = discovery.discover(str(src_path), str(commit))
 
         # Reconstruct a minimal TemplateRecord: full_id derived from source basename
@@ -621,10 +785,22 @@ def reproduce_many(dest: str) -> list[RunResult]:
         )
         records.append(record)
         edges_by_basename[basename] = disc.dependency_edges
+        phases_by_basename[basename] = disc.phase
+        ext_data_by_basename[basename] = disc.external_data_aliases
         file_by_basename[basename] = af_path
+        descs_by_basename[basename] = disc
 
-    # Recompute order (same DAG build + topo-sort as init).
-    plan = ordering.layer_plan_from_edges(records, edges_by_basename)
+    # Recompute order (same DAG build + topo-sort as init, now phase- and alias-aware).
+    plan = ordering.layer_plan_from_edges(
+        records, edges_by_basename, phases_by_basename, ext_data_by_basename
+    )
+
+    # Map full_id → disc for _run_post_tasks
+    descs_by_full_id: dict[str, discovery.Discovery] = {}
+    for record in records:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        if basename in descs_by_basename:
+            descs_by_full_id[record.full_id] = descs_by_basename[basename]
 
     results: list[RunResult] = []
     for record, _af_name in plan:
@@ -632,6 +808,10 @@ def reproduce_many(dest: str) -> list[RunResult]:
         af_path = file_by_basename[basename]
         result = reproduce(dest, answers_file=af_path)
         results.append(result)
+        # Re-write schema marker after reproduce (copier recopy may overwrite the file).
+        _write_schema_marker(dest, _af_name)
+    # spec 014 FR-021/R11: run _post_tasks after the full reproduce loop.
+    _run_post_tasks(plan, descs_by_full_id, dest)
     return results
 
 
