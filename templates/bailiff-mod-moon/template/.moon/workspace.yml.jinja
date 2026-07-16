@@ -1,12 +1,12 @@
 # .moon/workspace.yml — managed by bailiff-mod-moon; do not edit by hand.
 # Projects are wired to base's package layout (frozen monorepo_packages).
 # https://moonrepo.dev/docs/config/workspace
-{% if layout == 'monorepo' and monorepo_packages %}
+{% if _external_data.base.layout == 'monorepo' and monorepo_packages %}
 projects:
 {% for pkg in monorepo_packages %}
   {{ pkg.split('/')[-1] | replace('.', '-') }}: '{{ pkg }}'
 {% endfor %}
-{% elif layout == 'monorepo' %}
+{% elif _external_data.base.layout == 'monorepo' %}
 # No monorepo_packages frozen: discover projects by glob under the standard
 # base monorepo dirs. Freeze monorepo_packages via --data for an explicit map.
 projects:
