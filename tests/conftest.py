@@ -808,11 +808,16 @@ def _python_stub_tasks(pkg_manager: str = "uv") -> str:
         '{{ project_name | default("project", true)'
         ' | lower | replace(" ", "-") | replace("_", "-") }}'
     )
+    # NOTE: the double-quotes below are LITERAL inside printf's single-quoted
+    # format string — they must NOT be backslash-escaped. `\"` is an unspecified
+    # printf escape: bash strips the backslash, but dash (Ubuntu CI's /bin/sh via
+    # subprocess shell=True) keeps it, yielding `name = \"x\"` and failing the
+    # assertions. Literal `"` renders identically in both shells.
     _pyproject_printf = (
         "printf "
-        f'\'[project]\\\\nname = \\"{_name_expr}\\"\\\\n'
-        'version = \\"0.1.0\\"\\\\n'
-        'requires-python = \\">={{ python_version }}\\"\\\\n'
+        f'\'[project]\\\\nname = "{_name_expr}"\\\\n'
+        'version = "0.1.0"\\\\n'
+        'requires-python = ">={{ python_version }}"\\\\n'
         "dependencies = []\\\\n'"
         " > pyproject.toml"
     )
