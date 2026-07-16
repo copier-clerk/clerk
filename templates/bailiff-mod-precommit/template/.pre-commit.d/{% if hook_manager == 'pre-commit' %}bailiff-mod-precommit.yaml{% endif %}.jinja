@@ -1,16 +1,8 @@
-# .pre-commit-config.yaml — managed by bailiff-mod-precommit (DO NOT EDIT BY HAND)
-#
-# Single writer: bailiff-mod-precommit owns this file (hook_manager+hook_blocks
-# frozen-union contract, _cross-cutting §4, M1). Language hook blocks are
-# injected via the frozen `hook_blocks` answer — never appended at runtime.
-# All rev pins are hardcoded for deterministic renders.
+# .pre-commit.d/bailiff-mod-precommit.yaml — fragment for _merge_precommit.py
+# Managed by bailiff-mod-precommit. DO NOT EDIT BY HAND.
 {% if precommit_exclude_patterns %}
 exclude: "{{ precommit_exclude_patterns | join('|') }}"
 {% endif %}
-default_install_hook_types:
-  - pre-commit
-  - commit-msg
-
 repos:
   # ---------------------------------------------------------------------------
   # Base hygiene: trailing whitespace, end-of-file newlines, YAML/TOML syntax
@@ -64,6 +56,3 @@ repos:
         stages: [commit-msg]
         pass_filenames: false
 {% endif %}
-{% for block in hook_blocks %}
-{{ block }}
-{% endfor %}
