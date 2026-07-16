@@ -64,7 +64,7 @@ Two tiers, because `_jinja_extensions` are **trust-gated**:
   `_jinja_extensions` in `copier.yml` before invoking and escalate trust for that
   template accordingly.
 - **FORBIDDEN in bailiff-driven templates** (nondeterminism): `jinja2_time`
-  (`{% now %}` breaks reproduce byte-stability), and the random filters
+  (`{% now %}` breaks reproduce config-consistency), and the random filters
   (`random`, `shuffle`, `random_mac`).
 
 ### Date-injection pattern (determinism)

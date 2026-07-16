@@ -10,8 +10,8 @@ Threads `project_name` from base; seeds a Cargo crate via `cargo new`
 
 | Output | Lifecycle | Notes |
 |---|---|---|
-| `rust-toolchain.toml` | **managed** (byte-identical) | Pins `rust_channel`; reproduced exactly. |
-| `rustfmt.toml` | **managed** (byte-identical) | max_width=100; use_small_heuristics from `rustfmt_heuristics`. |
+| `rust-toolchain.toml` | **managed** (config-consistent) | Pins `rust_channel`; reproduced exactly. |
+| `rustfmt.toml` | **managed** (config-consistent) | max_width=100; use_small_heuristics from `rustfmt_heuristics`. |
 | `Cargo.toml` | **task-output → seed-once** | Written by `cargo new`; `_skip_if_exists` protects project edits on reproduce. |
 | `src/main.rs` or `src/lib.rs` | **task-output → seed-once** | Written by `cargo new`; `_skip_if_exists` protects on reproduce. |
 

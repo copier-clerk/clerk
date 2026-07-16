@@ -23,7 +23,7 @@ Python language overlay, de-opinionated + native-command scaffolded. References
 
 ## Outputs / lifecycle
 - **pyproject.toml** — TASK-OUTPUT via `uv init` (or `pdm init`), then seed-once. Native init picks build backend + layout (`--package` for src). requires-python from `python_version`.
-- **ruff config** — MANAGED (byte-identical): either the `[tool.ruff]` block appended to pyproject as a managed splice, or `ruff.toml` — whichever the tool does NOT own; line-length/quotes/profile from answers, target-version threaded from `python_version`.
+- **ruff config** — MANAGED (config-consistent): either the `[tool.ruff]` block appended to pyproject as a managed splice, or `ruff.toml` — whichever the tool does NOT own; line-length/quotes/profile from answers, target-version threaded from `python_version`.
 - **`.mise.toml` [tools]** — contributes `python = "{{ python_version }}"` (+ uv) token (managed, shared file).
 - **`.gitignore` Python entries** — task-output via base gitnr (`python` token into `gitignore_stack`); python writes NO `.gitignore` itself.
 - **ruff pre-commit hook** — contributed to bailiff-mod-precommit via the hook_manager threading contract (single writer); not written here.
@@ -34,4 +34,4 @@ Python language overlay, de-opinionated + native-command scaffolded. References
 2. native init: `test -f pyproject.toml || <uv|pdm> init …` (task-output; guarded).
 
 ## Tests
-init `[base, python]` `python_pkg_manager=uv python_version=3.13 python_layout=src` → base first (edge), pyproject present (native-init marker in stub), ruff config managed with 88/double/standard, mise token present, gitignore_stack includes python; standalone init renders with defaults; reproduce: managed ruff byte-identical, pyproject regenerated (process-deterministic), edited pyproject preserved on re-run.
+init `[base, python]` `python_pkg_manager=uv python_version=3.13 python_layout=src` → base first (edge), pyproject present (native-init marker in stub), ruff config managed with 88/double/standard, mise token present, gitignore_stack includes python; standalone init renders with defaults; reproduce: managed ruff config-consistent, pyproject regenerated (process-deterministic), edited pyproject preserved on re-run.

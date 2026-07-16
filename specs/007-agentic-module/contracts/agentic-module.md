@@ -133,7 +133,7 @@ NOT render an empty `apm.yml` (verified: no `apm.yml` is written on refusal).
 |---|---|---|
 | `{{ _copier_conf.answers_file }}.jinja` | always | Answers-file template (required, VI) |
 | `apm.yml` | always (empty set already refused by the validator) | Rendered APM config: selected `dependencies.apm[]`, each an inline source (Q2 / FR-002a) |
-| `apm.lock.yaml` | install `_task` side-effect | Written by the pinned install `_task`; NOT a `.jinja` render; **external state**, not byte-guaranteed at reproduce (Q3) |
+| `apm.lock.yaml` | install `_task` side-effect | Written by the pinned install `_task`; NOT a `.jinja` render; **external state**, not config-guaranteed at reproduce (Q3) |
 
 No MCP / `.specify/` / `.claude/` / `docs/decisions/` outputs in v1 (deferred, Q1).
 
@@ -180,7 +180,7 @@ Invariants:
 - **Idempotent** — safe to re-run at reproduce.
 - **Portable shell command** (macOS/Linux), invoked via `uv` (no undeclared deps).
 - Writes `apm.lock.yaml` as **external state** — regenerated at reproduce, NOT asserted
-  byte-identical. Only `apm.yml` (rendered) is byte-reproducible (Q3 / Constitution III).
+  config-consistent. Only `apm.yml` (rendered) is config-reproducible (Q3 / Constitution III).
 
 ---
 
@@ -247,7 +247,7 @@ Inherited from the spec-010 invocation surface (no new codes):
    before proceeding.
 5. **Handoff shape**: reference this contract + the spec-003 multi-template run-spec.
 6. **Post-init note**: `apm.lock.yaml` is a task side-effect (external state) and MAY
-   differ across runs; only `apm.yml` is byte-reproducible (Q3).
+   differ across runs; only `apm.yml` is config-reproducible (Q3).
 
 ---
 

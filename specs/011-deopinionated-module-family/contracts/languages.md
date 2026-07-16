@@ -25,4 +25,4 @@ block to `hook_blocks` (precommit writes the hook file). Initial manifest = nati
 - nextest: `[tools]` entry + test command `cargo nextest run`; NOT `cargo install` per-run (use mise/pre-baked).
 
 ## Shared tests (each language)
-init `[base, <lang>]` → base first, native manifest present (stub marker), managed config byte-identical, mise token + gitignore token contributed, hook block threaded to precommit; standalone renders with defaults; reproduce: managed byte-identical, manifest regenerated process-deterministic, edited manifest preserved on re-run. No secret question.
+init `[base, <lang>]` → base first, native manifest present (stub marker), managed config config-consistent, mise token + gitignore token contributed, hook block threaded to precommit; standalone renders with defaults; reproduce: managed config-consistent, manifest regenerated process-deterministic, edited manifest preserved on re-run. No secret question.

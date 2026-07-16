@@ -73,7 +73,7 @@ on my machine" and "works in the container", with no new questions to answer.
 
 **Independent Test**: Init `[base, python, devcontainer]` with `mise_tools={python: "3.13"}`
 frozen → `.devcontainer/devcontainer.json` references the mise feature and the frozen tool
-set; the file re-renders byte-identically on reproduce.
+set; the file re-renders config-consistently on reproduce.
 
 **Acceptance Scenarios**:
 
@@ -81,7 +81,7 @@ set; the file re-renders byte-identically on reproduce.
    init, **Then** `devcontainer.json` (managed) derives its toolchain from that union via the
    mise devcontainer feature — no tool is listed that is absent from `mise_tools`, none missing.
 2. **Given** a populated committed tree, **When** reproduce, **Then** the file comes back
-   byte-identical with no task executed and no toolchain/network required.
+   config-consistent with no task executed and no toolchain/network required.
 
 ### User Story 2 — Adopt commit-driven release discipline (Priority: P1)
 
@@ -189,7 +189,7 @@ Python tooling contribution; a subsequent re-run preserves edited pages.
 1. **Given** `bailiff-mod-mkdocs` selected, **When** init, **Then** `mkdocs.yml` is a managed
    render wired to `docs/`, and starter pages are seed-once (`_skip_if_exists`).
 2. **Given** a project whose `docs/index.md` was edited, **When** re-run/reproduce over the
-   populated tree, **Then** the edit is preserved and `mkdocs.yml` re-renders byte-identically.
+   populated tree, **Then** the edit is preserved and `mkdocs.yml` re-renders config-consistently.
 3. **Given** any init, **When** tasks run, **Then** no `mkdocs build`/site deploy occurs — no
    network or publish action at scaffold time.
 
@@ -234,7 +234,7 @@ written into the hook file by `bailiff-mod-precommit`.
 1. **Given** `bailiff-mod-api` selected, **When** init, **Then** the OpenAPI skeleton is written
    seed-once and the spectral config is a managed render.
 2. **Given** the project edits `openapi.yaml`, **When** re-run/reproduce, **Then** the edited
-   spec is preserved (`_skip_if_exists`) and the spectral config re-renders byte-identically.
+   spec is preserved (`_skip_if_exists`) and the spectral config re-renders config-consistently.
 3. **Given** `hook_manager=none` frozen, **When** init, **Then** the module still renders its
    files and its `hook_blocks` contribution is inert (no hook file written by anyone).
 
@@ -255,7 +255,7 @@ module's `tests/loop/` tests → green; secrets-policy lint → green.
    **Then** it reports `ok` (registration parity across `templates/`, `cog.toml`,
    `catalog-sources.toml`).
 2. **Given** each module, **When** its loop tests run, **Then** init + reproduce pass with
-   tasks stubbed offline, managed renders byte-asserted, seed-once files
+   tasks stubbed offline, managed renders config-asserted, seed-once files
    `_skip_if_exists`-asserted, and no `secret:` question exists.
 
 ### User Story 9 — Consistent editor whitespace defaults (Priority: P2)
@@ -271,7 +271,7 @@ P1 stories and deliberately NOT part of base (keeps base thin, ratified).
 **Independent Test**: Init `[base, editorconfig]` alone → `.editorconfig` (managed) renders
 the universal defaults section; with language facts frozen (e.g. `ts_linter=biome`), the
 matching language section uses the linter's indent convention and derives `max_line_length`
-from `ruff_line_length` where applicable; the file re-renders byte-identically on reproduce.
+from `ruff_line_length` where applicable; the file re-renders config-consistently on reproduce.
 
 **Acceptance Scenarios**:
 
@@ -283,7 +283,7 @@ from `ruff_line_length` where applicable; the file re-renders byte-identically o
    **Then** the Python section's `max_line_length` matches it — line width is derived from the
    linter setting; indentation comes from the linter's convention, never from line width.
 3. **Given** a populated committed tree, **When** reproduce, **Then** `.editorconfig` comes
-   back byte-identical with no task executed and no toolchain/network required.
+   back config-consistent with no task executed and no toolchain/network required.
 
 ### Edge Cases
 
@@ -468,7 +468,7 @@ from `ruff_line_length` where applicable; the file re-renders byte-identically o
   immutability. Every module MUST additionally declare `_subdirectory: template` in its
   `copier.yml` (an authoring requirement — `check-modules` does not verify it). Every module
   MUST ship hermetic init + reproduce loop tests under `tests/loop/` with native/network
-  tasks stubbed to offline marker writes (`_copy_module_with_stub_tasks`), byte-asserting
+  tasks stubbed to offline marker writes (`_copy_module_with_stub_tasks`), config-asserting
   managed renders, presence/structure-asserting task-output, `_skip_if_exists`-asserting
   seed-once. The spec-005 secrets-policy lint MUST stay green.
 - **FR-017** *(release batch)*: Publishing the 012 mirrors + releases via the 008b pipeline is
@@ -509,14 +509,14 @@ from `ruff_line_length` where applicable; the file re-renders byte-identically o
   pins and container); a project generated with `[base, editorconfig]` alone has an
   `.editorconfig` whose sections follow the frozen linter conventions (indent from the
   linter's convention, `max_line_length` from the frozen line-length setting); both files
-  reproduce byte-identically.
+  reproduce config-consistently.
 - **SC-002**: `bailiff-mod-base` v1.0.0 as published contains no `dependabot.yml` under any
   answer combination; `bailiff-mod-dep-updates` renders exactly one dependency-update config per
   init, matching the chosen `dep_update_tool` — whose default follows the repo host
   (dependabot when GitHub-hosted, renovate when GitLab-hosted) — and covering every active
   ecosystem.
 - **SC-003**: `bailiff-mod-cocogitto` initializes with zero release side effects (no tag, no
-  changelog write, no network call), and its `cog.toml` is byte-identical on reproduce.
+  changelog write, no network call), and its `cog.toml` is config-consistent on reproduce.
 - **SC-004**: With `monorepo_tool=moon` frozen, `ci_model=monorepo-affected` renders a CI
   workflow whose affected-detection invokes moon (FR-010 supplier + FR-010a CI-module
   amendment) — the dangling `monorepo_tool` read is closed by a real supplier.
@@ -525,7 +525,7 @@ from `ruff_line_length` where applicable; the file re-renders byte-identically o
   tool present → trust-gated creation), verified by loop tests with the task stubbed.
 - **SC-006**: `bailiff-mod-mkdocs` and `bailiff-mod-api` preserve project-edited seed-once files
   (`docs/index.md`, the OpenAPI document) across re-runs while their managed configs re-render
-  byte-identically.
+  config-consistently.
 - **SC-007**: All eight modules + amended base pass `just check-modules` and their loop tests;
   the secrets-policy lint stays green; reproduce over a committed tree requires no toolchain
   or network for any 012 module.

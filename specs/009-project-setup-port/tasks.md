@@ -109,7 +109,7 @@ license=MIT` on a trusted source → scaffold + answers present; repeat untruste
   `dirs-scaffold/module.py` `_BASE_DIRS` (verify the EXACT count/list at port — the
   docstring says 21 but the local array is 20; FR-011 forbids drift). Gate the 15
   `_MONOREPO_TARGETS` dirs on `layout=monorepo` (a Jinja `{% if %}` in a computed path or
-  a `_skip_if_exists`-independent conditional subtree). MANAGED lifecycle (byte-identical).
+  a `_skip_if_exists`-independent conditional subtree). MANAGED lifecycle (config-consistent).
 - [x] T012 [US1] Author `templates/bailiff-mod-base/template/AGENTS.md.jinja` (SEED-ONCE):
   render the `single.md` or `monorepo.md` body (from agents-md/templates/) chosen by
   `layout`, substituting `PROJECT_NAME`→`project_name`, `ORG`→`org`, and the description
@@ -188,7 +188,7 @@ first, python after; `project_name` threaded; `pyproject.toml` present. Init pyt
 ## Phase 5: US3 — Reproduce faithfully (Priority: P1)
 
 **Goal**: reproduce `[base, python]` on a fresh checkout re-renders managed files
-byte-identically and re-runs trust-gated tasks; order recomputed from committed answers.
+config-consistently and re-runs trust-gated tasks; order recomputed from committed answers.
 (Spec US3 / SC-003.)
 
 ### Implementation for US3
@@ -196,14 +196,14 @@ byte-identically and re-runs trust-gated tasks; order recomputed from committed 
 - [x] T026 [US3] `tests/loop/test_base_python_reproduce.py` (US3 #1, SC-003): generate
   `[base, python]`, then reproduce onto a fresh checkout → assert MANAGED files (dir
   scaffold `.gitkeep`s, `AGENTS.md` on fresh tree, `pyproject.toml` on fresh tree,
-  `.copier-answers.yml`) are byte-identical; assert reproduce order recomputed from
+  `.copier-answers.yml`) are config-consistent; assert reproduce order recomputed from
   committed answers + pinned edges (base before python), not a frozen recipe.
 - [x] T027 [US3] Extend the reproduce test (US3 #2): assert trust-gated tasks
   (git init, gitnr `.gitignore`, gh LICENSE) RE-RUN under trust at reproduce and are
   idempotent (the `test -f` / `git init` no-op guards hold); their outputs are
-  process-deterministic, not asserted byte-identical (Constitution III).
+  process-deterministic, not asserted config-consistent (Constitution III).
 
-**Checkpoint**: managed byte-identical; tasks re-run idempotently.
+**Checkpoint**: managed config-consistent; tasks re-run idempotently.
 
 ---
 
@@ -218,7 +218,7 @@ clobbered on a re-run. (Spec US4 / SC-005, SC-003a.)
 - [x] T028 [US4] `tests/loop/test_arch_replay.py` (US4 #1, SC-005): init base with
   `write_architecture=true` + frozen `architecture_md` (+ `agent_editable_globs`) injected
   as `--data` → assert the `## Architecture` sentinel span renders those facts. Reproduce
-  → assert the span re-renders byte-identically from the frozen answer, NO agent call.
+  → assert the span re-renders config-consistently from the frozen answer, NO agent call.
   Also assert `write_architecture=false` leaves the empty sentinel pair (Q5 gate).
 - [x] T029 [US4] `tests/loop/test_seed_once.py` (US4 #2, SC-003a): generate `[base,
   python]`, hand-edit `AGENTS.md` and `pyproject.toml`, then re-run/`update` over the
@@ -292,9 +292,9 @@ documents the family. (Spec US5 / SC-006, SC-008.)
 
 | SC | Covered by |
 |---|---|
-| SC-001 (base scaffold + managed byte-identical; gitnr/gh task-output; AGENTS.md seed-once) | T011, T012, T013, T014, T017, T026 |
+| SC-001 (base scaffold + managed config-consistent; gitnr/gh task-output; AGENTS.md seed-once) | T011, T012, T013, T014, T017, T026 |
 | SC-002 (`[base, python]` base-first, threads project_name, lang-python output) | T008, T009, T019, T024 |
-| SC-003 (reproduce managed byte-identical; order recomputed) | T026 |
+| SC-003 (reproduce managed config-consistent; order recomputed) | T026 |
 | SC-003a (seed-once not clobbered on re-run) | T014, T020, T029 |
 | SC-004 (untrusted refused at exit 3 before tasks) | T018 |
 | SC-005 (agent-drafted output replays from frozen answer, no agent) | T012, T028 |

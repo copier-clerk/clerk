@@ -117,8 +117,8 @@ invoked.
    available version.
 2. **Given** the same project, **When** reproduce runs twice in a row, **Then** the
    rendered file tree is identical between runs (excluding state that a template
-   task legitimately obtains from outside the render, which is out of scope for byte
-   comparison).
+   task legitimately obtains from outside the render, which is out of scope for the
+   config comparison).
 3. **Given** a reproduce run, **When** it executes, **Then** no assistant or
    language-model step participates at any point.
 4. **Given** the recorded template version can be resolved, **When** reproduce runs,
@@ -376,7 +376,7 @@ answer (expect a problem report and no files produced).
   to rendered files are therefore reverted to the template output; files the template
   marks write-once and files the template never renders are left untouched. Respecting
   local edits (a smart merge) is out of scope for this slice and belongs to the upgrade
-  operation (roadmap spec 006). The SC-002 byte-comparison is performed on the
+  operation (roadmap spec 006). The SC-002 config comparison is performed on the
   in-place project tree after reproduce.
 - **FR-016**: During inspection and before generation, the system MUST determine
   whether a template carries the mechanism required to record its own answers, and
@@ -404,7 +404,7 @@ answer (expect a problem report and no files produced).
   generation and at reproduce (so a reproduced project is complete), and the example
   template's action MUST be self-contained (require no network) **and produce no
   time- or environment-seeded bytes** (it initializes version control but creates no
-  commit), so reproduce is hermetically byte-comparable per SC-002.
+  commit), so reproduce is hermetically config-comparable per SC-002.
 
 **Trust & consent**
 
@@ -504,7 +504,7 @@ answer (expect a problem report and no files produced).
   and its exact version, and an initialized version-control repository — in a single
   generation run with no manual editing.
 - **SC-002**: Reproducing a generated project from its recorded answers yields a file
-  tree **byte-identical** to the first render, compared over an explicitly enumerated
+  tree **config-consistent** to the first render, compared over an explicitly enumerated
   path set, on a machine and in continuous integration, with no assistant involved.
   For the example template the comparison covers every rendered file and the recorded
   answers file, and the excluded-path allowlist is **empty** — the example template's
@@ -566,8 +566,8 @@ answer (expect a problem report and no files produced).
   and may be recreated or split later.
 - **The person consents to trust out-of-band.** bailiff explains the implication and records
   the decision, but the decision itself is the human's; bailiff never decides to trust.
-- **Reproduce is process-deterministic, not necessarily byte-identical in the world.**
-  Post-generation actions may touch state outside the render; byte comparison for the
+- **Reproduce is process-deterministic, not necessarily config-consistent in the world.**
+  Post-generation actions may touch state outside the render; config comparison for the
   determinism check excludes such externally-sourced state.
 - **The engine is the copier scaffolding engine, used as a pinned dependency and driven
   primarily through its command-line interface.** bailiff delegates all rendering, answer

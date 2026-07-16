@@ -9,7 +9,7 @@ thin, ratified).
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `.editorconfig` | **managed** | byte-identical on reproduce |
+| `.editorconfig` | **managed** | config-consistent on reproduce |
 
 ## Design
 

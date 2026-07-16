@@ -139,7 +139,7 @@ contract):
 
 - Bailiff carries no per-template sidecar files and no catalog-generation CI. The
   agent + a small orchestrator + copier are the whole surface.
-- Reproduce byte-stability depends on pinning the copier version (see
+- Reproduce config-consistency depends on pinning the copier version (see
   [[0001-copier-as-engine]]).
 
 ## Related

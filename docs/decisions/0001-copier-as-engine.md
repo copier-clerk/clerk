@@ -115,7 +115,7 @@ conductor.
 
 ## Constraint — determinism discipline
 
-Because tasks run at reproduce, byte-identity holds only as far as pins hold.
+Because tasks run at reproduce, config-consistency holds only as far as pins hold.
 Everything a task consumes MUST be pinned: module `#ref` (tag or sha), `apm.lock`,
 and tool versions (incl. the copier version, `copier>=9.16,<10`). Unpinned inputs
 make reproduce drift; this is the accepted bargain for supporting `_tasks`.

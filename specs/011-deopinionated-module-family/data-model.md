@@ -44,13 +44,13 @@ Version lists are subject to the meta-item CI auto-updater (out of module scope)
 
 ## Entity: File lifecycle class (per output)
 
-- **managed** — bailiff owns; re-rendered byte-identically from committed answers (Constitution III
+- **managed** — bailiff owns; re-rendered config-consistently from committed answers (Constitution III
   strong form). Examples: dir `.gitkeep`, `.tflint.hcl`, `.cfnlintrc.yaml`, CI workflow files,
   `.mise.toml`, ruff config beyond tool init, `.copier-answers.yml`.
 - **seed-once** — scaffolded once then project-owned; `_skip_if_exists`. Examples: `AGENTS.md`,
   tool manifests after native init, `README.md`, `justfile`, seeded IaC source, `STACK.md`/ADR.
 - **task-output** — process-deterministic, produced by a native/network task; version-pinned via
-  mise; NOT byte-asserted (Constitution III amended + ADR-0007). Examples: `pyproject.toml`/
+  mise; NOT config-asserted (Constitution III amended + ADR-0007). Examples: `pyproject.toml`/
   `package.json`/`Cargo.toml`/`go.mod` (native init), `.gitignore` (gitnr), `LICENSE` (gh),
   `.terraform.lock.hcl`, apm lock, CDK app files.
 

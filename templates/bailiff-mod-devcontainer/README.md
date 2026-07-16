@@ -10,7 +10,7 @@ drift between "works on my machine" and "works in the container".
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `.devcontainer/devcontainer.json` | **managed** | byte-identical on reproduce; derived from frozen `mise_tools` |
+| `.devcontainer/devcontainer.json` | **managed** | config-consistent on reproduce; derived from frozen `mise_tools` |
 
 ## Design
 

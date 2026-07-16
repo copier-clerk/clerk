@@ -42,13 +42,13 @@ buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, 
   `test -f <manifest> || <tool> init …`. The manifest is **task-output** (process-deterministic),
   then **seed-once** (`_skip_if_exists`) so a populated-tree re-run never clobbers project edits.
   **Reproduce note (critique R5):** over the normal committed tree the guard + `_skip_if_exists` mean
-  the committed manifest is used verbatim (byte-identical, NOT regenerated, no toolchain needed); the
+  the committed manifest is used verbatim (config-consistent, NOT regenerated, no toolchain needed); the
   native tool only runs on a genuinely empty tree. Loop tests assert manifest *presence/structure* on
   reproduce, never regeneration.
 - Per language: `uv init` (python), `bun init`/`pnpm init` (ts, per `js_pkg_manager`), `cargo new`
   (rust, `--lib` when lib), `go mod init` (go), `cdk init app --language=` (cdk). Adding deps later
   (package-add) = native `add` command, never manifest edits.
-- Config bailiff owns and the tool does NOT generate stays a **managed** byte-identical render
+- Config bailiff owns and the tool does NOT generate stays a **managed** config-consistent render
   (`.tflint.hcl`, `.cfnlintrc.yaml`, CI files, ruff config beyond init, `.mise.toml`).
 - NEVER an irreversible action at scaffold (no `cdk bootstrap`/`deploy`, `terraform apply`,
   `sam deploy`; `gh repo create` only behind the public-repo consent gate).

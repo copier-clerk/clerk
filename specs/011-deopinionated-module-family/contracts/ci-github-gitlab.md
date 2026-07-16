@@ -63,4 +63,4 @@ own linter** (actionlint for github, `gitlab-ci lint`/schema for gitlab — vali
 critique Q); assert gate semantics (minimal no gate, standard gate, optimized change-filter), no
 unpinned refs, github artifact majors match, gitlab needs use optional:true; merge-queue+free (gitlab)
 = fallback+warning; empty ci_languages + no monorepo_tool = loud warning not silent. Pure render →
-reproduce byte-identical (no tasks).
+reproduce config-consistent (no tasks).

@@ -35,8 +35,8 @@ Bump rationale: MINOR — materially expanded guidance on Principle III's existi
 process-deterministic carve-out, to sanction spec 011's native-command scaffolding.
   - III. Task-output is clarified to include native-tool-generated manifests
          (uv/bun/cargo/go/cdk init) under a pinned mise toolchain — process-
-         deterministic, version-pinned, NOT byte-identical — the same category as the
-         existing LICENSE/gitnr/apm-lock outputs. The byte-identical guarantee is
+         deterministic, version-pinned, NOT config-consistent — the same category as the
+         existing LICENSE/gitnr/apm-lock outputs. The config-consistent guarantee is
          scoped to MANAGED renders (config bailiff owns). Faithful + agent-free intent
          UNCHANGED; only the task-output boundary is spelled out.
 Reconciled in the same change (per governance: amend the principle with the change
@@ -186,14 +186,14 @@ and order are identical, so reproduce is deterministic and needs no agent; and
 because it derives solely from committed copier state, it depends on no
 bailiff-authored file a user might forget to commit. `_tasks` run at both init and
 reproduce; migrations are update-only. Reproduce is process-deterministic (same
-pinned inputs → same commands), not necessarily byte-identical in the world,
+pinned inputs → same commands), not necessarily config-consistent in the world,
 because tasks may touch external state. **Task-output includes native-tool-generated
 files** — a manifest produced by a tool's own init command (`uv init`, `bun init`,
 `cargo new`, `go mod init`, `cdk init`) under a pinned toolchain (`mise .mise.toml`)
 is task-output in exactly the sense LICENSE (`gh api`), `.gitignore` (`gitnr`), and
 `apm.lock.yaml` (`apm install`) already are: process-deterministic and version-pinned,
-NOT asserted byte-identical, and reproduced by re-running the guarded task, not by a
-byte/drift test. The byte-identical guarantee holds for **managed** renders (config
+NOT asserted config-consistent, and reproduced by re-running the guarded task, not by a
+config/drift test. The config-consistent guarantee holds for **managed** renders (config
 bailiff owns and the tool does not generate); the per-file boundary is drawn in
 [[0007-native-command-scaffolding]].
 
@@ -225,7 +225,7 @@ templates), which is a later concern, not a day-one mandate.
 
 ### V. Determinism Discipline via Pinning; Trust by Source
 
-Because `_tasks` run at reproduce, byte-stability holds only as far as inputs are
+Because `_tasks` run at reproduce, config-consistency holds only as far as inputs are
 pinned: template `#ref`, the copier version, `apm.lock`, and tool versions.
 FORBIDDEN in bailiff-authored templates: `jinja2_time` (`{% now %}`) and the random
 filters. The current date MUST be injected as an answer (e.g. `--data today=…`)
@@ -273,7 +273,7 @@ construction rather than mitigating it — the maximally simple outcome (C-11).
 
 Hardening is NOT a trailing phase. EVERY spec MUST land, as part of its own
 definition-of-done and scaled to what it actually ships: (a) its determinism
-checks (e.g. a reproduce byte/drift assertion where a render is involved); (b) its
+checks (e.g. a reproduce config/drift assertion where a render is involved); (b) its
 error surfacing — copier raises both `copier.errors.*` AND a bare
 `builtins.ValueError` for the missing-required-question case, and both MUST be
 surfaced clearly (a helper that wraps copier translates them; a bare shell recipe

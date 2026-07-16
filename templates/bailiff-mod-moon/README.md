@@ -12,7 +12,7 @@ turbo and nx are later siblings, not axes of this module.
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `.moon/workspace.yml` | **managed** | byte-identical on reproduce |
+| `.moon/workspace.yml` | **managed** | config-consistent on reproduce |
 
 - `monorepo_packages` frozen → explicit `projects:` map (one entry per path).
 - monorepo layout without frozen packages → glob discovery over the standard

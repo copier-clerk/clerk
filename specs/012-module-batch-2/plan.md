@@ -179,7 +179,7 @@ questions. Init-only-guarded. Edge: `run_after: [bailiff-mod-base]`.
 ### P3 module
 
 **bailiff-mod-api** (FR-013): Seed-once OpenAPI skeleton document (`_skip_if_exists`) plus
-managed spectral config (`.spectral.yaml`, byte-identical on reproduce). Contributes
+managed spectral config (`.spectral.yaml`, config-consistent on reproduce). Contributes
 `spectral` token to `mise_tools` union and a spectral-lint block to `hook_blocks` union
 (written by `bailiff-mod-precommit` only; inert when `hook_manager=none`). No codegen; no
 server scaffold. Zero `_tasks`. Edge: `run_after: [bailiff-mod-base]`. [NEEDS CLARIFICATION

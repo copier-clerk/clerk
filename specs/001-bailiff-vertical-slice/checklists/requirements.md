@@ -52,9 +52,9 @@ ADRs; both verdicts were "sound enough to plan after fixing specific items." Loa
 bearing findings were re-verified against copier 9.16.0 source before applying. Fixes
 folded into the spec:
 
-- **SC-002 unfalsifiable (Critical)** → SC-002/FR-018 now require byte-identity over an
+- **SC-002 unfalsifiable (Critical)** → SC-002/FR-018 now require config-consistency over an
   enumerated path set with an empty exclusion allowlist; the example action makes no
-  commit (verified: bare `git init` is byte-identical across runs; a commit embeds a
+  commit (verified: bare `git init` is config-consistent across runs; a commit embeds a
   timestamp).
 - **Discovery code-execution hole (High)** → new FR-004a: inspection is static-only,
   reports raw un-rendered defaults, never builds the engine env or loads extensions,

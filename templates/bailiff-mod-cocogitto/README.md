@@ -13,7 +13,7 @@ FR-001), not an axis of this module.
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `cog.toml` | **managed** | byte-identical on reproduce; single vs monorepo shape from `layout` |
+| `cog.toml` | **managed** | config-consistent on reproduce; single vs monorepo shape from `layout` |
 
 ## Frozen-union contributions (M1 — tokens only)
 

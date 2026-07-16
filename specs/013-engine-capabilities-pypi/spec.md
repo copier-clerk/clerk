@@ -110,7 +110,7 @@ warning fires from the incremental-add path.
    already-installed module's capabilities (read from the existing answers files / their
    recorded sources), **Then** the same warning fires.
 4. **Given** a selection of modules that declare no capabilities at all, **When** init runs,
-   **Then** no warning is emitted and behavior is byte-identical to a pre-013 engine.
+   **Then** no warning is emitted and behavior is config-consistent to a pre-013 engine.
 5. **Given** two providers of a capability that NO provider in the merged listing declares
    exclusive, **When** init runs, **Then** no warning is emitted (multiple providers are fine
    by default).
@@ -279,7 +279,7 @@ the already-built listing" claims were phantom; no persisted listing exists. The
 listing-backed reads honest and cheap. P2 because correctness does not depend on it.
 
 **Independent Test**: Run `bailiff catalog refresh` → a listing file appears under the
-platformdirs cache dir; run `bailiff catalog list` twice → byte-identical output with zero
+platformdirs cache dir; run `bailiff catalog list` twice → config-consistent output with zero
 network/git traffic; delete the cache → `bailiff catalog list` either instructs the user to run
 refresh or transparently builds the cache once (single defined behavior, see FR-016).
 
@@ -290,7 +290,7 @@ refresh or transparently builds the cache once (single defined behavior, see FR-
    in the platformdirs cache location.
 2. **Given** a persisted listing, **When** `bailiff catalog list` (including `--json`) or
    selection validation runs, **Then** it reads the cache and performs no per-source
-   clone/discovery traffic; two consecutive runs are byte-identical.
+   clone/discovery traffic; two consecutive runs are config-consistent.
 3. **Given** no persisted listing, **When** a listing-consuming verb runs, **Then** the defined
    fallback occurs (explicit instruction to refresh, or a one-time automatic build) — never a
    silent per-call re-clone regime.
@@ -550,7 +550,7 @@ refresh or transparently builds the cache once (single defined behavior, see FR-
   rule applied) emits the loud warning naming capability and members, and the run completes
   with the same exit code and rendered output as a warning-free run; the same warning fires
   when the second provider is already installed in the destination (incremental add).
-- **SC-003**: A selection of only declaration-free modules produces behavior byte-identical to
+- **SC-003**: A selection of only declaration-free modules produces behavior config-consistent to
   the pre-013 engine (no new warnings, no new prompts, same outputs) — verified by the
   existing loop tests passing unmodified.
 - **SC-004**: A selection in which two modules write the same managed path fails before any
@@ -567,7 +567,7 @@ refresh or transparently builds the cache once (single defined behavior, see FR-
   selectable; the shadowed entry appears in listings marked shadowed; a pre-013
   single-pointer `catalog.toml` operates with zero behavior change.
 - **SC-007**: After `bailiff catalog refresh`, `bailiff catalog list` and selection validation
-  complete with zero per-source clone/discovery traffic and byte-identical output across
+  complete with zero per-source clone/discovery traffic and config-consistent output across
   consecutive runs; with no cache present, the defined fallback (refresh instruction or
   one-time auto-build) occurs — never silent per-call re-cloning.
 - **SC-008**: `reproduce` and `update` over a committed tree succeed regardless of capability
