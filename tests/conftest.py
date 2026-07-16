@@ -1105,14 +1105,14 @@ def bailiff_mod_rust(tmp_path: Path) -> TemplateRepo:
     )
 
 
-# Minimal STUB base layer (spec 007 Q5 / FR-007): provides the threaded
-# project_name for [stub_base, bailiff-mod-apm] multi-layer tests WITHOUT a hard
-# dependency on bailiff-mod-base. It is a plain identity template with a hermetic
-# git-init task and the answers-file marker, mirroring the exemplar shape.
+# Minimal STUB base layer (spec 007 Q5 / FR-007): provides project_name for
+# [stub_base, bailiff-mod-apm] multi-layer tests WITHOUT a hard dependency on
+# bailiff-mod-base. It is a plain identity template with a hermetic git-init
+# task and the answers-file marker, mirroring the exemplar shape.
 #
-# It declares run_before: [bailiff-mod-apm] so the spec-003 engine sequences it
-# BEFORE the apm layer (threading project_name forward). Per Q5, the adjacency is
-# declared by the BASE (the module that needs it), never baked into 007's edges.
+# Ordering is expressed via `depends_on` only (FR-019/R7 dropped run_before/
+# run_after). stub-base carries no depends_on edges; tests that require a
+# specific stub-base → apm order must declare the edge on the consuming side.
 _APM_STUB_BASE_YML = dedent(
     """\
     project_name:
@@ -1123,14 +1123,6 @@ _APM_STUB_BASE_YML = dedent(
     depends_on:
       type: yaml
       default: []
-      when: false
-    run_after:
-      type: yaml
-      default: []
-      when: false
-    run_before:
-      type: yaml
-      default: ["bailiff-mod-apm"]
       when: false
     _subdirectory: template
     _tasks:

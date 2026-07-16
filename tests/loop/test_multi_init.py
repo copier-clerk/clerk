@@ -1,9 +1,11 @@
-"""US1: multi-template init — ordered apply, threaded answers, order-independence (spec 003 / T009).
+"""US1: multi-template init — ordered apply, private-by-default, order-independence.
+
+spec 003 / T009.
 
 Tests:
 - B depends_on A, selection mis-ordered [B, A] → A applies before B (SC-001)
 - each layer commits its own .copier-answers.<name>.yml
-- a threaded answer from A is visible as B's default (SC-001)
+- a private answer in layer A does NOT appear in layer B's render context (FR-001)
 - order-independence: init [C, D] and [D, C] → byte-identical trees (SC-003)
 - no bailiff recipe/order file present in dest (SC-002 partial)
 """
@@ -97,12 +99,16 @@ def test_init_many_per_layer_answers_files(
 
 
 # ---------------------------------------------------------------------------
-# T009-b: threaded answers — A's answer visible in B's context
+# T009-b: private-by-default — A's answer does NOT bleed into B's context (FR-001)
 # ---------------------------------------------------------------------------
 
 
-def _make_threading_templates(tmp_path: Path):
-    """Build A (sets project_name) and B (depends_on A, references project_name as default)."""
+def _make_isolation_templates(tmp_path: Path):
+    """Build A (sets project_name) and B (depends_on A, own default '').
+
+    B's render context must NOT receive A's project_name — layers are isolated
+    (FR-001 private-by-default).
+    """
     from tests.conftest import build_template_repo
 
     # A: sets project_name, writes it to a_out.txt
@@ -113,8 +119,8 @@ def _make_threading_templates(tmp_path: Path):
             "template/a_out.txt.jinja": "a={{ project_name }}\n",
         },
     )
-    # B: depends_on A; uses project_name from threading (no explicit answer given),
-    # writes it to b_out.txt to verify the threaded value arrived.
+    # B: depends_on A for ordering only; project_name has its own default ('').
+    # No explicit answer for B → should render with its own default, NOT A's value.
     tpl_b = build_template_repo(
         tmp_path / "tpl-b",
         files={
@@ -134,24 +140,27 @@ def _make_threading_templates(tmp_path: Path):
     return tpl_a, tpl_b
 
 
-def test_threaded_answer_from_a_visible_in_b(tmp_path: Path) -> None:
-    """A's project_name answer threads into B — no explicit project_name needed for B."""
-    tpl_a, tpl_b = _make_threading_templates(tmp_path)
+def test_answer_in_a_does_not_bleed_into_b(tmp_path: Path) -> None:
+    """A's project_name stays private — B renders with its own default, not A's value (FR-001)."""
+    tpl_a, tpl_b = _make_isolation_templates(tmp_path)
     trust.add_trust(tpl_a.url)
     trust.add_trust(tpl_b.url)
 
     dest = tmp_path / "proj"
-    # Only supply project_name to A; B should inherit it via threading
+    # Supply project_name to A only; B receives no explicit answer.
     selection = [
-        (_make_record("testcat/tpl-b", tpl_b), {}),  # no explicit answer
-        (_make_record("testcat/tpl-a", tpl_a), {"project_name": "threaded-value"}),
+        (_make_record("testcat/tpl-b", tpl_b), {}),  # no explicit answer for B
+        (_make_record("testcat/tpl-a", tpl_a), {"project_name": "private-value"}),
     ]
     runner.init_many(selection, str(dest), today="2026-07-09")
 
+    # A rendered with its explicit value.
+    a_out = (dest / "a_out.txt").read_text().strip()
+    assert a_out == "a=private-value", f"A's own output wrong: {a_out!r}"
+
+    # B renders with its OWN default (empty string), NOT A's "private-value".
     b_out = (dest / "b_out.txt").read_text().strip()
-    assert b_out == "b=threaded-value", (
-        f"Expected B to receive threaded project_name, got: {b_out!r}"
-    )
+    assert b_out == "b=", f"B must not receive A's private answer — expected 'b=', got: {b_out!r}"
 
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 
 Tests:
 - SC-005 (per-layer): defaults apply independently per layer in init_many.
-- SC-002 (threaded answer wins): a threaded data= answer from layer A beats
-  the defaults file value for the same key in layer B.
+- FR-001 (isolation): an explicit data= answer in layer A does NOT bleed into
+  layer B — B receives the defaults file value, not A's answer.
 - SC-007: no defaults file written into the project tree.
 """
 
@@ -116,17 +116,17 @@ def test_defaults_apply_per_layer(
 
 
 # ---------------------------------------------------------------------------
-# SC-002 (multi): threaded data= answer from earlier layer beats defaults
+# FR-001 (multi): layer A's explicit answer does NOT bleed into layer B
 # ---------------------------------------------------------------------------
 
 
-def test_threaded_answer_beats_defaults(
+def test_layer_a_answer_does_not_bleed_into_b(
     tpl_layer_a: TemplateRepo, tpl_layer_b: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Layer A's explicit data= answer threads forward and wins over defaults for layer B."""
+    """Layer A's explicit data= answer stays private; B receives the defaults value (FR-001)."""
     trust.add_trust(tpl_layer_a.url)
     trust.add_trust(tpl_layer_b.url)
-    # defaults.yml says "Ada", but layer A provides "Org" explicitly
+    # defaults.yml says "Ada"; layer A provides "Org" explicitly — B must NOT see "Org".
     _write_defaults(tmp_path, "author_name: Ada\n")
 
     dest = tmp_path / "proj"
@@ -140,9 +140,11 @@ def test_threaded_answer_beats_defaults(
     af_a = yaml.safe_load((dest / ".copier-answers.tpl-layer-a.yml").read_text())
     assert af_a["author_name"] == "Org"
 
-    # Layer B: "Org" was threaded in via accumulated data= (priority > user_defaults=)
+    # Layer B: private-by-default — "Org" does NOT bleed in; B gets "Ada" from defaults.
     af_b = yaml.safe_load((dest / ".copier-answers.tpl-layer-b.yml").read_text())
-    assert af_b["author_name"] == "Org", "Threaded data= must beat defaults for layer B"
+    assert af_b["author_name"] == "Ada", (
+        "Layer B must be isolated from A's answer — expected defaults value 'Ada'"
+    )
 
 
 # ---------------------------------------------------------------------------
