@@ -56,7 +56,7 @@ python_layout:
   default: src
   help: "Project layout: src (uv init --package, installable) or flat."
 
-framework:
+python_framework:
   type: str
   choices:
     - none

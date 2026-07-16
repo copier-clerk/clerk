@@ -114,9 +114,9 @@ node_version:
   default: "22"
   help: "Node.js version (pinned via mise_tools in .mise.toml)."
 
-# Framework: plain means no framework scaffold.
+# ts_framework: plain means no framework scaffold.
 # nuxi/create-vite are pinned (no @latest) — spec 011 bug fix.
-framework:
+ts_framework:
   type: str
   choices:
     - plain
@@ -126,11 +126,11 @@ framework:
   default: plain
   help: "Framework preset (nuxi/create-vite are version-pinned, not @latest)."
 
-# vite_template — only asked when framework=vite (conditional visibility).
+# vite_template — only asked when ts_framework=vite (conditional visibility).
 vite_template:
   type: str
   default: vanilla-ts
-  when: "{{ framework == 'vite' }}"
+  when: "{{ ts_framework == 'vite' }}"
   help: "Vite scaffold template (e.g. vanilla-ts, react-ts, vue-ts)."
 
 # UI kit: none or shadcn. shadcn is a follow-on step, not a native init.
@@ -218,12 +218,12 @@ _tasks:
   - command: >-
       test -f nuxt.config.ts ||
       npx nuxi@3.23.1 init . --packageManager {{ js_pkg_manager }} --gitInit false
-    when: "{{ framework == 'nuxt' }}"
+    when: "{{ ts_framework == 'nuxt' }}"
 
   - command: >-
       test -f vite.config.ts || test -f vite.config.js ||
       npx create-vite@6.5.0 . --template {{ vite_template }}
-    when: "{{ framework == 'vite' }}"
+    when: "{{ ts_framework == 'vite' }}"
 
   # sst init is safe (writes sst.config.ts only, no deploy/bootstrap).
   # .gitignore entries for sst (.sst/, .open-next/) are in gitignore_stack.
@@ -231,4 +231,4 @@ _tasks:
   - command: >-
       test -f sst.config.ts ||
       npx --yes sst@3 init
-    when: "{{ framework == 'sst' }}"
+    when: "{{ ts_framework == 'sst' }}"

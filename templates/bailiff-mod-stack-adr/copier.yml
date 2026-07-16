@@ -49,7 +49,7 @@ stack_pins:
   default: []
   help: "Pinned technology stack entries as a YAML list (agent-frozen via --data)."
 
-framework:
+stack_framework:
   type: str
   default: ""
   help: "Primary framework or runtime (agent-frozen via --data; empty = none)."

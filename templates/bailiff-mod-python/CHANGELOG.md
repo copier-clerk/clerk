@@ -28,6 +28,11 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - Dropped: `pip`, `pipenv`, `poetry` (dead options per FR-002).
 - Dropped: `python_version` as free-text string; now a fixed-choice list.
 - `pyproject.toml` lifecycle changed from MANAGED seed-once to TASK-OUTPUT seed-once.
+- feat!: renamed `framework` question to `python_framework` to avoid a
+  cross-module answer-key collision when layered with `bailiff-mod-ts` and
+  `bailiff-mod-stack-adr` (which also defined `framework` with incompatible
+  value domains). Callers passing `framework` via --data must pass
+  `python_framework`.
 
 - - -
 ## bailiff-mod-python-v0.1.0 - 2026-07-16

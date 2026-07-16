@@ -10,8 +10,8 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - Initial TypeScript language overlay (spec 011 T007):
   - `js_pkg_manager [bun,pnpm,npm]=bun`, `ts_linter [biome,eslint-prettier]=biome`,
     `test_runner [none,vitest-node,vitest-browser,vitest+playwright,bun-test,playwright-only]=none`,
-    `node_version`, `framework [plain,nuxt,vite,sst]=plain` (+ `vite_template`
-    when `framework=vite`), `ui_kit [none,shadcn]=none`;
+    `node_version`, `ts_framework [plain,nuxt,vite,sst]=plain` (+ `vite_template`
+    when `ts_framework=vite`), `ui_kit [none,shadcn]=none`;
   - `run_after: [bailiff-mod-base]`; threaded `project_name` and `hook_manager`;
   - frozen-union contributions: `gitignore_stack`, `mise_tools`, `hook_blocks`;
   - native scaffold: `bun init` / `pnpm init` (task-output → seed-once `package.json`);
@@ -19,6 +19,14 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
     eslint+prettier config, vitest/playwright config per `test_runner`;
   - bug fixes: pinned `nuxi`/`create-vite` (no `@latest`), SST `.gitignore`
     entries, `bun.lock` cache key (Bun 1.2 text lockfile).
+
+### Breaking changes
+
+- feat!: renamed `framework` question to `ts_framework` to avoid a cross-module
+  answer-key collision when layered with `bailiff-mod-python` and
+  `bailiff-mod-stack-adr`. The `vite_template` visibility condition and all
+  framework scaffold `_tasks` now gate on `ts_framework`. Callers passing
+  `framework` via --data must pass `ts_framework`.
 
 - - -
 ## bailiff-mod-ts-v0.1.0 - 2026-07-15

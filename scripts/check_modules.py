@@ -274,7 +274,13 @@ def check_modules(templates_dir: Path | None = None) -> int:
             current_labels = _choice_labels(current_raw)
             tagged_labels = _choice_labels(tagged_raw)
             for key, tagged_choices in tagged_labels.items():
-                current_choices = current_labels.get(key, [])
+                # C-06 forbids mutating the labels of a still-published question.
+                # A key absent from the working tree is a rename/removal — a
+                # breaking change governed by semver + a `feat!:` CHANGELOG
+                # entry, not a silent label mutation — so it is out of scope here.
+                if key not in current_labels:
+                    continue
+                current_choices = current_labels[key]
                 if current_choices != tagged_choices:
                     violations.append(
                         f"{name}: published-label mutation on question '{key}' — "

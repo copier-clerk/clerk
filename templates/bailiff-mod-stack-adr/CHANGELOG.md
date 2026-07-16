@@ -9,13 +9,21 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 - Initial implementation of the stack ADR module (spec 011 T013):
   - `format [simple, adr]=simple`; `adr_dir=docs/decisions`; agent-frozen
-    `stack_pins`, `framework`, `rationale` via --data (FR-010 / cross-cutting §6);
+    `stack_pins`, `stack_framework`, `rationale` via --data (FR-010 / cross-cutting §6);
   - `run_after: [bailiff-mod-base]` ordering edge (when:false);
   - SEED-ONCE output: `STACK.md` (simple) or `{{ adr_dir }}/0001-stack.md` (adr,
     MADR headings, Status=Accepted, 3-digit ADR number);
   - Jinja-rendered `_exclude` selects the active format's output file;
   - `rationale` written verbatim — no double-render of literal `{{ }}` notation;
   - No reproduce-time agent step (legacy staleness/CVE agent step dropped).
+
+### Breaking changes
+
+- feat!: renamed `framework` question to `stack_framework` to avoid a
+  cross-module answer-key collision when layered with `bailiff-mod-python` and
+  `bailiff-mod-ts`. The `STACK.md` and `0001-stack.md` templates now render
+  `stack_framework`. Callers passing `framework` via --data must pass
+  `stack_framework`.
 
 - - -
 ## bailiff-mod-stack-adr-v0.1.0 - 2026-07-16

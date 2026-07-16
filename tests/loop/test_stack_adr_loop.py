@@ -55,7 +55,7 @@ def test_simple_format_init_writes_stack_md(
             "project_name": "myapp",
             "format": "simple",
             "stack_pins": ["python@3.13", "uv@0.4"],
-            "framework": "fastapi",
+            "stack_framework": "fastapi",
             "rationale": "Fast async Python API; {{ python: '3.13' }} chosen for speed.",
         },
     )
@@ -85,7 +85,7 @@ def test_simple_format_seed_once_not_overwritten(
         "project_name": "myapp",
         "format": "simple",
         "stack_pins": ["python@3.13"],
-        "framework": "fastapi",
+        "stack_framework": "fastapi",
         "rationale": "Initial rationale.",
     }
     spec = runner.RunSpec(
@@ -158,7 +158,7 @@ def test_adr_format_init_writes_numbered_adr(
             "format": "adr",
             "adr_dir": "docs/decisions",
             "stack_pins": ["node@22", "pnpm@9"],
-            "framework": "express",
+            "stack_framework": "express",
             "rationale": "Node chosen for {{ io_model: 'async' }} performance.",
         },
     )

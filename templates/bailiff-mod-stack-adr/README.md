@@ -21,12 +21,12 @@ Only one file is written per init (controlled by `_exclude`).
 | `format` | str choice | `simple` | `simple` = STACK.md; `adr` = numbered ADR. |
 | `adr_dir` | str | `docs/decisions` | ADR output directory (matches base scaffold). |
 | `stack_pins` | yaml | `[]` | Agent-frozen list of stack entries. |
-| `framework` | str | `""` | Primary framework / runtime. |
+| `stack_framework` | str | `""` | Primary framework / runtime. |
 | `rationale` | str | `""` | Free-text rationale; may contain `{{ }}` notation — written verbatim (no double-render). |
 
 ## Agent-frozen facts
 
-`stack_pins`, `framework`, and `rationale` are injected by the phase-1 agent
+`stack_pins`, `stack_framework`, and `rationale` are injected by the phase-1 agent
 via `--data` before `bailiff init` runs. This module sorts alphabetically before
 language layers (`bailiff-mod-s` precedes `bailiff-mod-typescript` etc.) and
 therefore CANNOT read language answers from the run-order accumulator. The agent

@@ -268,7 +268,7 @@ def python_answers() -> dict:
         "python_pkg_manager": rand_choice(["uv", "pdm"]),
         "python_version": rand_choice(["3.11", "3.12", "3.13"]),
         "python_layout": rand_choice(["src", "flat"]),
-        "framework": rand_choice(["none", "fastapi", "django", "flask"]),
+        "python_framework": rand_choice(["none", "fastapi", "django", "flask"]),
         "ruff_line_length": rand_choice(["79", "88", "100", "119", "120"]),
         "ruff_quote_style": rand_choice(["double", "single"]),
         "ruff_rule_profile": rand_choice(["standard", "strict"]),
@@ -326,7 +326,7 @@ def stack_adr_answers() -> dict:
         "format": fmt,
         "adr_dir": "docs/decisions",
         "stack_pins": rand_choice([[], [{"name": "Python", "version": "3.13"}]]),
-        "framework": rand_choice(["", "FastAPI", "Django"]),
+        "stack_framework": rand_choice(["", "FastAPI", "Django"]),
         "rationale": rand_choice(["", "Selected for performance."]),
         "today": "2026-07-14",
     }
@@ -364,7 +364,7 @@ def ts_answers() -> dict:
         "ts_linter": rand_choice(["biome", "eslint-prettier"]),
         "test_runner": rand_choice(["none", "vitest-node", "bun-test"]),
         "node_version": rand_choice(["24", "22", "20"]),
-        "framework": framework,
+        "ts_framework": framework,
         "ui_kit": rand_choice(["none", "shadcn"]),
     }
     if framework == "vite":

@@ -15,7 +15,7 @@ eslint+prettier config, and vitest/playwright config per `test_runner`.
 | `ts_linter` | `biome`, `eslint-prettier` | `biome` | |
 | `test_runner` | `none`, `vitest-node`, `vitest-browser`, `vitest+playwright`, `bun-test`, `playwright-only` | `none` | jest DEAD |
 | `node_version` | finite modern list | `22` | |
-| `framework` | `plain`, `nuxt`, `vite`, `sst` | `plain` | `vite_template` asked when `framework=vite` |
+| `ts_framework` | `plain`, `nuxt`, `vite`, `sst` | `plain` | `vite_template` asked when `ts_framework=vite` |
 | `ui_kit` | `none`, `shadcn` | `none` | |
 | `project_name` | — | threaded | from `bailiff-mod-base` |
 | `hook_manager` | — | threaded | from phase-1 agent |

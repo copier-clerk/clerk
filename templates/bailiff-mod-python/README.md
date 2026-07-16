@@ -22,7 +22,7 @@ init, and a managed `ruff.toml`. Runs after `bailiff-mod-base` and
 | `python_pkg_manager` | [uv, pdm] / uv | |
 | `python_version` | [3.11, 3.12, 3.13, 3.14] / 3.13 | pins requires-python + ruff target + mise |
 | `python_layout` | [src, flat] / src | src = `uv init --package` (installable) |
-| `framework` | [none, fastapi, django, flask] / none | recorded only; no scaffolding branch |
+| `python_framework` | [none, fastapi, django, flask] / none | recorded only; no scaffolding branch |
 | `ruff_line_length` | [79, 88, 100, 119, 120] / 88 | |
 | `ruff_quote_style` | [double, single] / double | |
 | `ruff_rule_profile` | [standard, strict] / standard | strict adds ANN, RUF, PERF, C4, PT |
