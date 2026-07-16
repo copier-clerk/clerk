@@ -43,4 +43,4 @@ On first run, the `aws cloudformation validate-template` task runs only when `aw
 bailiff reproduce
 ```
 
-`.cfnlintrc.yaml` is re-rendered byte-identically. `template.yaml` and `parameters/` files are skipped (already present).
+`.cfnlintrc.yaml` is re-rendered config-consistently. `template.yaml` and `parameters/` files are skipped (already present).

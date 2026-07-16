@@ -1,7 +1,7 @@
 # bailiff-mod-ci-github
 
 GitHub Actions CI workflow overlay — pure managed render (ZERO `_tasks`).
-Outputs `.github/workflows/ci.yml`, byte-identical on reproduce.
+Outputs `.github/workflows/ci.yml`, config-consistent on reproduce.
 
 ## Models
 

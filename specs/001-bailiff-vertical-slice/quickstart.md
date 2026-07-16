@@ -74,19 +74,19 @@ Expect a rendered `README.md`, a `gh`-generated `LICENSE`, `.gitignore`,
 ```sh
 echo "CORRUPTED" > "$WORK/my-project/README.md"
 ( cd "$WORK/my-project" && uv run --project "$OLDPWD" bailiff reproduce . )
-cat "$WORK/my-project/README.md"    # restored byte-identical at v1.0.0
+cat "$WORK/my-project/README.md"    # restored config-consistent at v1.0.0
 ```
 
 Copier-rendered files revert to their recorded bytes. (LICENSE is a task side
 effect sourced from GitHub's live database, not pinned to the commit, so — like
-`.git` — it is outside the byte-identical reproduce set.)
+`.git` — it is outside the config-consistent reproduce set.)
 
 ## What this proves
 
 - **US3** discover is static + safe (no code, no trust).
 - **US4** action-taking source is refused until trusted, then unblocked by consent.
 - **US1** init records `_src_path`/`_commit`/answers; `today` is frozen.
-- **US2** reproduce is byte-identical at the recorded commit, no agent.
+- **US2** reproduce is config-consistent at the recorded commit, no agent.
 - **US6** `--check` validates and writes nothing.
 
 ## The full offline suite

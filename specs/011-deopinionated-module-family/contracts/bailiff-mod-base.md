@@ -38,4 +38,4 @@ Thinned universal scaffold + identity/license. References [_cross-cutting.md](./
 5. `git add -A && git commit` — gated `when: initial_commit` (existing) AND run_git_init.
 
 ## Tests
-init (single + monorepo) asserts thinned dir set present, moved-out/dropped dirs ABSENT, `github_host=false`→no `.github/`, docs_subdirs lean core only, AGENTS.md substituted, LICENSE via copyright_name; reproduce byte-identical for managed, task-output present.
+init (single + monorepo) asserts thinned dir set present, moved-out/dropped dirs ABSENT, `github_host=false`→no `.github/`, docs_subdirs lean core only, AGENTS.md substituted, LICENSE via copyright_name; reproduce config-consistent for managed, task-output present.

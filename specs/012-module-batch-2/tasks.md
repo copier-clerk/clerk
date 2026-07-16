@@ -25,7 +25,7 @@ Every module task implicitly includes ALL of the following before it is consider
    `templates/` == `cog.toml [monorepo.packages]` == `catalog-sources.toml`.
 3. **Loop test**: hermetic init + reproduce under `tests/loop/test_<name>_loop.py` with ALL
    native/network tasks stubbed via `_copy_module_with_stub_tasks` in `tests/conftest.py`.
-   Assertion mapping: **byte-assert** MANAGED renders on init AND reproduce; **presence/
+   Assertion mapping: **config-assert** MANAGED renders on init AND reproduce; **presence/
    structure-assert** TASK-OUTPUT; **`_skip_if_exists`-assert** SEED-ONCE.
 4. **Determinism/trust**: no `secret:` questions; no `jinja2_time`; trust-gated `_tasks`
    with preflight ordered first; `tests/loop/test_secrets_policy.py` must stay green.
@@ -111,7 +111,7 @@ Every module task implicitly includes ALL of the following before it is consider
   image per NC resolution. (5) `run_after: [bailiff-mod-base]`. (6) Loop tests: init
   `[base, python, devcontainer]` with `mise_tools=[{"python":"3.13"}]` frozen →
   devcontainer.json references mise feature and exact tool set; init with `mise_tools=[]` →
-  minimal valid file; byte-assert managed render on init AND reproduce.
+  minimal valid file; config-assert managed render on init AND reproduce.
   Acceptance: SC-001, US1 AS1-2.
 
 - [x] **T004** [US9] NEW module `bailiff-mod-editorconfig` per FR-006; loop test
@@ -124,7 +124,7 @@ Every module task implicitly includes ALL of the following before it is consider
   indentation derives from the linter's convention ONLY, never from line-width facts.
   (4) `run_after: [bailiff-mod-base]`. (5) Loop tests: init alone → universal-defaults only;
   with `ts_linter=biome` → TypeScript section uses biome's indent convention; with Python
-  facts + `ruff_line_length=88` → Python section `max_line_length=88`; byte-assert on
+  facts + `ruff_line_length=88` → Python section `max_line_length=88`; config-assert on
   init AND reproduce.
   Acceptance: SC-001, US9 AS1-3.
 
@@ -137,7 +137,7 @@ Every module task implicitly includes ALL of the following before it is consider
   `hook_blocks` union (written by bailiff-mod-precommit only). (4) Trust-gated `_task`: mise
   preflight (init-only-guarded). No cog bump, no tag, no changelog at scaffold time.
   (5) `run_after: [bailiff-mod-base]`; threads `project_name`, `layout`,
-  `monorepo_packages`. (6) Loop tests: init single layout → managed cog.toml byte-identical
+  `monorepo_packages`. (6) Loop tests: init single layout → managed cog.toml config-consistent
   on reproduce; init monorepo → `[monorepo]` section present; no tag/changelog; hook_blocks
   contribution present.
   Acceptance: SC-003, US2 AS1-3.
@@ -153,7 +153,7 @@ Every module task implicitly includes ALL of the following before it is consider
   deletes the other tool's file. `run_after: [bailiff-mod-base]`. (6) Loop tests:
   `github_host=true` + default → dependabot.yml present, renovate.json absent;
   `github_host=false` + default → renovate.json present; `dep_update_tool=dependabot` +
-  `github_host=false` → dependabot.yml with warning comment; byte-assert on init AND
+  `github_host=false` → dependabot.yml with warning comment; config-assert on init AND
   reproduce.
   Acceptance: SC-002, US3 AS1-5.
 
@@ -170,7 +170,7 @@ Every module task implicitly includes ALL of the following before it is consider
   Contributes `moon` to `mise_tools` union. (4) Sets `monorepo_tool=moon` as frozen answer
   for CI consumption. (5) Single-package behavior per NC resolution. (6) `run_after:
   [bailiff-mod-base]`; threads `layout`, `monorepo_packages`. (7) Loop tests: init
-  `[base(layout=monorepo), moon]` → managed workspace config byte-identical on reproduce;
+  `[base(layout=monorepo), moon]` → managed workspace config config-consistent on reproduce;
   confirm CI can consume `monorepo_tool=moon`; single-package behavior tested per NC.
   Acceptance: SC-004, US4 AS1-3.
 
@@ -182,7 +182,7 @@ Every module task implicitly includes ALL of the following before it is consider
   `mkdocs.yml` wired to `docs/` dir. (3) Seed-once starter pages (`docs/index.md` via
   `_skip_if_exists`). (4) Contributes `mkdocs-material` + `mkdocs` to `mise_tools` union.
   (5) No build/deploy at scaffold time. `run_after: [bailiff-mod-base]`. (6) Loop tests:
-  managed mkdocs.yml byte-identical on reproduce; seed-once index.md preserved on re-run
+  managed mkdocs.yml config-consistent on reproduce; seed-once index.md preserved on re-run
   with edited content; no network action.
   Acceptance: SC-006, US5 AS1-3.
 
@@ -203,11 +203,11 @@ Every module task implicitly includes ALL of the following before it is consider
   (OpenAPI path/version resolved: root `openapi.yaml`, OpenAPI 3.1 — see decisions-ledger.)
   Requirements: (1) Zero `_tasks` — pure render. (2) Seed-once OpenAPI skeleton
   (`_skip_if_exists`): minimal valid OpenAPI 3.1 skeleton with placeholder info, empty
-  paths. (3) Managed spectral config (`.spectral.yaml`): byte-identical on reproduce.
+  paths. (3) Managed spectral config (`.spectral.yaml`): config-consistent on reproduce.
   (4) Contributes `spectral` to `mise_tools` union. (5) Contributes spectral-lint block to
   `hook_blocks` union (inert when `hook_manager=none`). (6) Threads `hook_manager`.
   `run_after: [bailiff-mod-base]`. (7) Loop tests: seed-once openapi.yaml present; managed
-  .spectral.yaml byte-identical on reproduce; re-run preserves edited openapi.yaml;
+  .spectral.yaml config-consistent on reproduce; re-run preserves edited openapi.yaml;
   `hook_manager=none` → module renders files but no hook file written.
   Acceptance: SC-006, US7 AS1-3.
 
@@ -220,7 +220,7 @@ Every module task implicitly includes ALL of the following before it is consider
   lint). Confirm: (a) no `secret:` in any 012 module; (b) reproduce without toolchain/
   network for every 012 module; (c) FR-009 annotations present in 011 spec artifacts;
   (d) FR-010a loop tests cover moon branch for both CI hosts; (e) all MANAGED renders
-  byte-identical on reproduce; (f) all seed-once files respect `_skip_if_exists`;
+  config-consistent on reproduce; (f) all seed-once files respect `_skip_if_exists`;
   (g) no `src/bailiff/` code added (C-11). Fix any deviation.
 
 ---

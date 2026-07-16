@@ -65,10 +65,10 @@ workflow). `just check-modules` is the contract gate (SC-006).
 **Project Type**: copier template family authored in a monorepo, fanned out per-repo by
 008b (ADR-0006). Consumed as multi-template layers (ADR-0003).
 
-**Constraints**: reproduce is faithful + agent-free (Constitution III); byte-identical
+**Constraints**: reproduce is faithful + agent-free (Constitution III); config-consistent
 for **managed** renders only; **seed-once** files (`AGENTS.md`, `pyproject.toml`) via
 `_skip_if_exists`; **task outputs** (`.gitignore` via gitnr, `LICENSE` via gh) are
-process-deterministic, outside the byte-identical set. NO `jinja2_time`; `today` injected
+process-deterministic, outside the config-consistent set. NO `jinja2_time`; `today` injected
 as an answer (Constitution V). NO `secret:` questions (Constitution VI).
 
 **Scale/Scope**: 2 modules. `bailiff-mod-base` collapses 6 project-setup base modules into
@@ -82,11 +82,11 @@ one template (Q1/FR-013); `bailiff-mod-python` is one language overlay `run_afte
 |---|---|---|
 | **I — Skills + Templates + Minimal Glue (C-11)** | PASS | Pure template content under `templates/bailiff-mod-{base,python}/`. NO new `src/bailiff/` module, NO new `scripts/bailiff.py` verb. Q5 (gates→copier booleans + source trust), Q6 (preflight `_task`), Q7 (gitnr `_task`) each avoid new glue — verified no copier gap. Authored via existing `just new-module`; linted by existing `check_modules.py`. |
 | **II — Two-Phase; skill conducts, helpers execute** | PASS | The one `agent`-tier decision (`agents-md` resolve-arch) is phase-1 judgment: the skill freezes `architecture_md` + `agent_editable_globs` as `--data` answers (structured facts, Q3). Reproduce replays them; no agent in the reproduce path. |
-| **III — Reproduce is faithful + agent-free** | PASS (with lifecycle split) | **Managed** files (dir scaffold `.gitkeep`s, AGENTS.md skeleton render) re-render byte-identically from committed answers. **Seed-once** files (`AGENTS.md`, `pyproject.toml`) use `_skip_if_exists` — on a *fresh-checkout* reproduce they render normally (III holds); the skip only protects an already-populated re-run/`update` tree (SC-003a). **Task outputs** (`.gitignore`/gitnr, `LICENSE`/gh) are process-deterministic (III explicitly allows task side-effects). Order recomputed from committed answers + pinned edges (base internal; python `run_after` base). |
+| **III — Reproduce is faithful + agent-free** | PASS (with lifecycle split) | **Managed** files (dir scaffold `.gitkeep`s, AGENTS.md skeleton render) re-render config-consistently from committed answers. **Seed-once** files (`AGENTS.md`, `pyproject.toml`) use `_skip_if_exists` — on a *fresh-checkout* reproduce they render normally (III holds); the skip only protects an already-populated re-run/`update` tree (SC-003a). **Task outputs** (`.gitignore`/gitnr, `LICENSE`/gh) are process-deterministic (III explicitly allows task side-effects). Order recomputed from committed answers + pinned edges (base internal; python `run_after` base). |
 | **IV — copier CLI + static config** | PASS | Edges are `when:false` hidden answers statically read from `copier.yml`; no deprecated Template/Worker surface introduced. |
 | **V — Determinism via pinning; trust by source** | PASS | `gitnr` and `gh` LICENSE and `git init/commit` are trust-gated `_tasks`; `gitnr` **version-pinned** in the task command (Q7); `today` injected as an answer, never `jinja2_time`. Trust is source-level; the deterministic phase never writes trust. |
 | **VI — Template-author contract** | PASS | Both modules ship `{{ _copier_conf.answers_file }}.jinja`; clean PEP 440 tags via cocogitto fan-out (ADR-0006); `when:false` edges; new `_migrations` format only if any declared (none in Phase 0); **NO `secret:` questions** — LICENSE/`gh` reads token from ambient env (like `bailiff-template-example`). |
-| **VII — Hardening is per-step** | PASS | Each module lands an init+reproduce integration test; managed-render byte/drift assertion; error surfacing via the existing `_translate`; `check_modules.py` gate. No deprecated-surface adapter → no drift test needed. |
+| **VII — Hardening is per-step** | PASS | Each module lands an init+reproduce integration test; managed-render config/drift assertion; error surfacing via the existing `_translate`; `check_modules.py` gate. No deprecated-surface adapter → no drift test needed. |
 | **VIII — Documented, dry-run-validated handoff** | PASS | Frozen inputs are copier answers (`--data`/answers-file) documented in `SKILL.md`; the agent-frozen `architecture_md` is **structured facts rendered deterministically**, not a bespoke schema. Validation reuses copier's own dry run + answer validation. |
 
 No violations → **Complexity Tracking is empty** (see end).
@@ -145,10 +145,10 @@ the monorepo — ADR-0002 `_src_path` gotcha).
 
 ## Phase-0 module → file → lifecycle mapping
 
-Each output is classified **managed** (re-rendered byte-identically, Constitution III),
+Each output is classified **managed** (re-rendered config-consistently, Constitution III),
 **seed-once/living** (`_skip_if_exists`; scaffolded at init, then project-owned —
 D-009-7 / FR-005a), or **task-output** (process-deterministic, outside the
-byte-identical set — like `bailiff-template-example`'s LICENSE).
+config-consistent set — like `bailiff-template-example`'s LICENSE).
 
 ### `bailiff-mod-base` (collapses core-identity, dirs-scaffold, gitignore-generate, license-write, agents-md, git-init)
 
@@ -156,8 +156,8 @@ byte-identical set — like `bailiff-template-example`'s LICENSE).
 |---|---|---|---|
 | Directory scaffold `<dir>/.gitkeep` (20 base dirs; +15 monorepo targets when `layout=monorepo`) | dirs-scaffold | **managed** | Verbatim dir list from `dirs-scaffold/module.py` `_BASE_DIRS`/`_MONOREPO_TARGETS`. (module.py docstring says "21" but the local list is **20** entries — verify exact list at port; FR-011 forbids adding/removing.) Rendered as empty `.gitkeep` files. |
 | `AGENTS.md` | agents-md | **seed-once** (`_skip_if_exists`) | Rendered from `template/AGENTS.md.jinja` = the `single.md`/`monorepo.md` body (chosen by `layout`) with `PROJECT_NAME`/`ORG`/description substituted, plus the `## Architecture` sentinel span rendered from frozen `architecture_md` **iff `write_architecture=true`** (Q3+Q5). Seed-once because the project evolves it during development (D-009-7). Fresh-checkout reproduce still renders it (III holds). |
-| `.gitignore` | gitignore-generate | **task-output** (gitnr, pinned) | Q7: NOT a choice list and NOT a byte-rendered file. Generated by a version-pinned `gitnr` trust-gated `_task` from a threaded `gitignore_stack` answer (see *Ordering* below). Process-deterministic; regenerates the whole file (idempotent on reproduce). |
-| `LICENSE` | license-write | **task-output** (gh api) | Ported exactly like `bailiff-template-example`: `test -f LICENSE || gh api /licenses/<key>` with `[year]`/`[fullname]` filled from frozen `today`/`org`. Network-sourced → outside the byte-identical set; guard makes reproduce idempotent. `license` is a fixed 13-SPDX `choices:` question (FR-003 / Q7). |
+| `.gitignore` | gitignore-generate | **task-output** (gitnr, pinned) | Q7: NOT a choice list and NOT a config-rendered file. Generated by a version-pinned `gitnr` trust-gated `_task` from a threaded `gitignore_stack` answer (see *Ordering* below). Process-deterministic; regenerates the whole file (idempotent on reproduce). |
+| `LICENSE` | license-write | **task-output** (gh api) | Ported exactly like `bailiff-template-example`: `test -f LICENSE || gh api /licenses/<key>` with `[year]`/`[fullname]` filled from frozen `today`/`org`. Network-sourced → outside the config-consistent set; guard makes reproduce idempotent. `license` is a fixed 13-SPDX `choices:` question (FR-003 / Q7). |
 | `.git/` + optional initial commit | git-init | **task-output** (git) | `git init --quiet` (idempotent), then — iff `initial_commit=true` — `git add -A && git commit`. Ordered **last** among base `_tasks` (Q1/FR-013 template-internal). See the git-commit-scope caveat under *Residual ambiguities*. |
 | `.copier-answers.yml` | (copier) | **managed** | copier writes it from the answers-file `.jinja`; records `_src_path` + `_commit` for faithful reproduce. |
 

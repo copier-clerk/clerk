@@ -9,7 +9,7 @@ vitepress is a ratified later sibling, not an axis of this module.
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `mkdocs.yml` | **managed** | byte-identical on reproduce; wired to `docs/` |
+| `mkdocs.yml` | **managed** | config-consistent on reproduce; wired to `docs/` |
 | `docs/index.md` | **seed-once** | `_skip_if_exists`; project-owned after init |
 
 ## Pin strategy (ledger FR-011)

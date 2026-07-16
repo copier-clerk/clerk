@@ -13,8 +13,8 @@ modules.
 
 | Output | Lifecycle | Notes |
 |---|---|---|
-| `apm.yml` | **managed** | Rendered from the injected `apm_packages` list (+ threaded `project_name`). Re-rendered byte-identically at reproduce (Q3). |
-| `apm.lock.yaml` | **task-output** (`apm install`) | Written by the pinned `apm install` task. **External state** — regenerated at reproduce, NOT byte-guaranteed (Q3 / Constitution III). |
+| `apm.yml` | **managed** | Rendered from the injected `apm_packages` list (+ threaded `project_name`). Re-rendered config-consistently at reproduce (Q3). |
+| `apm.lock.yaml` | **task-output** (`apm install`) | Written by the pinned `apm install` task. **External state** — regenerated at reproduce, NOT config-guaranteed (Q3 / Constitution III). |
 | `.copier-answers.yml` | **managed** | Records `_src_path` + `_commit` (and the frozen `apm_packages`) for faithful reproduce. |
 
 ## The package set is runtime-injected (Q2)
@@ -71,10 +71,10 @@ copier copy --trust \
 
 ## Reproduce notes (Q3)
 
-Reproduce re-renders `apm.yml` **byte-identically** from the committed answers +
+Reproduce re-renders `apm.yml` **config-consistently** from the committed answers +
 pinned commit. The install task re-runs under trust and regenerates
 `apm.lock.yaml`; that lock is **external state** and MAY differ across runs
-(upstream resolution can change) — only `apm.yml` is byte-reproducible. The task
+(upstream resolution can change) — only `apm.yml` is config-reproducible. The task
 pins the APM CLI version (`apm_cli_version`) to make resolution as deterministic
 as upstream allows.
 

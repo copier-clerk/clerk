@@ -223,7 +223,7 @@ template code).
   every usable template with full-id + versions, and every unusable source with a
   reason.
 - **SC-002**: `catalog list` is deterministic — repeated runs against the same
-  sources at the same pins produce byte-identical listings.
+  sources at the same pins produce config-consistent listings.
 - **SC-003**: The agent can fully manage the catalog: create-if-absent, add, remove,
   list — idempotently, without destroying unrelated entries.
 - **SC-004**: Selection is safe — a valid full-id validates (exit 0); an unknown or

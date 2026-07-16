@@ -63,7 +63,7 @@ application (no `uvx bailiff` / PyPI target this slice; the existing `pyproject.
 **Performance Goals**: None; correctness + determinism only.
 
 **Constraints**: Hermetic/offline tests except one marked smoke test; deterministic
-reproduce (byte-identical over an enumerated path set, empty exclusion list); no
+reproduce (config-consistent over an enumerated path set, empty exclusion list); no
 deprecated copier surface (static parsing suffices, so no adapter); the
 deterministic path never prompts and never writes trust; glue justified only by a
 copier gap (Constitution I / C-11).
@@ -82,7 +82,7 @@ Evaluated against constitution **v2.0.0** (Principles I–VIII). Initial gate: *
 |---|---|---|
 | I — Skills + templates + minimal glue | PASS | Deliverables are a `SKILL.md`, the `bailiff-template-example` template, and a small discovery/validation helper + generated reproduce recipe. No package, no wrapper re-implementing copier. |
 | II — Two-phase; skill conducts, helpers execute | PASS | Skill authors a documented answers document; the deterministic phase is copier CLI calls (± the helper), runnable/testable with no LLM. Agent never in reproduce. |
-| III — Faithful, agent-free reproduce | PASS | Generated `just reproduce` pins `--vcs-ref=:current: --defaults --overwrite`; bare recopy never used; upgrade out of scope. Determinism test asserts byte-identity. |
+| III — Faithful, agent-free reproduce | PASS | Generated `just reproduce` pins `--vcs-ref=:current: --defaults --overwrite`; bare recopy never used; upgrade out of scope. Determinism test asserts config-consistency. |
 | IV — Prefer CLI + static config; adapter only if used | PASS | Discovery is a static `copier.yml`/file-tree parse; no Jinja env, no `Template`/`Worker` → **no adapter, no drift test** this slice. copier pinned `<10`. |
 | V — Determinism via pinning; trust by source | PASS | `today` injected via `--data`; template forbids clock/random; trust in `settings.yml` (expanded-https); deterministic phase never writes trust; CI fails loudly. |
 | VI — Template-author contract at discovery | PASS | Discovery statically checks the answers-file `.jinja` (FR-016) + version resolvability (FR-016a) and refuses non-conforming; `bailiff-template-example` conforms + clean `v1.0.0`. |
@@ -138,7 +138,7 @@ scripts/                  # Minimal glue — only what copier CLI + agent cannot
 
 tests/
 ├── loop/
-│   ├── test_init_reproduce.py       # US1+US2: copier copy → recorded answers → recopy :current: (SC-002 byte-exact, empty exclusion)
+│   ├── test_init_reproduce.py       # US1+US2: copier copy → recorded answers → recopy :current: (SC-002 config-consistent, empty exclusion)
 │   ├── test_trust_refusal.py        # US4: untrusted action-taking template refused (exit 4 / clear error) → consent → success
 │   ├── test_discover_static_safe.py # US3/FR-004a: discovery reads statically, executes no template code, needs no trust
 │   ├── test_answersfile_refusal.py  # US5/FR-016: refuse template lacking the answers-file .jinja

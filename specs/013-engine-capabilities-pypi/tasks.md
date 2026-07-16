@@ -102,7 +102,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
   (2) Implement `_check_capability_conflicts(records, dest, exclusive_capabilities)` per the plan's Group B / Work stream 3 algorithm: collect `provides` from selected records + already-installed modules (read from `.copier-answers.*.yml` in dest, discover each recorded source at its `_commit`); for each capability with >1 provider where the capability is in `exclusive_capabilities`, emit a `warnings.warn` loud warning naming the capability and conflicting members; proceed (never raise).
   (3) Call `_check_capability_conflicts()` from BOTH the `check=False` and `check=True` branches of `init_many`, immediately after `layer_plan()` and before any render.
   (4) FR-012: `reproduce`, `reproduce_many`, `update`, `update_many` are NOT touched.
-  (5) Write `tests/test_runner_capability_warning.py`: use a monkeypatched/fixture `discovery.discover`; test: single provider = no warning; two providers of non-exclusive capability = no warning; two providers of exclusive capability = warning emitted; incremental add (dest has existing answers file with a recorded module) = warning fires; four modules where third (not selected) declares exclusive = warning fires (group-infection); no-capability modules = byte-identical to pre-013 (SC-003 proxy).
+  (5) Write `tests/test_runner_capability_warning.py`: use a monkeypatched/fixture `discovery.discover`; test: single provider = no warning; two providers of non-exclusive capability = no warning; two providers of exclusive capability = warning emitted; incremental add (dest has existing answers file with a recorded module) = warning fires; four modules where third (not selected) declares exclusive = warning fires (group-infection); no-capability modules = config-consistent to pre-013 (SC-003 proxy).
   Dependency: T005 (Discovery.provides), T006 (TemplateRecord.provides / exclusive_capabilities must be derivable from the listing).
 
 - [x] T010 [US4] Add the init-time file-collision scan to `src/bailiff/runner.py` `init_many()`:
@@ -128,7 +128,7 @@ but many are parallel-eligible; the dependency DAG is explicit below.
   (3) Add `load_listing_cache(cache_path: Path | None = None) -> FullListing | None`: deserialize; return None on absent/corrupt file (never raise).
   (4) Add `build_and_cache_listing(catalog_path: Path) -> FullListing`: calls `build_listing(catalog_path)` then `persist_listing(…)`.
   (5) Wire into CLI dispatch (`scripts/bailiff.py` → later `cli.py` T013): `refresh` calls `build_and_cache_listing` and prints the cache path; `list` and `validate` call `load_listing_cache` first; if None, call `build_and_cache_listing` with a stderr notice that the cache was built automatically.
-  (6) Write `tests/test_catalog_cache.py`: persist + load round-trip (all fields including provides/exclusive/shadowed); corrupt cache → returns None; absent cache → returns None; atomic write (temp file replaced); CLI dispatch: `list` with no cache auto-builds; `refresh` writes cache; two consecutive `list` calls after `refresh` are byte-identical.
+  (6) Write `tests/test_catalog_cache.py`: persist + load round-trip (all fields including provides/exclusive/shadowed); corrupt cache → returns None; absent cache → returns None; atomic write (temp file replaced); CLI dispatch: `list` with no cache auto-builds; `refresh` writes cache; two consecutive `list` calls after `refresh` are config-consistent.
   Dependency: T006 (TemplateRecord extended, to_dict includes new fields).
 
 ---

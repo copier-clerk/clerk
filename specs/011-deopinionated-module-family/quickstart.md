@@ -36,8 +36,8 @@ Run the targeted loop tests (hermetic; native/network tasks stubbed offline):
 uv run pytest tests/loop/test_python_overlay.py tests/loop/test_ts_overlay.py -q
 ```
 Expected: base renders before the overlay (edge order), the native-init manifest marker is present
-(task-output), managed config (ruff/tsconfig) is byte-identical, the frozen `mise_tools` + gitignore
-tokens are present. Reproduce over the committed tree: managed re-renders byte-identically and the
+(task-output), managed config (ruff/tsconfig) is config-consistent, the frozen `mise_tools` + gitignore
+tokens are present. Reproduce over the committed tree: managed re-renders config-consistently and the
 committed manifest is used **verbatim** (init-only guard + `_skip_if_exists` → NOT regenerated, no
 toolchain/network needed — critique R5/M3). Assert manifest *presence/structure*, never regeneration.
 An edited manifest on a re-run is preserved.
@@ -59,7 +59,7 @@ host-lint-clean (actionlint / gitlab-ci lint — valid YAML ≠ valid workflow) 
 `ci_languages` fact — minimal no gate, standard gate, optimized change-filters; no `:latest`/unpinned
 refs; GitHub artifact majors match; GitLab change-gated `needs:` use `optional: true`; `merge-queue` +
 `gitlab_tier=free` → fallback + warning; empty `ci_languages` + `monorepo_tool==none` → loud warning,
-not silent (R4). Pure render → reproduce byte-identical.
+not silent (R4). Pure render → reproduce config-consistent.
 
 ## 7. IaC trio (US5, SC-005)
 ```

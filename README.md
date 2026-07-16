@@ -9,8 +9,8 @@ The bailiff fills in the paperwork; copier makes the copies.
 ## What bailiff is
 
 copier is a superb *deterministic* scaffolding engine: it renders templates from
-answers, pins templates to git refs, and reproduces a project byte-for-byte from
-a committed answers file. What copier has no concept of is the **agentic layer** —
+answers, pins templates to git refs, and reproduces a config-consistent project
+from a committed answers file. What copier has no concept of is the **agentic layer** —
 choosing which templates to apply, authoring the answers for you, and wiring up
 AI-agent tooling (APM packages, MCP servers, SpecKit, steering/ADR docs).
 

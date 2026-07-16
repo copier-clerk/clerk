@@ -48,7 +48,7 @@ green.
 (ADR-0006); consumed as multi-template layers (ADR-0003).
 
 **Constraints**: reproduce is faithful + agent-free (Constitution III, amended); **managed**
-renders byte-identical; **seed-once** files via `_skip_if_exists`; **task-output** (native-tool
+renders config-consistent; **seed-once** files via `_skip_if_exists`; **task-output** (native-tool
 manifests, `.gitignore`/gitnr, `LICENSE`/gh, `.terraform.lock.hcl`, apm lock) process-
 deterministic and version-pinned via `mise`; NO `jinja2_time` (Constitution V); NO `secret:`
 questions (Constitution VI). No new `src/bailiff/` code (C-11).
@@ -69,7 +69,7 @@ this plan (FR-019) — the check below is against the amended text.*
 |---|---|---|
 | **I — Skills + Templates + Minimal Glue (C-11)** | PASS | Pure template content under `templates/bailiff-mod-*/`. No new `src/bailiff/` module or `scripts/bailiff.py` verb. `mise`/native-commands/multi-model-CI/agentic-rollup are all copier questions + rendered files + trust-gated tasks — no copier gap requiring glue (FR-011). |
 | **II — Two-Phase; skill conducts, helpers execute** | PASS | Agent-tier decisions (CI model, stack facts, arch facts, plugin/target lists) are phase-1 judgment frozen as `--data` answers (FR-010); reproduce replays them, no agent in the reproduce path. |
-| **III — Reproduce is faithful + agent-free** | PASS (amended) | **Managed** renders byte-identical. **Seed-once** via `_skip_if_exists`. **Task-output** now explicitly includes native-tool-generated manifests (FR-019 amendment + ADR-0007) — process-deterministic, `mise`-pinned, extending the existing LICENSE/gitnr/apm-lock precedent already in III. Order recomputed from committed answers. |
+| **III — Reproduce is faithful + agent-free** | PASS (amended) | **Managed** renders config-consistent. **Seed-once** via `_skip_if_exists`. **Task-output** now explicitly includes native-tool-generated manifests (FR-019 amendment + ADR-0007) — process-deterministic, `mise`-pinned, extending the existing LICENSE/gitnr/apm-lock precedent already in III. Order recomputed from committed answers. |
 | **IV — copier CLI + static config** | PASS | Edges are `when:false` hidden answers statically read; no Template/Worker adapter introduced. |
 | **V — Determinism via pinning; trust by source** | PASS | Native-command + network tasks are trust-gated; tool versions pinned via `mise .mise.toml`; `today` injected, no `jinja2_time`; no irreversible cloud action at scaffold time (FR-009). |
 | **VI — Template-author contract** | PASS | Every module ships the answers-file `.jinja`, `when:false` edges, clean tags via cocogitto; **NO `secret:` questions** — tokens read from ambient env by tasks (FR-005). |
@@ -174,8 +174,8 @@ and its cog/catalog registration migrates to `bailiff-mod-agentic`.
 - **FR-019 — Constitution III amendment + ADR-0007**: III already carves out "process-deterministic,
   tasks touch external state"; the amendment adds native-tool-generated manifests (via `mise`-pinned
   native init) as an explicit member of that task-output category, and ADR-0007 records the tradeoff
-  (authentic new-project setup + mise pinning vs strict byte-identity) and the boundary (config bailiff
-  owns stays byte-identical). Constitution bumps 2.2.0→2.3.0 (MINOR — materially expanded guidance).
+  (authentic new-project setup + mise pinning vs strict config-consistency) and the boundary (config bailiff
+  owns stays config-consistent). Constitution bumps 2.2.0→2.3.0 (MINOR — materially expanded guidance).
   **Gate: no 011 module is released until this lands** (SC-008).
 - **Spec-007 reconciliation (FR-016/FR-020)**: amend 007's Q1/OQ-007-b/f/D-007-4 to record the hybrid
   resolution (agentic rollup + apm folded + speckit separate); 007's apm-specific FRs (apm.yml/install/
@@ -229,7 +229,7 @@ and its cog/catalog registration migrates to `bailiff-mod-agentic`.
 
 | Item | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| Constitution III amendment (v2.3.0) | Native-command scaffolding makes manifests process-deterministic, not byte-identical (FR-007/FR-019) | Rendering byte-identically was the Phase-0 model; maintainer chose native+mise (more authentic) and to keep it bundled (critique M4 — decouple option declined). In-scope per III's own governance rule. |
+| Constitution III amendment (v2.3.0) | Native-command scaffolding makes manifests process-deterministic, not config-consistent (FR-007/FR-019) | Rendering config-consistently was the Phase-0 model; maintainer chose native+mise (more authentic) and to keep it bundled (critique M4 — decouple option declined). In-scope per III's own governance rule. |
 | base/python MAJOR bump, no update path | 011 reshapes released v0.1.0 incompatibly (M2) | `_migrations` across managed→seed-once + moved dirs is fiddly + low-value at near-zero consumers; clean break is honest (greenfield). No user-facing break docs (maintainer). |
 
 ## Critique resolutions (2026-07-14) — folded into spec/plan/contracts

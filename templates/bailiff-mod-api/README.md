@@ -10,7 +10,7 @@ runtime code.
 | File | Lifecycle | Notes |
 |---|---|---|
 | `openapi.yaml` (repo root) | **seed-once** | `_skip_if_exists`; OpenAPI 3.1 minimal valid skeleton; project-owned after init |
-| `.spectral.yaml` | **managed** | byte-identical on reproduce; `extends: spectral:oas` |
+| `.spectral.yaml` | **managed** | config-consistent on reproduce; `extends: spectral:oas` |
 
 Root placement + 3.1 are the ledger-ratified defaults (FR-013): spectral and
 editors find a root `openapi.yaml` without configuration, and since the

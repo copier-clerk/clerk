@@ -147,7 +147,7 @@ tests/
 │                        #   stable tie-break; cycle detection; dangling-edge detection; collision refusal.
 └── loop/
     ├── test_multi_init.py       # NEW: US1 — ordered apply, threaded answers, per-layer answers files,
-    │                            #   order-independence for disjoint layers (byte-identical both orders).
+    │                            #   order-independence for disjoint layers (config-consistent both orders).
     ├── test_multi_reproduce.py  # NEW: US2 — recompute from committed state, twice-identical, no recipe
     │                            #   file present, copier-only-by-hand parity; N=1 no-regression.
     ├── test_multi_preflight.py  # NEW: US3 — all-gaps --check reports every missing answer, writes nothing.

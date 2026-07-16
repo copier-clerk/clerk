@@ -15,7 +15,7 @@ There are **no open NEEDS CLARIFICATION** items.
 ### R2 — Scaffolding: native tool commands
 - **Decision**: scaffold via `uv init`/`bun init`/`cargo new`/`go mod init`/`cdk init` as trust-gated tasks; manifests are process-deterministic task-output; deps added via native `add`.
 - **Rationale**: authentic idiomatic output owned by the tool author; far less Jinja branching for de-opinionation; correctness (e.g. pnpm workspace format) is the tool's job. bailiff targets new-project setup so tool presence at scaffold is acceptable.
-- **Alternatives**: render manifests byte-identically (Phase-0 model — reimplements each PM's format, drifts, fights de-opinionation); native-init-then-freeze-bytes (goes stale). Recorded in ADR-0007. Requires the Constitution III amendment (FR-019).
+- **Alternatives**: render manifests config-consistently (Phase-0 model — reimplements each PM's format, drifts, fights de-opinionation); native-init-then-freeze-bytes (goes stale). Recorded in ADR-0007. Requires the Constitution III amendment (FR-019).
 
 ### R3 — Cross-cutting choice axes (de-opinionation)
 - **Decision**: shared keys/choices with sane defaults, dead options dropped — Python PM `[uv,pdm]=uv`; JS PM `[bun,pnpm,npm]=bun`; hook manager `[pre-commit,lefthook,none]=pre-commit`; Python layout `[flat,src]=src`; TS linter `[biome,eslint-prettier]=biome`; ruff line-length 88 / quotes double / profile standard; version lists finite with modern defaults.
@@ -49,8 +49,8 @@ There are **no open NEEDS CLARIFICATION** items.
 
 ### R9 — Reproduce-model reconciliation (FR-019)
 - **Decision**: amend Constitution III → v2.3.0 + write ADR-0007; gate all 011 releases on it landing.
-- **Rationale**: native-command manifests are process-deterministic, softening III's byte-identical form for those files; III already carved out task side-effects, so this is a clarifying MINOR amendment.
-- **Alternatives**: don't formalize (leaves constitution/behavior gap); keep byte-identical renders (reverses R2).
+- **Rationale**: native-command manifests are process-deterministic, softening III's config-consistent form for those files; III already carved out task side-effects, so this is a clarifying MINOR amendment.
+- **Alternatives**: don't formalize (leaves constitution/behavior gap); keep config-consistent renders (reverses R2).
 
 ## Cross-cutting facts consumed unchanged (no research needed)
 - spec-003 `init_many` threads all prior-layer answers via its accumulator (`data = {**accumulated, **layer_answers}` then `_merge_layer_answers`) — verified at `src/bailiff/runner.py:307–352`; cross-module answer forwarding needs no new engine code.

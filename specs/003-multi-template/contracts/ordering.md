@@ -59,7 +59,7 @@ name it).
 
 **Determinism**: pinned commits → identical edges → identical graph → identical
 sort (same tie-break). Edge-independent layers writing disjoint paths therefore
-produce byte-identical output regardless of the selection's input order.
+produce config-consistent output regardless of the selection's input order.
 
 ## Init (apply the layers)
 

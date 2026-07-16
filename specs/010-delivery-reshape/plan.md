@@ -34,7 +34,7 @@ Concretely:
   committed `.copier-answers.yml` is the entire reproduce state.
 - The copier-only guarantee is preserved **for free**: because `bailiff.py reproduce`
   only issues plain `copier recopy` commands, a human with copier but no bailiff (and
-  no `just`) runs the same commands by hand and gets a byte-identical result (US1 /
+  no `just`) runs the same commands by hand and gets a config-consistent result (US1 /
   SC-001). That direct-copier invocation is the documented **fallback**, not a
   competing primary path.
 
@@ -83,10 +83,10 @@ bailiff file). Trust lives in copier's `settings.yml`
 marked network smoke test against `bailiff-io/bailiff-template-example`. The loop
 tests are **adapted, not weakened** (FR-007): assertions that previously invoked the
 `bailiff` console script now invoke `scripts/bailiff.py <verb>` across the full loop
-(discover/trust/init/reproduce), asserting the same outcomes (byte-identical
+(discover/trust/init/reproduce), asserting the same outcomes (config-consistent
 reproduce, refusals, exit codes). One reproduce test additionally runs the
 **copier-only-by-hand** fallback (plain `copier recopy` with no bailiff/just) and
-asserts it matches `bailiff.py reproduce` byte-for-byte (US1). `mypy --strict` +
+asserts it matches `bailiff.py reproduce` config-equivalent (US1). `mypy --strict` +
 `ruff` apply to the bundled script and the retained library modules.
 
 **Target Platform**: Developer workstations + CI (macOS/Linux).
@@ -97,7 +97,7 @@ application: no `[project.scripts] bailiff`, no `uvx bailiff`/PyPI target.
 **Performance Goals**: None; correctness + determinism only.
 
 **Constraints**: Hermetic/offline tests except one marked smoke test; faithful
-byte-identical reproduce with **copier alone** (no bailiff, no just); no bailiff file
+config-consistent reproduce with **copier alone** (no bailiff, no just); no bailiff file
 committed into a generated project; deterministic phase never prompts and never
 writes trust; no deprecated copier surface (static parse suffices, no adapter);
 glue justified only by a copier gap (Constitution I / C-11).
@@ -120,11 +120,11 @@ runtime-recompute in the same PR that reshaped this spec). Initial gate: **PASS*
 |---|---|---|
 | I — Skills + templates + minimal glue | PASS | Deliverable is `SKILL.md` + one bundled `scripts/bailiff.py` driving copier's public API once per template layer (never re-implementing it). Removes `[project.scripts] bailiff`. Uniform 1..N path — no speculative single-template branch. Strictly *reduces* glue vs 001. |
 | II — Two-phase; skill conducts, helpers execute | PASS | Skill authors the run-spec; the deterministic phase is `scripts/bailiff.py` (init/reproduce/discover/trust), runnable/testable with no LLM. Agent never in reproduce. |
-| III — Faithful, agent-free reproduce | PASS | `bailiff.py reproduce` drives `run_recopy(vcs_ref=CURRENT, …)` per answers file; bare recopy never used; multi-template order recomputed (003), never frozen. The exact commands run by hand without bailiff reproduce identically. Determinism test asserts byte-identity. |
+| III — Faithful, agent-free reproduce | PASS | `bailiff.py reproduce` drives `run_recopy(vcs_ref=CURRENT, …)` per answers file; bare recopy never used; multi-template order recomputed (003), never frozen. The exact commands run by hand without bailiff reproduce identically. Determinism test asserts config-consistency. |
 | IV — Prefer CLI + static config; adapter only if used | PASS | `discover` is a static parse; init/reproduce drive copier's **public** `run_copy`/`run_recopy`; `--check` is copier's `--pretend`; no Jinja env, no `Template`/`Worker` → **no adapter, no drift test**. copier pinned `<10`. |
 | V — Determinism via pinning; trust by source | PASS | `today` injected via `data=`; trust in `settings.yml` (expanded-https), written only by `bailiff.py trust` on consent; copier authoritatively refuses untrusted sources (bailiff pre-checks to name the prefix); CI fails loudly. |
 | VI — Template-author contract at discovery | PASS | Reproducibility refusal (answers-file `.jinja`) is enforced *at discovery* (its constitutional home), re-checked before `init` writes, + SKILL stop-on-`reproducible:false`; version resolvability likewise. |
-| VII — Hardening per-step (scaled) | PASS | DoD = byte-identical reproduce test (both via `bailiff.py reproduce` and the by-hand copier-only fallback) + error surfacing (`bailiff.py` translates copier errors + surfaces `DiscoveryError`/`UntrustedSourceError`) + adapted loop/unit tests. No adapter → no drift test. |
+| VII — Hardening per-step (scaled) | PASS | DoD = config-consistent reproduce test (both via `bailiff.py reproduce` and the by-hand copier-only fallback) + error surfacing (`bailiff.py` translates copier errors + surfaces `DiscoveryError`/`UntrustedSourceError`) + adapted loop/unit tests. No adapter → no drift test. |
 | VIII — Documented, dry-run-validated handoff | PASS | Handoff stays a documented plain-YAML run-spec; validation is copier's `--pretend`. No pydantic/JSON-Schema. |
 
 **Complexity deviations**: none. This plan *removes* surface (the `bailiff` console
@@ -195,7 +195,7 @@ tests/
 ├── loop/                # ADAPTED (not weakened): invoke scripts/bailiff.py for the whole loop; same
 │   │                    #   assertions. Reproduce also verified by hand with copier-only (US1).
 │   ├── test_init.py                  # `bailiff.py init` (N=1); asserts recorded answers, NO justfile/bailiff file written
-│   ├── test_reproduce.py             # `bailiff.py reproduce` byte-identical + the by-hand `copier recopy :current:` fallback (no bailiff/just)
+│   ├── test_reproduce.py             # `bailiff.py reproduce` config-consistent + the by-hand `copier recopy :current:` fallback (no bailiff/just)
 │   ├── test_check.py                 # `bailiff.py init --check` (copier --pretend) writes nothing; surfaces invalid answers
 │   ├── test_trust_refusal.py         # action-taking untrusted source refused; consent via bailiff.py trust → success
 │   ├── test_answersfile_refusal.py   # discover reports reproducible:false; init refuses before writing (VI)

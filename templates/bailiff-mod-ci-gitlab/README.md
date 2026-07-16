@@ -1,7 +1,7 @@
 # bailiff-mod-ci-gitlab
 
 Renders a `.gitlab-ci.yml` CI pipeline file for GitLab. Pure managed render —
-zero `_tasks`, reproduces byte-identically.
+zero `_tasks`, reproduces config-consistently.
 
 ## Models
 

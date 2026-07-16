@@ -47,4 +47,4 @@ in the confirmed publish batch — FR-020).
 Amend 007 Q1/OQ-007-b/f/D-007-4: hybrid resolution — agentic rollup + apm folded + speckit separate. 007's apm FRs (apm.yml/install/lockfile) migrate here; empty-set refusal (007 FR-002b) DROPPED. Old `copier-bailiff/bailiff-mod-apm` mirror tombstoned (confirmed public action, not authoring).
 
 ## Tests
-init with each subset of targets renders disjoint config; empty selection = clean no-op; native_marketplace → manifests + (stubbed) plugin install; install_via_apm + kiro → apm path; mcp_config → per-target mcp file with ${VAR} refs (no secret question); reproduce managed byte-identical, apm/plugin tasks re-run idempotent.
+init with each subset of targets renders disjoint config; empty selection = clean no-op; native_marketplace → manifests + (stubbed) plugin install; install_via_apm + kiro → apm path; mcp_config → per-target mcp file with ${VAR} refs (no secret question); reproduce managed config-consistent, apm/plugin tasks re-run idempotent.

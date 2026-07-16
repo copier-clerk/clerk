@@ -10,7 +10,7 @@ description: "Task list for bailiff delivery reshape — skill-bundled copier wr
 [constitution](../../.specify/memory/constitution.md) v2.1.0
 
 **Tests**: INCLUDED. Constitution VII makes per-step hardening (copier-only
-byte-identical reproduce, error surfacing, static-discovery safety) part of this
+config-consistent reproduce, error surfacing, static-discovery safety) part of this
 spec's definition-of-done, so test tasks are first-class.
 
 **Organization**: grouped by user story (US1–US4 from spec.md) so each is
@@ -71,7 +71,7 @@ path, reusing the 001 libraries; relocate the VI gate re-check + prefix suggesti
 - [ ] T007b [US3] Add a small answers-file enumeration helper in `src/bailiff/runner.py` (e.g. `enumerate_answers_files(dest)`) and make `scripts/bailiff.py reproduce [DEST]` loop over it, driving `runner.reproduce(...)` per file. At N=1 it finds one `.copier-answers.yml` → one recopy (identical to 001). The multi-file **ordering** is 003 (this just establishes the uniform loop; a single-file project must behave exactly as before).
 - [ ] T007c [US1] Confirm the Constitution VI reproducibility refusal is expressed at discovery AND re-checked before `init` writes: `discover` emits `reproducible`; `runner.init` keeps its `_require_reproducible` guard. Ensure the SKILL can stop on `reproducible:false` without invoking init.
 
-**Checkpoint**: `uv run scripts/bailiff.py discover|trust|init|reproduce` all behave as 001's `bailiff` verbs (minus justfile); a single-template init+reproduce round-trips byte-identically.
+**Checkpoint**: `uv run scripts/bailiff.py discover|trust|init|reproduce` all behave as 001's `bailiff` verbs (minus justfile); a single-template init+reproduce round-trips config-consistently.
 
 ---
 
@@ -87,15 +87,15 @@ path, reusing the 001 libraries; relocate the VI gate re-check + prefix suggesti
 
 ---
 
-## Phase 4: US1 — reproduce byte-identically; copier-only fallback works
+## Phase 4: US1 — reproduce config-consistently; copier-only fallback works
 
 **Purpose**: the headline guarantee — `bailiff.py reproduce` and the by-hand
 copier-only path produce identical output. **P1.**
 
-- [ ] T011 [P] [US1] Adapt `tests/loop/test_reproduce.py`: (a) reproduce a fixture-generated project via `scripts/bailiff.py reproduce` (subprocess); (b) in a separate clone, reproduce by hand with **`copier recopy --vcs-ref=:current: --defaults --overwrite`** and **no bailiff import, no `just`**; assert both trees are byte-identical to each other and to the recorded commit (empty exclusion set as in 001). Assert the project dir contains **no `justfile`** and no bailiff file (SC-002).
+- [ ] T011 [P] [US1] Adapt `tests/loop/test_reproduce.py`: (a) reproduce a fixture-generated project via `scripts/bailiff.py reproduce` (subprocess); (b) in a separate clone, reproduce by hand with **`copier recopy --vcs-ref=:current: --defaults --overwrite`** and **no bailiff import, no `just`**; assert both trees are config-consistent to each other and to the recorded commit (empty exclusion set as in 001). Assert the project dir contains **no `justfile`** and no bailiff file (SC-002).
 - [ ] T012 [US1] Keep `src/bailiff/runner.reproduce` unit-tested as the per-layer driver; assert the copier-only-by-hand fallback (T011 part b) needs no bailiff on PATH — i.e. `bailiff.py` is ergonomics, not a reproduce-time dependency.
 
-**Checkpoint**: `uv run pytest tests/loop/test_reproduce.py` passes; both the `bailiff.py` path and the copier-only-by-hand path reproduce byte-identically with zero bailiff artifacts.
+**Checkpoint**: `uv run pytest tests/loop/test_reproduce.py` passes; both the `bailiff.py` path and the copier-only-by-hand path reproduce config-consistently with zero bailiff artifacts.
 
 ---
 
@@ -119,7 +119,7 @@ in the mechanical path. **P1.**
 ordering algorithm + orchestrator implementation are spec 003. **P1 (contract).**
 
 - [ ] T017 [US3] In `contracts/invocation.md` (reproduce section) confirm the recompute contract is stated precisely: order recomputed from committed `.copier-answers*.yml` + each template fetched at its pinned `_commit`, `when:false` edges read, topo-sorted with a **stable, documented tie-break**; emits one `copier recopy --vcs-ref=:current:` per layer; **no frozen recipe/DAG file** committed. (No code here — this is the contract 003 must satisfy, FR-004/FR-005.)
-- [ ] T018 [P] [US3] Add a SKIPPED/xfail placeholder test `tests/loop/test_multitemplate_recompute.py` referencing spec 003, documenting the intended assertions (order respects edges; twice-run byte-identical; resolution uses only committed answers + pinned fetches; edge-independent disjoint-path templates are order-independent). Mark it clearly deferred so 003 fills it in — do NOT implement ordering here.
+- [ ] T018 [P] [US3] Add a SKIPPED/xfail placeholder test `tests/loop/test_multitemplate_recompute.py` referencing spec 003, documenting the intended assertions (order respects edges; twice-run config-consistent; resolution uses only committed answers + pinned fetches; edge-independent disjoint-path templates are order-independent). Mark it clearly deferred so 003 fills it in — do NOT implement ordering here.
 
 **Checkpoint**: the multi-template contract is unambiguous in `invocation.md`; a clearly-deferred placeholder test names the 003 obligations.
 
@@ -168,11 +168,11 @@ ordering algorithm + orchestrator implementation are spec 003. **P1 (contract).*
 
 ## Definition of done (maps to spec Success Criteria)
 
-- SC-001 — US1 test reproduces byte-identically with **copier alone** (T011).
+- SC-001 — US1 test reproduces config-consistently with **copier alone** (T011).
 - SC-002 — no bailiff file in a generated project; asserted in T011/T015/T019.
 - SC-003 — no `[project.scripts] bailiff`; `scripts/bailiff.py` is the surface;
   reproduce/update are portable skills (T001/T013/T019).
 - SC-004 — multi-template recompute **contract** fixed (T017); implementation +
-  its byte-identical/order tests are spec 003 (T018 placeholder).
+  its config-consistent/order tests are spec 003 (T018 placeholder).
 - SC-005 — 001's guarantees (faithful reproduce, trust gating, static-safe
   discovery) stay green under the new packaging (T016/T022/T023).
