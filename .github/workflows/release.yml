@@ -34,6 +34,9 @@ name: release
 on:
   push:
     branches: [main]
+    # v*.*.* tags (the TOOL's release tags; module tags are <name>-vX.Y.Z and do
+    # not match) trigger the pypi-publish job only (spec 013 T017).
+    tags: ["v*.*.*"]
   # Manual trigger for the PyPI publish job only (OIDC trusted publishing).
   workflow_dispatch:
 
@@ -54,7 +57,9 @@ jobs:
     # main at the token step. Once armed, it runs normally. (Set via:
     # `gh variable set BAILIFF_FANOUT_ARMED --org bailiff-io --body true` or the
     # repo Settings → Variables UI.)
-    if: vars.BAILIFF_FANOUT_ARMED == 'true'
+    if: >-
+      vars.BAILIFF_FANOUT_ARMED == 'true' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -202,11 +207,13 @@ jobs:
       # build, no deploy step, no pages/id-token permissions, no plan requirement.
 
   # ── PyPI publish (OIDC trusted publishing, no tokens) ─────────────────────
-  # Manual-only (workflow_dispatch): first publish claims the pending publisher
-  # registered on PyPI (project: bailiff, env: release). Spec 013's T017/T019
-  # will wire this to release tags; until then a maintainer triggers it by hand.
+  # Runs ONLY on a pushed v*.*.* tag or a manual workflow_dispatch (spec 013
+  # T017/SC-010: first publish is maintainer-confirmed — the maintainer pushes
+  # the tag or clicks dispatch). Inert on ordinary branch pushes.
   pypi-publish:
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     environment: release
     permissions:

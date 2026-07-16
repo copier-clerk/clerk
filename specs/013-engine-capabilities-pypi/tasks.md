@@ -186,7 +186,7 @@ must not appear in a release commit before T003 is in).
 **Purpose**: Add the publish step to CI — the step is inert until the maintainer
 triggers it. Depends on Phase 5 (verified green build).
 
-- [ ] T017 [US3] Add the PyPI publish step to `.github/workflows/release.yml` (or create the file if absent):
+- [x] T017 [US3] Add the PyPI publish step to `.github/workflows/release.yml` (or create the file if absent):
   (1) Add a `publish` job that runs ONLY on a pushed tag matching `v*.*.*`.
   (2) Uses OIDC trusted-publisher (PyPI environment `release`, audience `pypi`) if supported; otherwise uses a `PYPI_API_TOKEN` secret. OIDC is preferred (FR-004).
   (3) Steps: `uv build` → `uv publish` (or `twine upload`) with the built wheel.
