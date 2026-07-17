@@ -22,6 +22,7 @@ Invariants (constitution III/V):
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 import warnings
@@ -354,12 +355,22 @@ def _scan_init_collisions(
     calls) during what must be a side-effect-free scan. Raises ``CollisionError``
     on the first overlapping path; temp dirs are always cleaned up. Every layer
     has already passed the trust/reproducibility/secret pre-checks.
+
+    The scan renders each layer ALONE, so an ``_external_data`` consumer sees no
+    producer answers file and copier resolves the alias to an empty dict. That is
+    correct for overlap detection: no template FILENAME branches on
+    ``_external_data`` (only file bodies do), so the degraded solo render yields
+    the same path set as the real run. The temp dir MUST be canonicalized with
+    ``realpath`` — on macOS ``$TMPDIR`` is a ``/var → /private/var`` symlink, and
+    copier's ``_external_data`` loader compares a ``resolve()``-d answers-file path
+    against the unresolved subproject root, raising ``ForbiddenPathError`` for
+    every consumer otherwise (which silently skipped the overlap check).
     """
     seen: dict[str, str] = {}  # relative path → full_id of the layer that wrote it
     for record, af_name in plan:
         layer_answers = answers_map.get(record.full_id, {})
         data = {**accumulated, **layer_answers}
-        tmp = tempfile.mkdtemp(prefix="bailiff-collision-")
+        tmp = os.path.realpath(tempfile.mkdtemp(prefix="bailiff-collision-"))
         try:
             try:
                 run_copy(

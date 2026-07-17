@@ -63,8 +63,9 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
     mp.setenv("COPIER_SETTINGS_PATH", str(root / "settings.yml"))
     try:
         # Single iac-tool provider: the CAPABILITY CONFLICT warning must NOT fire.
-        # The benign collision-scan ForbiddenPathError skip (a different UserWarning)
-        # is known and harmless — we must not promote it to an error here.
+        # (The collision scan renders _external_data consumers cleanly now that its
+        # temp dir is realpath-canonicalized, so no ForbiddenPathError skip warning
+        # is expected here either.)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             yield init_stack(root, _LAYERS, exclusive_capabilities=frozenset({"iac-tool"}))
@@ -117,9 +118,7 @@ def test_precommit_bundler_merged_terraform_fragment(stack: Path) -> None:
     assert cfg_path.is_file(), "bundler did not emit .pre-commit-config.yaml"
     cfg = yaml.safe_load(cfg_path.read_text())
     by_repo = {r["repo"]: r for r in cfg["repos"]}
-    tf_entry = next(
-        (r for u, r in by_repo.items() if u.endswith("pre-commit-terraform")), None
-    )
+    tf_entry = next((r for u, r in by_repo.items() if u.endswith("pre-commit-terraform")), None)
     assert tf_entry is not None, "terraform hooks were not merged into the bundled config"
     # pre-commit requires a `rev` per repo: the module's default pin must satisfy it
     # even when the agent supplies no pre_commit_terraform_rev override.

@@ -112,6 +112,95 @@ def test_scan_passes_skip_tasks_true(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert all(c.get("skip_tasks") is True for c in calls)
 
 
+_PRODUCER_YML = dedent(
+    """\
+    project_name:
+      type: str
+    today:
+      type: str
+      default: ""
+    _subdirectory: template
+    """
+)
+
+_CONSUMER_YML = dedent(
+    """\
+    _external_data:
+      base: .copier-answers.producer.yml
+    project_name:
+      type: str
+      default: "{{ _external_data.base.project_name | default('', true) }}"
+    today:
+      type: str
+      default: ""
+    depends_on:
+      type: yaml
+      default:
+        - producer
+      when: false
+    _subdirectory: template
+    """
+)
+
+
+def test_external_data_consumers_are_scanned_for_collisions(tmp_path: Path) -> None:
+    """Regression: a collision BETWEEN two _external_data consumers must be caught.
+
+    Consumers render alone in the scan (no producer answers file present), so
+    copier resolves the alias to {}. Before the realpath fix the solo render
+    raised ForbiddenPathError (macOS $TMPDIR /var→/private/var symlink), which the
+    scan swallowed as "skip this layer" — silently disabling overlap detection for
+    ~20 of 27 real modules. The scan must now render both consumers and hard-stop.
+    """
+    producer = build_template_repo(
+        tmp_path / "producer",
+        files={
+            "copier.yml": _PRODUCER_YML,
+            "template/{{ _copier_conf.answers_file }}.jinja": (
+                "# {{ _copier_conf.answers_file }}\n{{ _copier_answers|to_nice_yaml }}\n"
+            ),
+        },
+    )
+    # Two consumers that BOTH read base via _external_data and BOTH write clash.txt.
+    con_a = build_template_repo(
+        tmp_path / "con-a",
+        files={
+            "copier.yml": _CONSUMER_YML,
+            "template/{{ _copier_conf.answers_file }}.jinja": (
+                "# {{ _copier_conf.answers_file }}\n{{ _copier_answers|to_nice_yaml }}\n"
+            ),
+            "template/clash.txt.jinja": "a={{ _external_data.base.project_name }}\n",
+        },
+    )
+    con_b = build_template_repo(
+        tmp_path / "con-b",
+        files={
+            "copier.yml": _CONSUMER_YML,
+            "template/{{ _copier_conf.answers_file }}.jinja": (
+                "# {{ _copier_conf.answers_file }}\n{{ _copier_answers|to_nice_yaml }}\n"
+            ),
+            "template/clash.txt.jinja": "b={{ _external_data.base.project_name }}\n",
+        },
+    )
+    for repo in (producer, con_a, con_b):
+        trust.add_trust(repo.url)
+
+    dest = tmp_path / "out"
+    with pytest.raises(CollisionError) as exc_info:
+        runner.init_many(
+            [
+                (_record("producer", producer), {"project_name": "p"}),
+                (_record("con-a", con_a), {}),
+                (_record("con-b", con_b), {}),
+            ],
+            str(dest),
+            today="2026-07-15",
+        )
+    assert exc_info.value.path == "clash.txt"
+    assert set(exc_info.value.modules) == {"demo/con-a", "demo/con-b"}
+    assert not dest.exists() or not any(dest.iterdir())
+
+
 def test_answers_files_excluded_from_overlap(tmp_path: Path) -> None:
     """Both layers write .copier-answers.*.yml-shaped files via the shipped
     answers-file template; those must never count as collisions (the loop in
