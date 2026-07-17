@@ -114,7 +114,7 @@ def test_single_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path: P
 
 
 def test_monorepo_layout_cog_toml(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
-    """Monorepo layout: [monorepo] section with one entry per package from moon answers."""
+    """Monorepo layout: [monorepo] section with one entry per package from agent-fed --data (monorepo_packages)."""
     text = _init_with_facts(
         bailiff_mod_cocogitto,
         tmp_path / "proj",
