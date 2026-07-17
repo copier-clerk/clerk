@@ -1,9 +1,10 @@
 # .pre-commit.d/bailiff-mod-python.yaml — managed by bailiff-mod-python.
 # Consumed by bailiff-mod-precommit's bundler _post_task (spec 014 FR-011).
 # Renders unconditionally; the bundler only merges when hook_manager=pre-commit.
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: "{{ ruff_version if ruff_version else 'v0.6.9' }}"
-  hooks:
-    - id: ruff
-      args: [--fix]
-    - id: ruff-format
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "{{ ruff_version if ruff_version else 'v0.6.9' }}"
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
