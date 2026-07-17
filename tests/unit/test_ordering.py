@@ -1,9 +1,9 @@
-"""Unit tests for bailiff.ordering — pure DAG/sort functions (spec 003 / T007).
+"""Unit tests for bailiff.ordering — pure DAG/sort functions (spec 014 / T007).
 
-Covers: build_dag normalization (depends_on, run_after, run_before→inverted edge),
-topo_sort determinism + stable tie-break (basename) + order-independence,
-cycle → OrderingError, dangling edge → OrderingError, basename collision →
-OrderingError, answers_file_name.
+Covers: build_dag normalization (depends_on is the ONLY edge; run_after/run_before
+are inert/ignored), topo_sort determinism + stable tie-break (basename) +
+order-independence, cycle → OrderingError, dangling depends_on → OrderingError,
+basename collision → OrderingError, answers_file_name.
 """
 
 from __future__ import annotations
@@ -74,19 +74,21 @@ def test_build_dag_depends_on_single() -> None:
     assert graph["alpha"] == set()
 
 
-def test_build_dag_run_after_same_as_depends_on() -> None:
+def test_build_dag_run_after_is_inert() -> None:
+    # spec 014 R7: run_after is dropped — it must NOT create any edge.
     records = [_rec("cat/alpha"), _rec("cat/beta")]
     edges = {"beta": {"run_after": ["alpha"]}}
     graph = build_dag(records, edges)
-    assert graph["beta"] == {"alpha"}
+    assert graph["beta"] == set(), "run_after must not create an edge (inert in spec 014)"
+    assert graph["alpha"] == set()
 
 
-def test_build_dag_run_before_inverted() -> None:
-    # alpha run_before beta → beta has alpha as predecessor (alpha must come first)
+def test_build_dag_run_before_is_inert() -> None:
+    # spec 014 R7: run_before is dropped — it must NOT create any inverted edge.
     records = [_rec("cat/alpha"), _rec("cat/beta")]
     edges = {"alpha": {"run_before": ["beta"]}}
     graph = build_dag(records, edges)
-    assert graph["beta"] == {"alpha"}
+    assert graph["beta"] == set(), "run_before must not create an edge (inert in spec 014)"
     assert graph["alpha"] == set()
 
 
@@ -99,16 +101,17 @@ def test_build_dag_string_target_normalised() -> None:
 
 
 def test_build_dag_combined_edges() -> None:
-    # gamma depends_on alpha AND beta run_before gamma → gamma has both as predecessors
+    # gamma depends_on alpha AND beta depends_on alpha → only depends_on creates edges.
+    # run_before would have added beta→gamma in old code; it must not here.
     records = [_rec("cat/alpha"), _rec("cat/beta"), _rec("cat/gamma")]
     edges = {
         "gamma": {"depends_on": ["alpha"]},
-        "beta": {"run_before": ["gamma"]},
+        "beta": {"depends_on": ["alpha"]},
     }
     graph = build_dag(records, edges)
-    assert graph["gamma"] == {"alpha", "beta"}
+    assert graph["gamma"] == {"alpha"}
+    assert graph["beta"] == {"alpha"}
     assert graph["alpha"] == set()
-    assert graph["beta"] == set()
 
 
 # ---------------------------------------------------------------------------
@@ -130,18 +133,20 @@ def test_build_dag_dangling_depends_on_raises() -> None:
         build_dag(records, edges)
 
 
-def test_build_dag_dangling_run_after_raises() -> None:
+def test_build_dag_dangling_run_after_is_inert() -> None:
+    # spec 014 R7: run_after is not an edge, so a missing target must NOT raise.
     records = [_rec("cat/beta")]
     edges = {"beta": {"run_after": ["missing-dep"]}}
-    with pytest.raises(OrderingError, match="missing-dep"):
-        build_dag(records, edges)
+    graph = build_dag(records, edges)  # must not raise
+    assert graph["beta"] == set()
 
 
-def test_build_dag_dangling_run_before_raises() -> None:
+def test_build_dag_dangling_run_before_is_inert() -> None:
+    # spec 014 R7: run_before is not an edge, so a missing target must NOT raise.
     records = [_rec("cat/alpha")]
     edges = {"alpha": {"run_before": ["nonexistent"]}}
-    with pytest.raises(OrderingError, match="nonexistent"):
-        build_dag(records, edges)
+    graph = build_dag(records, edges)  # must not raise
+    assert graph["alpha"] == set()
 
 
 # ---------------------------------------------------------------------------
@@ -234,16 +239,14 @@ def test_dag_and_sort_roundtrip_b_depends_on_a() -> None:
     assert basenames.index("tpl-a") < basenames.index("tpl-b")
 
 
-def test_dag_and_sort_run_before_gives_same_order_as_depends_on() -> None:
-    # "alpha run_before beta" is equivalent to "beta depends_on alpha"
+def test_dag_and_sort_run_before_produces_no_edge() -> None:
+    # spec 014 R7: run_before is inert — no edge is created, so topo sort is free
+    # to use alphabetical tie-break (alpha before beta), not the old run_before order.
     rec_a = _rec("cat/alpha")
     rec_b = _rec("cat/beta")
     edges_run_before = {"alpha": {"run_before": ["beta"]}}
     graph_rb = build_dag([rec_a, rec_b], edges_run_before)
-    result_rb = _basenames(topo_sort([rec_a, rec_b], graph_rb))
-
-    edges_depends_on = {"beta": {"depends_on": ["alpha"]}}
-    graph_do = build_dag([rec_a, rec_b], edges_depends_on)
-    result_do = _basenames(topo_sort([rec_a, rec_b], graph_do))
-
-    assert result_rb == result_do
+    # With run_before inert: no edges, tie-break = alphabetical → alpha, beta.
+    result = _basenames(topo_sort([rec_a, rec_b], graph_rb))
+    assert graph_rb == {"alpha": set(), "beta": set()}, "run_before must leave graph empty"
+    assert result == ["alpha", "beta"]

@@ -37,7 +37,7 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
     )
 
 
-def test_base_python_ordered_and_threaded(
+def test_base_python_ordered_and_external_data(
     bailiff_mod_base: TemplateRepo, bailiff_mod_python: TemplateRepo, tmp_path: Path
 ) -> None:
     """SC-002: [base, python] applies base first, resolves project_name via _external_data."""
@@ -87,9 +87,9 @@ def test_base_python_ordered_and_threaded(
     assert af_py["project_name"] == "myapp"
     assert af_py["python_version"] == "3.12"
 
-    # base's stub gitignore includes a token passed directly to it.
+    # base's stub gitignore is written (spec 014: stub replaces gitnr stack union).
     gitignore = (dest / ".gitignore").read_text()
-    assert "gh:Python" in gitignore, "stub gitignore missing token passed to base"
+    assert "stub gitignore" in gitignore, "base stub task did not write .gitignore"
 
     # python overlay's mise-install sentinel present (init-only guard stub ran).
     assert (dest / ".bailiff-python-mise-installed").is_file()
