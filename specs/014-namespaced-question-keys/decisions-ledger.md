@@ -374,6 +374,25 @@ only `.pre-commit-config.yaml`; nothing projects the fragments into `lefthook.ym
 looped over the `hook_blocks` union, so lefthook DID get language hooks. So the fragment model as built is a
 regression for the non-default hook manager.
 
+**R13 REFINEMENT — `hook_manager` is DELETED as a QUESTION entirely; hook manager is presence-derived from
+module selection (maintainer, 2026-07-17):** validation (`check_modules` C-06) caught that narrowing the
+published `hook_manager` choices `[pre-commit, lefthook, none]` → `[pre-commit, none]` is a blocked
+published-label mutation. The deeper fix (maintainer): `hook_manager` should not be a QUESTION at all — it is
+MODULE SELECTION in disguise, exactly like `github_host` (R12). The hook manager = which hook module you
+selected: `bailiff-mod-precommit` selected → pre-commit; future `bailiff-mod-lefthook` (015) → lefthook;
+neither → no hooks. So:
+- **DELETE the `hook_manager` question from `bailiff-mod-precommit`.** (Deleting a whole question is an allowed
+  semver-breaking removal — out of C-06 scope; only mutating a still-present question's choice-set is blocked.
+  Greenfield: breaking removal is free — no external users.) precommit's bundler `_post_task` runs whenever
+  precommit is SELECTED, inert when no `.pre-commit.d/` fragments exist. No `none` branch needed ("none" = do
+  not select precommit).
+- **justfile** (the one real reader, for its `lint`/`test` recipes) keeps `hook_manager`/`js_pkg_manager` as
+  agent-fed `--data` facts with standalone defaults — the agent sources the value from the SELECTION. Value's
+  meaning ("which manager is present") is unchanged; its source is now selection, which is what it always meant.
+- This SUPERSEDES the earlier "narrow choices to {pre-commit,none}" edit. It is LESS machinery (removes a
+  question, adds nothing) and clears C-06 with no gate-weakening. capability presence = module presence,
+  consistent with R12 (github_host) and the mise/gitignore drop-in model.
+
 **Ruling A (maintainer, 2026-07-17):** DROP `hook_manager` as a cross-module fact.
 - No language module reads `hook_manager` (grep-verified: no language template body renders it). Languages
   contribute an UNCONDITIONAL `.pre-commit.d/*.yaml` fragment; only precommit reads its OWN `hook_manager`.
