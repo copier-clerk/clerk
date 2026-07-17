@@ -1,0 +1,12 @@
+# .pre-commit.d/bailiff-mod-api.yaml — managed by bailiff-mod-api; do not edit by hand.
+# Spectral-lint hook fragment; merged into .pre-commit-config.yaml by bailiff-mod-precommit.
+# Renders unconditionally — the bundler decides whether to include it.
+repos:
+  - repo: local
+    hooks:
+      - id: spectral-lint
+        name: spectral lint (OpenAPI)
+        entry: spectral lint openapi.yaml
+        language: system
+        files: ^openapi\.yaml$
+        pass_filenames: false
