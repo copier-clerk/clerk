@@ -1,26 +1,33 @@
 # copier.yml — bailiff-mod-editorconfig
 #
-# Editor whitespace defaults micro-module (spec 012 / FR-006). Deliberately NOT
-# part of base (keeps base thin — ratified). Pure MANAGED render — ZERO _tasks.
+# Editor whitespace defaults micro-module (spec 012 / FR-006, spec 014 rewrite).
+# Deliberately NOT part of base (keeps base thin — ratified). Pure MANAGED
+# render — ZERO _tasks.
 #
-# `.editorconfig` sections are sized from FROZEN language facts the phase-1
-# agent injects via --data (FR-006): `ts_linter`, the Python linter identity
-# (`python_linter`), and `ruff_line_length`. INVARIANT: indentation derives
-# from the linter's convention ONLY, never from line-width facts.
+# `.editorconfig` sections are sized from FROZEN language facts: `ts_linter`
+# is read from bailiff-mod-ts via _external_data (spec 014 FR-004); Python
+# facts (`python_linter`, `ruff_line_length`) are injected by bailiff via
+# --data. INVARIANT: indentation derives from the linter's convention ONLY,
+# never from line-width facts.
 #
-# When no language facts are frozen (standalone init), only the universal
-# defaults section renders — no language sections are invented.
+# When no language facts are present, only the universal defaults section
+# renders — no language sections are invented.
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
-# questions; no jinja2_time; edges are when:false hidden answers.
+# questions; no jinja2_time; ordering edge is depends_on (when:false).
 
-# ts_linter — threaded fact (FR-002 axis key). Empty when no TS module is
-# selected → no TS/JS section. biome and eslint-prettier both follow the
-# 2-space indent convention.
+# --- Cross-module facts (spec 014 FR-004/_facts.md) --------------------------
+# ts is a hard dependency when its answers file is read: absent → loud
+# OrderingError at preflight (FR-006).
+_external_data:
+  ts: .copier-answers.bailiff-mod-ts.yml
+
+# ts_linter — read from bailiff-mod-ts via _external_data alias (FR-006a).
+# Empty when ts module is absent → no TS/JS section rendered.
 ts_linter:
   type: str
-  default: "{{ ts_linter }}"
-  help: "TS linter identity (threaded/frozen fact; empty = no TS section). biome or eslint-prettier."
+  default: "{{ _external_data.ts.ts_linter }}"
+  help: "TS linter identity (read from bailiff-mod-ts via _external_data; empty = no TS section). biome or eslint-prettier."
 
 # python_linter — frozen Python linter identity (agent injects 'ruff' when a
 # Python module is selected). Empty = no Python section.
@@ -36,24 +43,16 @@ ruff_line_length:
   default: "88"
   help: "Python max line length from the frozen ruff setting (used when python_linter is set)."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
-  type: yaml
-  default:
-    - bailiff-mod-base
-  when: false
-
+# --- Dependency edge (spec 014 FR-019/R7: depends_on is the only ordering edge) ---
+# ts is a hard dep because we read _external_data.ts.* (FR-006).
 depends_on:
   type: yaml
-  default: []
+  default:
+    - bailiff-mod-ts
   when: false
 
-run_before:
-  type: yaml
-  default: []
-  when: false
+# Phase: normal (spec 014 FR-020/R8).
+_bailiff_phase: normal
 
 # Template body lives under template/ — copier renders only that subtree.
 _subdirectory: template
-
-# .editorconfig is MANAGED: byte-identical on reproduce. No _tasks (FR-006).
