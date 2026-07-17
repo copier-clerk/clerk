@@ -19,13 +19,15 @@ FR-001), not an axis of this module.
 
 ## Cross-module facts read
 
-| Alias | Producer | Keys used |
+| Source | Key | How supplied |
 |---|---|---|
-| `base` | `bailiff-mod-base` | `project_name`, `layout` |
-| `moon` | `bailiff-mod-moon` | `monorepo_packages` |
+| `_external_data.base` (`bailiff-mod-base`) | `project_name`, `layout` | answers file — always-present hard dep (FR-006) |
+| agent-fed `--data` | `monorepo_packages` | list of package paths; defaults to `[]` when moon is absent |
 
-Both producers are **hard dependencies** (FR-006): bailiff raises an
-`OrderingError` at preflight if either is absent from the selection.
+`bailiff-mod-base` is a hard dependency. `monorepo_packages` is agent-fed
+(standing rule R13 GENERALIZED): moon is sometimes-absent (non-monorepo stacks
+omit it), so the orchestrating agent passes this list via `--data` rather than
+reading it from moon's answers file.
 
 ## CI
 
@@ -35,7 +37,7 @@ release-tool-module scope.
 
 ## Dependency edges
 
-- `depends_on: [bailiff-mod-base, bailiff-mod-moon]`
+- `depends_on: [bailiff-mod-base]`
 - `phase: normal`
 
 Tasks: a single trust-gated mise preflight, init-only-guarded via the committed

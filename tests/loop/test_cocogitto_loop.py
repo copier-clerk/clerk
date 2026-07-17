@@ -2,7 +2,9 @@
 
 Assertions:
 - single layout → managed cog.toml (no [monorepo] section); layout read from base answers file;
-- monorepo layout → [monorepo] section with per-package entries; packages from moon answers file;
+- monorepo layout → [monorepo] section with per-package entries; packages from agent-fed --data;
+- [base+cocogitto] WITHOUT moon initialises cleanly (non-monorepo stack);
+- monorepo stack (base+cocogitto with monorepo_packages) populates [monorepo];
 - ZERO release side effects: no git tag, no CHANGELOG.md written by the module;
 - pre-commit fragment: .pre-commit.d/bailiff-mod-cocogitto.yaml rendered with commit-msg-lint hook;
 - mise conf.d drop-in: .mise/conf.d/bailiff-mod-cocogitto.toml rendered with cog tool;
@@ -23,7 +25,6 @@ from tests.conftest import (
     _BASE_STUB_TASKS,
     _COG_STUB_TASKS,
     _MODULES_DIR,
-    _MOON_STUB_TASKS,
     TemplateRepo,
     _copy_module_with_stub_tasks,
 )
@@ -45,17 +46,6 @@ def _seed_base_answers(dest: Path, project_name: str = "myapp", layout: str = "s
     (dest / ".copier-answers.bailiff-mod-base.yml").write_text(yaml.dump(data))
 
 
-def _seed_moon_answers(dest: Path, monorepo_packages: list[str]) -> None:
-    """Pre-seed the moon answers file so _external_data.moon resolves."""
-    dest.mkdir(parents=True, exist_ok=True)
-    data = {
-        "_src_path": "https://github.com/bailiff-io/bailiff-mod-moon.git",
-        "_commit": "v1.0.0",
-        "monorepo_packages": monorepo_packages,
-    }
-    (dest / ".copier-answers.bailiff-mod-moon.yml").write_text(yaml.dump(data))
-
-
 @pytest.fixture
 def bailiff_mod_cocogitto(tmp_path: Path) -> TemplateRepo:
     """The real bailiff-mod-cocogitto with the mise/cog preflight stubbed offline."""
@@ -68,13 +58,6 @@ def bailiff_mod_cocogitto(tmp_path: Path) -> TemplateRepo:
 def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
     return _copy_module_with_stub_tasks(
         "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
-    )
-
-
-@pytest.fixture
-def bailiff_mod_moon(tmp_path: Path) -> TemplateRepo:
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-moon", tmp_path / "bailiff-mod-moon", _MOON_STUB_TASKS
     )
 
 
@@ -91,12 +74,17 @@ def _init_with_facts(
     layout: str = "single",
     monorepo_packages: list[str] | None = None,
 ) -> str:
-    """Init cocogitto after pre-seeding the required external data answers files."""
+    """Init cocogitto after pre-seeding the base answers file.
+
+    monorepo_packages is agent-fed via answers (--data), not read from a moon
+    answers file — moon is sometimes-absent (R13 GENERALIZED).
+    """
     _seed_base_answers(dest, project_name=project_name, layout=layout)
+    answers: dict = {}
     if monorepo_packages is not None:
-        _seed_moon_answers(dest, monorepo_packages)
+        answers["monorepo_packages"] = monorepo_packages
     trust.add_trust(repo.url)
-    spec = runner.RunSpec(source=repo.url, dest=str(dest), answers={})
+    spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
     runner.init(spec, today="2026-07-14")
     cog = dest / _COG_FILE
     assert cog.is_file(), "cog.toml not rendered"
@@ -227,10 +215,32 @@ def test_no_union_questions_in_copier_yml() -> None:
     assert "hook_blocks" not in copier_yml, "hook_blocks union removed in spec 014"
 
 
-def test_depends_on_base_and_moon() -> None:
-    """copier.yml depends_on must list bailiff-mod-base and bailiff-mod-moon (spec 014)."""
+def test_depends_on_base_only() -> None:
+    """copier.yml depends_on lists only bailiff-mod-base; moon removed (R13 GENERALIZED)."""
+    import yaml as _yaml
+
+    raw = (_MODULES_DIR / "bailiff-mod-cocogitto" / "copier.yml").read_text()
+    data = _yaml.safe_load(raw)
+    deps = data.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-base" in deps
+    assert "bailiff-mod-moon" not in deps
+    assert "run_after" not in raw, "run_after replaced by depends_on in spec 014"
+
+
+def test_monorepo_packages_is_agent_fed() -> None:
+    """monorepo_packages is a hidden question (agent-fed --data), not _external_data.moon."""
     copier_yml = (_MODULES_DIR / "bailiff-mod-cocogitto" / "copier.yml").read_text()
-    assert "bailiff-mod-base" in copier_yml
-    assert "bailiff-mod-moon" in copier_yml
-    assert "depends_on" in copier_yml
-    assert "run_after" not in copier_yml, "run_after replaced by depends_on in spec 014"
+    assert "monorepo_packages" in copier_yml, "monorepo_packages hidden question must exist"
+    assert "_external_data.moon" not in copier_yml, "moon must not appear in _external_data"
+
+
+def test_no_moon_dep_init_cleanly(bailiff_mod_cocogitto: TemplateRepo, tmp_path: Path) -> None:
+    """[base+cocogitto] without moon (monorepo_packages absent) initialises cleanly."""
+    text = _init_with_facts(
+        bailiff_mod_cocogitto,
+        tmp_path / "proj",
+        layout="single",
+        # No monorepo_packages supplied — simulates a non-monorepo stack without moon.
+    )
+    assert 'tag_prefix = "v"' in text
+    assert "[monorepo]" not in text

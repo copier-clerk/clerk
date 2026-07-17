@@ -8,7 +8,7 @@ generate_mono_repository_global_tag = false
 tag_prefix = "v"
 
 [monorepo]
-{% for pkg in _external_data.moon.monorepo_packages %}
+{% for pkg in monorepo_packages | default([]) %}
 [monorepo.packages.{{ pkg | replace('/', '-') }}]
 path = "{{ pkg }}"
 {% endfor %}

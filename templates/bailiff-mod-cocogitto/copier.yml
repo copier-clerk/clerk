@@ -19,13 +19,13 @@
 # questions; no jinja2_time; edges are when:false hidden answers.
 
 # --- Cross-module facts via _external_data (spec 014 / FR-004) ---------------
-# base: project_name, layout — base is a hard dependency (FR-006).
-# moon: monorepo_packages — moon is a hard dependency when cocogitto is in a
-#       monorepo stack (FR-006); both consumers wire the alias.
+# base: project_name, layout — base is always-present; hard dep (FR-006).
+# monorepo_packages: agent-fed --data (standing rule R13 GENERALIZED): moon is
+#   sometimes-absent (non-monorepo stacks run without it), so its data is
+#   supplied by the orchestrating agent rather than read from _external_data.
 
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  moon: .copier-answers.bailiff-mod-moon.yml
 
 # Template body lives under template/ — copier renders only that subtree.
 _subdirectory: template
@@ -38,7 +38,15 @@ depends_on:
   type: yaml
   default:
     - bailiff-mod-base
-    - bailiff-mod-moon
+  when: false
+
+# Agent-fed: monorepo_packages is NOT read from _external_data because moon is
+# sometimes-absent (R13 GENERALIZED). The orchestrating agent passes this list
+# via --data when the stack includes bailiff-mod-moon; defaults to empty so
+# cocogitto initialises cleanly in non-monorepo stacks.
+monorepo_packages:
+  type: yaml
+  default: []
   when: false
 
 phase:
