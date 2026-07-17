@@ -1,12 +1,12 @@
 """spec 011 T005 / spec 014 Surface 2: bailiff-mod-precommit loop tests.
 
 Covers:
-- All three hook_manager values: fragment written (pre-commit), direct file written
-  (lefthook), nothing written (none).
+- hook_manager choices: {pre-commit, none} — lefthook removed (deferred to spec 015).
 - Fragment content: base hygiene hooks, gitleaks, shellcheck, typo check, conventional
   commits (conditional on answers).
 - spec 014 fragment/merge model: precommit writes .pre-commit.d/bailiff-mod-precommit.yaml
   (not .pre-commit-config.yaml directly — the bundler post-task does that).
+- No lefthook.yml is ever produced by this module.
 - Dependency edge: depends_on: [bailiff-mod-base] (spec 014 R7 migration from run_after).
 - Install task is stubbed offline (preflight marker written).
 - No secret: questions.
@@ -179,36 +179,36 @@ def test_precommit_no_hook_blocks_question(
 
 
 # ---------------------------------------------------------------------------
-# hook_manager=lefthook: lefthook.yml is written (MANAGED)
+# hook_manager choices: {pre-commit, none} — lefthook absent (spec 014 / R13)
 # ---------------------------------------------------------------------------
 
 
-def test_precommit_renders_lefthook_yml(
-    bailiff_mod_precommit_lefthook: TemplateRepo, tmp_path: Path
+def test_hook_manager_choices_are_precommit_and_none(
+    bailiff_mod_precommit: TemplateRepo,
 ) -> None:
-    """hook_manager=lefthook → lefthook.yml created (MANAGED)."""
+    """hook_manager choices must be exactly {pre-commit, none}; lefthook is removed.
+
+    Lefthook support is deferred to bailiff-mod-lefthook (spec 015).
+    """
+    import yaml as _yaml
+
+    from tests.conftest import _MODULES_DIR
+
+    orig = _yaml.safe_load((_MODULES_DIR / "bailiff-mod-precommit" / "copier.yml").read_text())
+    choices = orig["hook_manager"]["choices"]
+    assert set(choices) == {"pre-commit", "none"}, (
+        f"hook_manager choices must be {{pre-commit, none}}, got {choices!r}"
+    )
+    assert "lefthook" not in choices, "lefthook must not be a hook_manager choice (deferred to spec 015)"
+
+
+def test_hook_manager_precommit_never_produces_lefthook_yml(
+    bailiff_mod_precommit: TemplateRepo, tmp_path: Path
+) -> None:
+    """hook_manager=pre-commit never produces lefthook.yml."""
     dest = tmp_path / "proj"
-    trust.add_trust(bailiff_mod_precommit_lefthook.url)
-    spec = runner.RunSpec(
-        source=bailiff_mod_precommit_lefthook.url,
-        dest=str(dest),
-        answers={"hook_manager": "lefthook"},
-    )
-    runner.init(spec, today="2026-07-13")
-
-    lh = dest / "lefthook.yml"
-    assert lh.is_file(), "lefthook.yml must exist for hook_manager=lefthook"
-    assert "pre-commit" in lh.read_text(), "lefthook.yml must have pre-commit section"
-
-    # No .pre-commit.d fragment when lefthook (directory may exist but no .yaml files)
-    assert (
-        not any((dest / ".pre-commit.d").glob("*.yaml"))
-        if (dest / ".pre-commit.d").exists()
-        else True
-    )
-
-    # Stub task ran
-    assert (dest / ".bailiff-precommit-preflight").is_file()
+    _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit"})
+    assert not (dest / "lefthook.yml").exists(), "lefthook.yml must never be produced by this module"
 
 
 # ---------------------------------------------------------------------------

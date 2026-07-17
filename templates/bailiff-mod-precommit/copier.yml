@@ -24,10 +24,9 @@ hook_manager:
   type: str
   choices:
     - pre-commit
-    - lefthook
     - none
   default: pre-commit
-  help: "Hook manager. pre-commit = .pre-commit-config.yaml; lefthook = lefthook.yml; none = no file written."
+  help: "Hook manager. pre-commit = .pre-commit-config.yaml (via fragment/merge bundler); none = no file written."
 
 # --- Optional feature flags --------------------------------------------------
 
@@ -39,7 +38,7 @@ enforce_conventional_commits:
 enable_typo_check:
   type: bool
   default: true
-  help: "Add a typo-check hook (pre-commit: crate-ci/typos; lefthook: typos CLI)."
+  help: "Add a typo-check hook (crate-ci/typos via pre-commit)."
 
 # De-hardwires the old SpecKit exclude patterns: previously locked to a fixed
 # list; now caller-supplied so no single set is baked in.
@@ -52,7 +51,7 @@ precommit_exclude_patterns:
 install_hooks:
   type: bool
   default: true
-  help: "Run 'pre-commit install' / 'lefthook install' after rendering (init-only-guarded)."
+  help: "Run 'pre-commit install' after rendering (init-only-guarded)."
 
 # Threaded from base (FR-010 pattern); standalone fallback is empty string.
 today:
@@ -88,8 +87,3 @@ _tasks:
       test -f .bailiff-precommit-installed ||
       { pre-commit install && touch .bailiff-precommit-installed; }
     when: "{{ hook_manager == 'pre-commit' and install_hooks }}"
-  # lefthook install (guarded: only when hook_manager=lefthook AND install_hooks)
-  - command: >-
-      test -f .bailiff-precommit-installed ||
-      { lefthook install && touch .bailiff-precommit-installed; }
-    when: "{{ hook_manager == 'lefthook' and install_hooks }}"

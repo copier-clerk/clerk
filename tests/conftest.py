@@ -996,15 +996,6 @@ _PRECOMMIT_STUB_TASKS = dedent(
     """
 )
 
-# Offline stub tasks for modules that invoke lefthook (hook manager).
-_LEFTHOOK_STUB_TASKS = dedent(
-    """\
-    _tasks:
-      - "printf 'lefthook-preflight-ok\\n' > .bailiff-precommit-preflight"
-    """
-)
-
-
 def _copy_module_with_stub_tasks(
     module_name: str,
     dest_root: Path,
@@ -1242,22 +1233,13 @@ def apm_stub_base(tmp_path: Path) -> TemplateRepo:
 def bailiff_mod_precommit(tmp_path: Path) -> TemplateRepo:
     """The real bailiff-mod-precommit template as a hermetic repo (install task stubbed).
 
-    pre-commit install / lefthook install are replaced with a deterministic
-    offline stub that writes a marker file (.bailiff-precommit-preflight) so tests
-    never require the hook manager binary on PATH. The rendered hook config
-    (.pre-commit-config.yaml or lefthook.yml) is copied verbatim — only the
-    side-effecting install task is stubbed.
+    `pre-commit install` is replaced with a deterministic offline stub that writes
+    a marker file (.bailiff-precommit-preflight) so tests never require the hook
+    manager binary on PATH. The rendered hook config (.pre-commit-config.yaml) is
+    copied verbatim — only the side-effecting install task is stubbed.
     """
     return _copy_module_with_stub_tasks(
         "bailiff-mod-precommit", tmp_path / "bailiff-mod-precommit", _PRECOMMIT_STUB_TASKS
-    )
-
-
-@pytest.fixture
-def bailiff_mod_precommit_lefthook(tmp_path: Path) -> TemplateRepo:
-    """bailiff-mod-precommit with the lefthook install task stubbed offline."""
-    return _copy_module_with_stub_tasks(
-        "bailiff-mod-precommit", tmp_path / "bailiff-mod-precommit-lh", _LEFTHOOK_STUB_TASKS
     )
 
 

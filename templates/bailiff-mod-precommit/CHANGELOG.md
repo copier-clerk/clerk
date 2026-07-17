@@ -5,6 +5,9 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 ## [Unreleased]
 
+#### Changes
+- Drop `lefthook` from `hook_manager` choices; module now owns only `.pre-commit-config.yaml`. Lefthook support is deferred to `bailiff-mod-lefthook` (spec 015).
+
 <!--
   cocogitto inserts each released version's section ABOVE the `- - -
 ## bailiff-mod-precommit-v0.1.0 - 2026-07-15
