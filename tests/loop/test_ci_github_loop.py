@@ -531,7 +531,9 @@ def test_external_data_resolves_base_and_moon(ci_github_repo: TemplateRepo, tmp_
     answers = {
         "ci_model": "monorepo-affected",
         "ci_languages": ["python"],
-        "ci_lang_facts": {"python": {"manager": "uv", "version": "3.13", "test_runner": "pytest", "image": ""}},
+        "ci_lang_facts": {
+            "python": {"manager": "uv", "version": "3.13", "test_runner": "pytest", "image": ""}
+        },
         "ci_cache": False,
         "ci_concurrency_cancel": False,
         "ci_required_gate": False,
