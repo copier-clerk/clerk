@@ -1,10 +1,11 @@
 # copier.yml — bailiff-mod-rust
 #
 # Rust language overlay: ports project-setup's lang-rust module as a copier layer
-# that depends_on bailiff-mod-base (spec 014). Reads project_name from base and
-# hook_manager from precommit via _external_data aliases (FR-004); runs cargo new
-# as a trust-gated task (task-output → seed-once Cargo.toml); contributes fragments
-# to .mise/conf.d/ (own tools), .pre-commit.d/ (clippy block), and .gitignore.d/.
+# that depends_on bailiff-mod-base (spec 014). Reads project_name from base via
+# _external_data alias (FR-004); runs cargo new as a trust-gated task (task-output
+# → seed-once Cargo.toml); contributes fragments to .mise/conf.d/ (own tools),
+# .pre-commit.d/ (clippy block — unconditional; bundler is inert without precommit),
+# and .gitignore.d/.
 #
 # FIX (upstream bug): passes --lib when crate_kind=lib to cargo new.
 # Nextest: mise conf.d entry + cargo nextest run command; never cargo install per-run.
@@ -16,7 +17,6 @@
 
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  precommit: .copier-answers.bailiff-mod-precommit.yml
 
 # --- Identity (read from base via alias) --------------------------------------
 

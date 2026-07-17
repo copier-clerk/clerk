@@ -1,10 +1,10 @@
-"""spec 014 (T023/T035/T039/T045/T049): bailiff-mod-rust loop tests.
+"""spec 014 (T023/T035/T045/T049): bailiff-mod-rust loop tests.
 
 Covers:
-- Init [base, rust] applies base first, reads project_name via _external_data alias,
-  produces managed rust-toolchain.toml, rustfmt.toml, and drop-in fragments.
+- Init [base, rust] (no precommit required) reads project_name via _external_data
+  alias, produces managed rust-toolchain.toml, rustfmt.toml, and drop-in fragments.
 - .mise/conf.d/bailiff-mod-rust.toml rendered with rust channel + optional nextest.
-- .pre-commit.d/bailiff-mod-rust.yaml fragment present when hook_manager=pre-commit.
+- .pre-commit.d/bailiff-mod-rust.yaml fragment renders unconditionally (R13).
 - .gitignore.d/bailiff-mod-rust static fragment present.
 - crate_kind=lib renders the --lib flag expression in the task (verified via the
   copier.yml task body — actual cargo is stubbed offline).
@@ -47,13 +47,11 @@ def _record(full_id: str, repo: TemplateRepo, questions: list[str]) -> TemplateR
 
 def _init_base_rust(
     base: TemplateRepo,
-    precommit: TemplateRepo,
     rust: TemplateRepo,
     dest: Path,
     rust_answers: dict[str, Any] | None = None,
 ) -> None:
     trust.add_trust(base.url)
-    trust.add_trust(precommit.url)
     trust.add_trust(rust.url)
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
         (
@@ -64,10 +62,6 @@ def _init_base_rust(
                 "license": "mit",
                 "layout": "single",
             },
-        ),
-        (
-            _record("demo/bailiff-mod-precommit", precommit, ["hook_manager"]),
-            {"hook_manager": "pre-commit"},
         ),
         (
             _record(
@@ -87,14 +81,11 @@ def _init_base_rust(
 
 
 def test_base_rust_defaults(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Init [base, precommit, rust] with defaults: managed files and fragments present."""
+    """Init [base, rust] (no precommit) with defaults: managed files and fragments present."""
     dest = tmp_path / "proj"
-    _init_base_rust(bailiff_mod_base, bailiff_mod_precommit, bailiff_mod_rust, dest)
+    _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest)
 
     # base rendered.
     assert (dest / "AGENTS.md").is_file(), "base AGENTS.md missing"
@@ -123,9 +114,12 @@ def test_base_rust_defaults(
     assert gi_frag.is_file(), ".gitignore.d/bailiff-mod-rust fragment missing"
     assert "/target" in gi_frag.read_text(), "/target not in gitignore fragment"
 
-    # Fragment: pre-commit drop-in present (T045).
+    # Fragment: pre-commit drop-in renders unconditionally without precommit (R13).
     pc_frag = dest / ".pre-commit.d" / "bailiff-mod-rust.yaml"
     assert pc_frag.is_file(), ".pre-commit.d/bailiff-mod-rust.yaml fragment missing"
+    pc_text = pc_frag.read_text()
+    assert "pre-commit-hooks-rust" in pc_text, "clippy repo missing from pre-commit fragment"
+    assert "clippy" in pc_text, "clippy hook id missing from pre-commit fragment"
 
     # Answers recorded: rust-specific answers present; no union keys.
     af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-rust.yml").read_text())
@@ -140,32 +134,47 @@ def test_base_rust_defaults(
 
 
 # ---------------------------------------------------------------------------
+# Rust does not depend on precommit (R13)
+# ---------------------------------------------------------------------------
+
+
+def test_rust_no_precommit_dependency() -> None:
+    """copier.yml must not declare bailiff-mod-precommit in depends_on (R13)."""
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-rust"
+        / "copier.yml"
+    )
+    import yaml as _yaml
+
+    data = _yaml.safe_load(copier_yml.read_text())
+    deps = data.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-precommit" not in deps, (
+        "bailiff-mod-precommit must not be in rust depends_on (R13 — hook_manager is not a fact)"
+    )
+    # _external_data must not reference precommit
+    ext = data.get("_external_data", {})
+    assert "precommit" not in ext, "_external_data must not alias precommit (R13)"
+
+
+# ---------------------------------------------------------------------------
 # crate_kind=lib (FIX: --lib flag)
 # ---------------------------------------------------------------------------
 
 
 def test_crate_kind_lib_recorded(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
     """crate_kind=lib is recorded in the answers file; the task template carries --lib."""
     dest = tmp_path / "proj"
-    _init_base_rust(
-        bailiff_mod_base,
-        bailiff_mod_precommit,
-        bailiff_mod_rust,
-        dest,
-        rust_answers={"crate_kind": "lib"},
-    )
+    _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"crate_kind": "lib"})
 
     af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-rust.yml").read_text())
     assert af["crate_kind"] == "lib", "crate_kind=lib not recorded"
 
     # Verify the copier.yml task body contains the --lib conditional expression
     # (the actual cargo new is stubbed, so we inspect the template source).
-
     copier_yml_path = (
         Path(__file__).resolve().parent.parent.parent
         / "templates"
@@ -183,19 +192,12 @@ def test_crate_kind_lib_recorded(
 
 
 def test_test_runner_cargo_test(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
     """test_runner=cargo-test: recorded; cargo-nextest omitted from mise conf.d fragment."""
     dest = tmp_path / "proj"
     _init_base_rust(
-        bailiff_mod_base,
-        bailiff_mod_precommit,
-        bailiff_mod_rust,
-        dest,
-        rust_answers={"test_runner": "cargo-test"},
+        bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"test_runner": "cargo-test"}
     )
 
     af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-rust.yml").read_text())
@@ -215,19 +217,12 @@ def test_test_runner_cargo_test(
 
 
 def test_rust_channel_nightly(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
     """rust_channel=nightly written into rust-toolchain.toml."""
     dest = tmp_path / "proj"
     _init_base_rust(
-        bailiff_mod_base,
-        bailiff_mod_precommit,
-        bailiff_mod_rust,
-        dest,
-        rust_answers={"rust_channel": "nightly"},
+        bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"rust_channel": "nightly"}
     )
 
     toolchain = (dest / "rust-toolchain.toml").read_text()
@@ -240,19 +235,12 @@ def test_rust_channel_nightly(
 
 
 def test_rustfmt_heuristics_off(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
     """rustfmt_heuristics=Off omits the use_small_heuristics line."""
     dest = tmp_path / "proj"
     _init_base_rust(
-        bailiff_mod_base,
-        bailiff_mod_precommit,
-        bailiff_mod_rust,
-        dest,
-        rust_answers={"rustfmt_heuristics": "Off"},
+        bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"rustfmt_heuristics": "Off"}
     )
 
     rustfmt = (dest / "rustfmt.toml").read_text()
@@ -269,14 +257,11 @@ def test_rustfmt_heuristics_off(
 
 
 def test_cargo_toml_preserved_on_reproduce(
-    bailiff_mod_base: TemplateRepo,
-    bailiff_mod_precommit: TemplateRepo,
-    bailiff_mod_rust: TemplateRepo,
-    tmp_path: Path,
+    bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
     """Cargo.toml (_skip_if_exists) is NOT overwritten when it already exists."""
     dest = tmp_path / "proj"
-    _init_base_rust(bailiff_mod_base, bailiff_mod_precommit, bailiff_mod_rust, dest)
+    _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest)
 
     # Simulate cargo new having produced a Cargo.toml (the stub only writes a marker).
     # Write a synthetic Cargo.toml that looks like project-edited content.
