@@ -222,14 +222,14 @@ _tasks:
   - >-
     test -f .bailiff-base-init-done || touch .bailiff-base-init-done
 
-  # (7) Initial commit — the LAST base task, gated on initial_commit AND
-  #     run_git_init. A fallback identity keeps the commit from failing in
-  #     fresh/CI environments where user.name/email are unset.
-  - command: >-
-      git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false add -A &&
-      git -c user.name=bailiff -c user.email=bailiff@localhost -c commit.gpgsign=false commit
-      -qm "Initial project scaffold (bailiff-mod-base)"
-    when: "{{ initial_commit and run_git_init }}"
+  # The initial commit is NOT a base task. Committing the scaffold is a
+  # WHOLE-PROJECT concern that must run after every layer has rendered and every
+  # _post_task (e.g. the .gitignore concat, the pre-commit bundler) and schema
+  # marker has been written — a base `_task` fires at base's position in the
+  # render loop (base is `pre` phase), so it would commit ONLY base's own files
+  # and leave later layers' output uncommitted. The engine owns the final commit
+  # (runner.py `_finalize_initial_commit`), gated on the same
+  # `initial_commit and run_git_init` answers this module records.
 
 # --- Deferred post-tasks (run after the full render loop) --------------------
 # Idempotent ordered-concat: fold .gitignore.d/* fragments into .gitignore using
