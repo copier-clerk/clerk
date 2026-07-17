@@ -1,19 +1,15 @@
-"""spec 012 T006: bailiff-mod-dep-updates loop tests (FR-008).
+"""spec 012 T006: bailiff-mod-dep-updates loop tests (FR-008 / FR-023 / R12).
 
-Pure MANAGED renders — zero _tasks. Assertions (US3 AS1-5):
-- github_host=true + default → dep_update_tool resolves to dependabot:
-  .github/dependabot.yml present with one entry per frozen ecosystem;
-  renovate.json ABSENT;
-- github_host=false + default → renovate: renovate.json present,
-  dependabot.yml ABSENT;
-- dep_update_tool=dependabot + github_host=false → warn-and-render: file
-  renders WITH the warning comment;
+Pure MANAGED renders — zero _tasks. Assertions:
+- default dep_update_tool=renovate → renovate.json present, dependabot.yml ABSENT;
+- dep_update_tool=dependabot → .github/dependabot.yml present with one entry per ecosystem;
 - never deletes the other tool's file (pre-existing file untouched);
-- no secret: questions.
+- no secret: questions; dep_update_tool static default is 'renovate'.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -62,89 +58,50 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# AS2: github_host=true + default → dependabot branch
+# Default: dep_update_tool=renovate → renovate branch (FR-023/R12)
 # ---------------------------------------------------------------------------
 
 
-def test_github_host_default_resolves_dependabot(
-    bailiff_mod_dep_updates: TemplateRepo, tmp_path: Path
-) -> None:
+def test_default_resolves_renovate(bailiff_mod_dep_updates: TemplateRepo, tmp_path: Path) -> None:
+    """Default dep_update_tool=renovate: renovate.json renders, dependabot.yml absent."""
+    dest = tmp_path / "proj"
+    _init(bailiff_mod_dep_updates, dest, {"dep_ecosystems": ["pep621", "npm"]})
+
+    rn = dest / _RENOVATE
+    assert rn.is_file(), "renovate.json must render by default"
+    assert not (dest / _DEPENDABOT).exists(), "dependabot.yml must not render"
+
+    parsed = json.loads(rn.read_text())
+    assert "config:recommended" in parsed["extends"]
+    assert parsed["enabledManagers"] == ["pep621", "npm"]
+
+
+# ---------------------------------------------------------------------------
+# Explicit dependabot → dependabot branch
+# ---------------------------------------------------------------------------
+
+
+def test_explicit_dependabot_renders(bailiff_mod_dep_updates: TemplateRepo, tmp_path: Path) -> None:
+    """Explicit dep_update_tool=dependabot: dependabot.yml renders, renovate.json absent."""
     dest = tmp_path / "proj"
     _init(
         bailiff_mod_dep_updates,
         dest,
-        {"github_host": True, "dep_ecosystems": ["uv", "github-actions"]},
+        {"dep_update_tool": "dependabot", "dep_ecosystems": ["uv", "github-actions"]},
     )
 
     db = dest / _DEPENDABOT
-    assert db.is_file(), "dependabot.yml must render on the default GitHub branch"
+    assert db.is_file(), "dependabot.yml must render when dep_update_tool=dependabot"
     assert not (dest / _RENOVATE).exists(), "renovate.json must not render"
 
     parsed = yaml.safe_load(db.read_text())
     assert parsed["version"] == 2
     ecosystems = [u["package-ecosystem"] for u in parsed["updates"]]
     assert ecosystems == ["uv", "github-actions"], f"one entry per ecosystem: {ecosystems}"
-    # No warning comment on a GitHub-hosted project.
-    assert "WARNING" not in db.read_text()
 
 
 # ---------------------------------------------------------------------------
-# AS3: github_host=false + default → renovate branch
-# ---------------------------------------------------------------------------
-
-
-def test_non_github_default_resolves_renovate(
-    bailiff_mod_dep_updates: TemplateRepo, tmp_path: Path
-) -> None:
-    import json
-
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_dep_updates,
-        dest,
-        {"github_host": False, "dep_ecosystems": ["pep621", "npm"]},
-    )
-
-    rn = dest / _RENOVATE
-    assert rn.is_file(), "renovate.json must render on the default non-GitHub branch"
-    assert not (dest / _DEPENDABOT).exists(), "dependabot.yml must not render"
-
-    parsed = json.loads(rn.read_text())  # valid JSON
-    assert "config:recommended" in parsed["extends"]
-    assert parsed["enabledManagers"] == ["pep621", "npm"]
-
-
-# ---------------------------------------------------------------------------
-# AS4: explicit dependabot + github_host=false → warn-and-render
-# ---------------------------------------------------------------------------
-
-
-def test_dependabot_on_non_github_warns_and_renders(
-    bailiff_mod_dep_updates: TemplateRepo, tmp_path: Path
-) -> None:
-    dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_dep_updates,
-        dest,
-        {
-            "github_host": False,
-            "dep_update_tool": "dependabot",
-            "dep_ecosystems": ["gomod"],
-        },
-    )
-
-    db = dest / _DEPENDABOT
-    assert db.is_file(), "warn-and-render: the file must still render"
-    text = db.read_text()
-    assert "WARNING" in text, "warning comment required when dependabot + github_host=false"
-    assert "only runs on GitHub-hosted" in text
-    # Still a valid dependabot config.
-    parsed = yaml.safe_load(text)
-    assert parsed["version"] == 2
-
-
-# ---------------------------------------------------------------------------
-# AS5: never deletes the other tool's file (axis flip on an existing project)
+# Never deletes the other tool's file (axis flip on an existing project)
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +116,7 @@ def test_never_deletes_other_tools_file(
     _init(
         bailiff_mod_dep_updates,
         dest,
-        {"github_host": True, "dep_ecosystems": ["uv"]},
+        {"dep_update_tool": "dependabot", "dep_ecosystems": ["uv"]},
     )
 
     assert stale.is_file(), "the other tool's pre-existing file must survive"
@@ -170,12 +127,17 @@ def test_never_deletes_other_tools_file(
 
 
 # ---------------------------------------------------------------------------
-# Contract: no secret: questions, axis default expression
+# Contract: no secret: questions; dep_update_tool default is 'renovate'
 # ---------------------------------------------------------------------------
 
 
-def test_no_secret_questions_and_host_derived_default() -> None:
+def test_no_secret_questions_and_static_default() -> None:
+    """No secret: questions; dep_update_tool default is the static literal 'renovate' (FR-023)."""
     copier_yml = (_MODULES_DIR / "bailiff-mod-dep-updates" / "copier.yml").read_text()
     assert not re.search(r"^\s+secret\s*:", copier_yml, re.MULTILINE)
-    # FR-004: host-derived default expression, not a static literal.
-    assert "{{ 'dependabot' if github_host else 'renovate' }}" in copier_yml
+    # FR-023/R12: github_host must not be a question key (comments referencing it are allowed).
+    assert not re.search(r"^github_host\s*:", copier_yml, re.MULTILINE), (
+        "github_host must not be a question key (R12/FR-023)"
+    )
+    # Static default (not host-derived).
+    assert "default: renovate" in copier_yml

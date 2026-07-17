@@ -4,25 +4,15 @@
 # `dep_update_tool [renovate, dependabot]` axis (FR-001: isomorphic family —
 # same question shape, same output contract; only the rendered syntax differs).
 #
-# Default follows the repo host (FR-004): dependabot when GitHub-hosted
-# (`github_host=true`), renovate otherwise — explicitly overridable.
+# Default is renovate (agent/user overridable — FR-023/R12: github_host is
+# deleted from base, so dep_update_tool self-defaults without a host fact).
 #
 # Exactly one branch's file is written per init; the module NEVER deletes the
 # other tool's file (renders only its own branch — switching tools on a live
 # project is a manual cleanup, see README). Pure MANAGED renders — ZERO _tasks.
 #
-# dependabot + github_host=false is WARN-AND-RENDER: the file still renders,
-# with a warning comment that dependabot only runs on GitHub-hosted repos.
-#
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
 # questions; no jinja2_time; edges are when:false hidden answers.
-
-# --- Threaded host fact (FR-010 pattern) --------------------------------------
-
-github_host:
-  type: bool
-  default: "{{ github_host }}"
-  help: "Whether the project is GitHub-hosted (threaded from bailiff-mod-base); drives the axis default."
 
 # --- The axis (FR-004 / FR-008) ------------------------------------------------
 
@@ -31,35 +21,25 @@ dep_update_tool:
   choices:
     - renovate
     - dependabot
-  default: "{{ 'dependabot' if github_host else 'renovate' }}"
-  help: "Dependency-update tool. Default follows the repo host: dependabot on GitHub, renovate otherwise."
+  default: renovate
+  help: "Dependency-update tool (renovate or dependabot). Overridable by the agent or user."
 
 # --- Frozen language facts (sizing) --------------------------------------------
-# One entry per active ecosystem, in the CHOSEN tool's vocabulary (the phase-1
-# agent maps active package managers to the tool's ecosystem/manager ids, e.g.
-# dependabot: [uv, npm, cargo, gomod, github-actions]; renovate managers
-# likewise). Empty = minimal valid config, no entries invented.
+# One entry per active ecosystem, in the CHOSEN tool's vocabulary.
 dep_ecosystems:
   type: yaml
   default: []
   help: "Frozen list of active ecosystem ids in the chosen tool's vocabulary; bailiff injects this."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
+# Module phase: normal (FR-020/R8). base=pre; family=normal.
+_bailiff_phase: normal
 
-run_after:
-  type: yaml
-  default:
-    - bailiff-mod-base
-  when: false
+# --- Dependency edges (FR-019 / R7 — single depends_on, no run_after/run_before) ---
 
 depends_on:
   type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+  default:
+    - bailiff-mod-base
   when: false
 
 # Template body lives under template/ — copier renders only that subtree.
