@@ -1,9 +1,10 @@
-"""spec 012 T003: bailiff-mod-devcontainer loop tests (FR-005).
+"""spec 014 / FR-009: bailiff-mod-devcontainer loop tests.
 
 Pure MANAGED render — zero _tasks. Assertions:
-- init [base, python, devcontainer] with mise_tools frozen → devcontainer.json
-  references the mise devcontainer feature and lists the exact frozen tool set;
-- mise_tools=[] → minimal valid JSON (base image + mise feature, no install);
+- postCreateCommand is bare `mise trust && mise install` (reads merged .mise/conf.d/
+  at runtime — no explicit tool list; FR-009);
+- no mise_tools question (removed per spec 014 US3);
+- project_name renders in the devcontainer name field;
 - fixed base image (no devcontainer_image question — ledger FR-005);
 - no secret: questions.
 """
@@ -27,6 +28,7 @@ from tests.conftest import (
 _DC_FILE = Path(".devcontainer/devcontainer.json")
 _MISE_FEATURE = "ghcr.io/devcontainers-extra/features/mise:1"
 _BASE_IMAGE = "mcr.microsoft.com/devcontainers/base:ubuntu"
+_BARE_INSTALL = "mise install"
 
 
 def _copy_devcontainer_module(tmp_path: Path) -> TemplateRepo:
@@ -60,20 +62,20 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Render: frozen mise_tools → exact tool set via the mise feature (US1 AS1)
+# Render: postCreateCommand is bare mise install (FR-009)
 # ---------------------------------------------------------------------------
 
 
-def test_devcontainer_derives_from_mise_tools(
+def test_devcontainer_post_create_command_bare_mise_install(
     bailiff_mod_devcontainer: TemplateRepo, tmp_path: Path
 ) -> None:
-    """devcontainer.json lists exactly the frozen mise_tools set — none extra, none missing."""
+    """postCreateCommand runs bare `mise install` — no explicit tool list (FR-009).
+
+    The command reads the merged .mise/conf.d/ at container-create time, so the
+    devcontainer does not need to know which tools are present.
+    """
     dest = tmp_path / "proj"
-    _init(
-        bailiff_mod_devcontainer,
-        dest,
-        {"project_name": "myapp", "mise_tools": [{"python": "3.13"}, {"node": "22"}]},
-    )
+    _init(bailiff_mod_devcontainer, dest, {"project_name": "myapp"})
 
     dc_file = dest / _DC_FILE
     assert dc_file.is_file(), "devcontainer.json not rendered"
@@ -84,38 +86,38 @@ def test_devcontainer_derives_from_mise_tools(
     assert _MISE_FEATURE in parsed["features"]
 
     install_cmd = parsed["postCreateCommand"]
-    assert "python@3.13" in install_cmd
-    assert "node@22" in install_cmd
-    # No tool listed that is absent from mise_tools: only the two pins appear.
+    assert _BARE_INSTALL in install_cmd, f"expected bare mise install in: {install_cmd!r}"
+    # No pinned tool versions — bare install only.
     pins = re.findall(r"\S+@\S+", install_cmd)
-    assert sorted(pins) == ["node@22", "python@3.13"], f"unexpected pins: {pins}"
+    assert pins == [], f"unexpected tool pins in postCreateCommand: {pins}"
 
 
 # ---------------------------------------------------------------------------
-# Render: empty mise_tools → minimal valid JSON (edge case)
+# Render: postCreateCommand always present (not conditional on tool list)
 # ---------------------------------------------------------------------------
 
 
-def test_devcontainer_empty_mise_tools_minimal_valid(
+def test_devcontainer_postCreateCommand_always_present(
     bailiff_mod_devcontainer: TemplateRepo, tmp_path: Path
 ) -> None:
-    """mise_tools=[] renders a minimal VALID devcontainer.json (no install command)."""
+    """postCreateCommand is unconditional — not gated on a tool list (spec 014 FR-009)."""
     dest = tmp_path / "proj"
-    _init(bailiff_mod_devcontainer, dest, {"project_name": "empty", "mise_tools": []})
+    _init(bailiff_mod_devcontainer, dest, {"project_name": "any"})
 
     dc_file = dest / _DC_FILE
     assert dc_file.is_file()
     parsed = json.loads(dc_file.read_text())  # must be valid JSON
     assert parsed["image"] == _BASE_IMAGE
     assert _MISE_FEATURE in parsed["features"]
-    assert "postCreateCommand" not in parsed, "no install command when mise_tools is empty"
+    assert "postCreateCommand" in parsed, "postCreateCommand must always be present"
+    assert _BARE_INSTALL in parsed["postCreateCommand"]
 
 
 # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
 
 
 # ---------------------------------------------------------------------------
-# Contract: no secret: questions, no devcontainer_image question
+# Contract: no secret: questions, no devcontainer_image question, no mise_tools
 # ---------------------------------------------------------------------------
 
 
@@ -127,4 +129,14 @@ def test_no_secret_and_no_image_question() -> None:
     # As a QUESTION key (top-level, unindented) — comments may mention the name.
     assert not re.search(r"^devcontainer_image\s*:", text, re.MULTILINE), (
         "base image must be fixed, not a question"
+    )
+
+
+def test_no_mise_tools_question() -> None:
+    """mise_tools removed per spec 014 US3 (FR-009): no explicit tool list in devcontainer."""
+    copier_yml = _MODULES_DIR / "bailiff-mod-devcontainer" / "copier.yml"
+    text = copier_yml.read_text()
+    # Must not be a top-level question key (unindented).
+    assert not re.search(r"^mise_tools\s*:", text, re.MULTILINE), (
+        "mise_tools question must be removed (spec 014 US3)"
     )
