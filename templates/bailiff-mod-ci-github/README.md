@@ -17,7 +17,16 @@ Outputs `.github/workflows/ci.yml`, config-consistent on reproduce.
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `.github/workflows/ci.yml` | **managed** | Byte-identical on reproduce; re-render to update |
+| `.github/workflows/ci.yml` | **managed** | Config-consistent on reproduce; re-render to update |
+
+## Facts read via `_external_data`
+
+| Alias | Source file | Keys read |
+|---|---|---|
+| `base` | `.copier-answers.bailiff-mod-base.yml` | `default_branch` |
+| `moon` | `.copier-answers.bailiff-mod-moon.yml` | `monorepo_tool` |
+
+Both producers must be present in the bailiff selection (FR-006). Absent producer → preflight error naming the alias.
 
 ## Fail-loud guard (R4)
 
