@@ -22,6 +22,12 @@ def _copier_yml(name: str) -> None:
 
     copier intentionally skips copier.yml.jinja files during rendering (they would
     conflict with the meta-template config), so we create the module's copier.yml here.
+
+    The skeleton demonstrates the spec 014 model:
+    - _external_data alias for base facts (always-present producer)
+    - depends_on edge as a hidden when:false answer
+    - _bailiff_phase declaration
+    - Fragment contribution placeholders for .mise/conf.d/, .pre-commit.d/, .gitignore.d/
     """
     dst = Path("templates") / name / "copier.yml"
     if dst.exists():
@@ -30,21 +36,58 @@ def _copier_yml(name: str) -> None:
     content = (
         f"# copier.yml — {name}\n"
         "#\n"
+        "# Outputs (spec 014 fragment/merge model):\n"
+        f"#   MANAGED: .mise/conf.d/{name}.toml,\n"
+        f"#            .pre-commit.d/{name}.yaml,\n"
+        f"#            .gitignore.d/{name}\n"
+        "#   SEED-ONCE: <TODO: list any _skip_if_exists files>\n"
+        "#   TASK-OUTPUT: <TODO: list any native-init files>\n"
+        "#\n"
         "# Answers-file key — MUST match the shipped .jinja file (FR-016).\n"
         # Not an f-string — literal {{ }} needed for the YAML value
         '_answers_file: "{{ _copier_conf.answers_file }}.jinja"\n'
         "\n"
-        "# --- Questions ---------------------------------------------------------------\n"
-        "# Replace these placeholders with real questions for this module.\n"
+        "# --- External data aliases (spec 014 FR-004) ---------------------------------\n"
+        "# Reads facts from base (always present). Each alias is a hard dependency:\n"
+        "# base absent from selection → preflight OrderingError (R6).\n"
+        "_external_data:\n"
+        "  base: .copier-answers.bailiff-mod-base.yml\n"
+        "\n"
+        "# --- Facts read from base ----------------------------------------------------\n"
         "\n"
         "project_name:\n"
         "  type: str\n"
-        '  help: "Name of the generated project."\n'
+        "  default: \"{{ _external_data.base.project_name | default('', true) }}\"\n"
+        '  help: "Project name (from bailiff-mod-base via _external_data; standalone: empty)."\n'
         "\n"
-        "description:\n"
-        "  type: str\n"
-        '  default: ""\n'
-        '  help: "One-line description of the project."\n'
+        "# --- Questions ---------------------------------------------------------------\n"
+        "# Add module-specific questions here.\n"
+        "\n"
+        "# --- Dependency ordering (spec 014 R7/R8) ------------------------------------\n"
+        "# phase: normal (base=pre, all other modules=normal; post is reserved).\n"
+        "_bailiff_phase: normal\n"
+        "\n"
+        "# depends_on declares ordering + presence requirements (R6/R7).\n"
+        "# A dangling edge (target absent from selection) is a preflight OrderingError.\n"
+        "depends_on:\n"
+        "  type: yaml\n"
+        "  default:\n"
+        "    - bailiff-mod-base\n"
+        "  when: false\n"
+        "\n"
+        "# Template body lives under template/ — copier renders only that subtree.\n"
+        "_subdirectory: template\n"
+        "\n"
+        "# --- Trust-gated tasks -------------------------------------------------------\n"
+        "# Tasks run post-render at BOTH init and reproduce.\n"
+        "# Init-only guard (FR-012a): use `test -f <sentinel> || <command>` to prevent\n"
+        "# re-running expensive steps on reproduce over a populated tree.\n"
+        "_tasks: []\n"
+        "\n"
+        "# --- Post-tasks (deferred work after the full render loop, spec 014 R11) ------\n"
+        "# Declare here only if this module owns a merged-output file (e.g. the\n"
+        "# pre-commit bundler or the gitignore concat). Most modules leave this empty.\n"
+        "# _post_tasks: []\n"
     )
     dst.write_text(content)
     print(f"  created {dst}")

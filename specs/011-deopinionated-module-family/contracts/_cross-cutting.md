@@ -1,113 +1,252 @@
-# Cross-cutting contract — spec 011
+# Cross-cutting contract — spec 011 / 014
 
-Shared design every per-module contract references. Authored once here to keep the choice axes,
-tooling patterns, and threading contracts consistent (FR-002).
+Shared design every per-module contract references. Governed by spec 014
+(namespaced keys, private-by-default threading, fragment/merge model).
+Where spec.md is silent, the decisions ledger at
+`specs/014-namespaced-question-keys/decisions-ledger.md` governs.
 
 ## 1. Choice-axis keys (FR-002)
 
-Use these EXACT keys/types/choices/defaults wherever a module touches the axis (full table in
-[data-model.md](../data-model.md)): `python_pkg_manager [uv,pdm]=uv`, `js_pkg_manager
-[bun,pnpm,npm]=bun`, `hook_manager [pre-commit,lefthook,none]=pre-commit`, `python_layout
-[flat,src]=src`, `ts_linter [biome,eslint-prettier]=biome`, `ruff_line_length=88`,
-`ruff_quote_style=double`, `ruff_rule_profile [standard,strict]=standard`, language version lists
-(finite, modern default). Dead options (pip, pipenv, poetry, yarn, jest, husky, simple-git-hooks,
-edition 2015, py<3.11) are NOT offered. Threaded axes use `default: "{{ <key> }}"` so a downstream
-layer inherits the upstream answer without hardcoding which layer supplied it (FR-010 pattern).
+Use these EXACT keys, types, choices, and defaults wherever a module touches
+the axis (full table in [data-model.md](../data-model.md)):
 
-## 2. mise integration pattern (FR-006) — agent-frozen union → single writer (CRITIQUE M1)
+| Key | Choices | Default |
+|---|---|---|
+| `python_pkg_manager` | `uv`, `pdm` | `uv` |
+| `js_pkg_manager` | `bun`, `pnpm`, `npm` | `bun` |
+| `python_layout` | `flat`, `src` | `src` |
+| `ts_linter` | `biome`, `eslint-prettier` | `biome` |
+| `ruff_line_length` | — | `88` |
+| `ruff_quote_style` | — | `double` |
+| `ruff_rule_profile` | `standard`, `strict` | `standard` |
 
-**CRITICAL**: shared accreting files are NOT built by runtime accumulation across layers. With the
-ordering tie-break = lexicographic basename (`ordering.py:11`) and every layer `run_after:
-[bailiff-mod-base]`, a later-sorting layer CANNOT reliably read an earlier one's answer via the
-`init_many` accumulator, and two managed writers to one file overwrite (not append). The proven,
-buildable pattern is the existing `gitignore_stack` (base `copier.yml:124-188`, help: "bailiff
-**injects** this"): the **phase-1 agent freezes a UNION answer** and injects it via `--data`, and a
-**single designated module writes the file**.
+Dead options (pip, pipenv, poetry, yarn, jest, husky, simple-git-hooks,
+edition 2015, py<3.11) are not offered.
 
-- **`mise_tools`** is a frozen union answer (yaml, default `[]`): the phase-1 agent, knowing the whole
-  selection, injects the full `[tools]` set (e.g. `{python: "3.13", node: "22", ...}`) via `--data`.
-- **`bailiff-mod-base` is the single writer** of `.mise.toml` (**managed** render from `mise_tools`).
-  Language/tool modules do NOT each write `.mise.toml`; they merely contribute their token to the
-  frozen `mise_tools` union the agent assembles (exactly as they contribute to `gitignore_stack`).
-- The module's FIRST `_task` is the preflight: `command -v mise >/dev/null || { echo "install mise:
-  https://mise.jdx.dev"; exit 1; }` then `mise install`. **Init-only-guarded (FR-012a)** via a
-  committed sentinel so reproduce over a populated tree does not re-shell.
-- Because `mise install` pins versions, native-init output below is task-output (ADR-0007).
-- Ubiquitous tools not in the mise registry (`git`, `gh`, `gitnr`) stay a `command -v` check in base's
-  preflight — mise is the pin surface for language/build toolchains, not literally every binary.
+The hook manager is not a question — it is determined by which hook module is
+selected (R13 refinement): selecting `bailiff-mod-precommit` means pre-commit;
+future `bailiff-mod-lefthook` means lefthook; neither means no hooks. Do not
+declare a `hook_manager` question.
+
+## 2. Fragment/merge model (R1 / FR-008–013)
+
+Each module writes ONLY its own fragment into the relevant `.d/` directory.
+No module writes the combined output file, runs a merge, or reads another
+module's answers. The merged-file owner performs the combine — either via the
+tool's native drop-in merge or via a single `_post_task`.
+
+| Surface | Fragment path | Merge mechanism |
+|---|---|---|
+| mise tools | `.mise/conf.d/<vendor>-<module>.toml` | native: `mise install` reads all conf.d files |
+| pre-commit hooks | `.pre-commit.d/<vendor>-<module>.yaml` | `_post_task` in `bailiff-mod-precommit` runs `scripts/_merge_precommit.py` after the full render loop |
+| .gitignore rules | `.gitignore.d/<vendor>-<module>` | `_post_task` in `bailiff-mod-base` does idempotent ordered-concat into `.gitignore` |
+
+Fragment file contents are MANAGED (byte-identical re-render on reproduce).
+The combined output files (`.pre-commit-config.yaml`, `.gitignore`) are
+config-consistent across reproduce runs — same configuration, not necessarily
+same bytes (R config-consistency invariant).
+
+**Naming convention:** fragment file names must be `<vendor>-<module>` (the
+module's repo basename). Example: `bailiff-mod-python.toml`,
+`bailiff-mod-python.yaml`, `bailiff-mod-python`.
+
+**Pre-commit fragments are unconditional.** A module that contributes hooks
+always writes its `.pre-commit.d/` fragment regardless of whether
+`bailiff-mod-precommit` is in the selection. The bundler script runs only when
+precommit is selected and is inert when no fragments exist.
+
+**Cross-format limitation (014).** The fragment model is pre-commit–format
+specific. With `hook_manager=lefthook` (a future module), language-contributed
+`.pre-commit.d/` fragments are not automatically projected into `lefthook.yml`.
+Cross-format translation is deferred to spec 015 via `_agent_tasks` /
+`_post_agent_tasks`. See §9 for the forward pointer.
 
 ## 3. Native-command scaffold pattern (FR-007 / ADR-0007)
 
-- Initial manifest = the tool's own init as a trust-gated `_task`, **init-only-guarded** (FR-012a):
-  `test -f <manifest> || <tool> init …`. The manifest is **task-output** (process-deterministic),
-  then **seed-once** (`_skip_if_exists`) so a populated-tree re-run never clobbers project edits.
-  **Reproduce note (critique R5):** over the normal committed tree the guard + `_skip_if_exists` mean
-  the committed manifest is used verbatim (config-consistent, NOT regenerated, no toolchain needed); the
-  native tool only runs on a genuinely empty tree. Loop tests assert manifest *presence/structure* on
-  reproduce, never regeneration.
-- Per language: `uv init` (python), `bun init`/`pnpm init` (ts, per `js_pkg_manager`), `cargo new`
-  (rust, `--lib` when lib), `go mod init` (go), `cdk init app --language=` (cdk). Adding deps later
-  (package-add) = native `add` command, never manifest edits.
-- Config bailiff owns and the tool does NOT generate stays a **managed** config-consistent render
-  (`.tflint.hcl`, `.cfnlintrc.yaml`, CI files, ruff config beyond init, `.mise.toml`).
-- NEVER an irreversible action at scaffold (no `cdk bootstrap`/`deploy`, `terraform apply`,
-  `sam deploy`; `gh repo create` only behind the public-repo consent gate).
+| Lifecycle | Pattern | Reproduce behaviour |
+|---|---|---|
+| MANAGED | Template renders file on every run; copier re-renders byte-identically. | Overwrites to current template version. |
+| SEED-ONCE | `_skip_if_exists: [<path>]` in copier.yml. | Skips if file exists; renders on a clean tree. |
+| TASK-OUTPUT | Init-only-guarded task writes the file (`test -f <sentinel> \|\| <command>`). | Guard is active on a populated tree — reproduce is a no-op; clean tree → re-runs. |
+| POST-TASK OUTPUT | `_post_task` writes the file after the render loop. | Re-runs on every reproduce (idempotent design required). |
 
-## 4. hook_manager threading contract — agent-frozen union → single writer (CRITIQUE M1)
+Per language: `uv init` (python), `bun init`/`pnpm init` (ts), `cargo new`
+(rust), `go mod init` (go), `cdk init app --language=` (cdk). Adding
+dependencies later uses `package-add` — never hand-edit manifests.
 
-Same fix as §2 — NOT runtime accumulation (the circular case: precommit needs languages'
-`hook_blocks`, languages need precommit's `hook_manager`; unresolvable at runtime with basename
-ordering). Resolved by freezing both up front:
+Config bailiff owns and the tool does not generate stays a MANAGED render
+(`.tflint.hcl`, `.cfnlintrc.yaml`, CI files, ruff config).
 
-- **`hook_manager`** (str, `[pre-commit,lefthook,none]=pre-commit`) and **`hook_blocks`** (yaml union,
-  default `[]`) are BOTH frozen by the phase-1 agent and injected via `--data`. The agent knows the
-  whole selection, so it assembles the union of language hook blocks and the chosen manager up front.
-- **`bailiff-mod-precommit` is the single writer** of the hook config file: `.pre-commit-config.yaml`
-  (pre-commit), `lefthook.yml` (lefthook), or nothing (`none`) — rendered from `hook_manager` +
-  `hook_blocks` + its own base hooks. Language modules do NOT write the hook file; they contribute
-  their block to the frozen `hook_blocks` union.
-- `bailiff-mod-justfile`'s `lint` recipe reads the frozen `hook_manager` to emit the right invocation.
-- When `hook_manager=none`, no hook file is written and `hook_blocks` is inert.
-- `install_hooks` task is **init-only-guarded** (FR-012a).
+NEVER an irreversible action at scaffold (no `cdk bootstrap`/`deploy`,
+`terraform apply`, `sam deploy`; `gh repo create` only behind the
+`create_remote` consent gate in the forge modules).
 
-## 5. quality_languages threading contract — agent-frozen union → single writer (CRITIQUE M1)
+## 4. Cross-module facts — two mechanisms by design (R4 / R6 / R13-GENERALIZED)
 
-Same fix as §2 and §4:
+There are exactly two mechanisms. Choose based on the litmus: **"Can a valid
+stack include the consumer but not the producer?"**
 
-- **`quality_languages`** (yaml, default `[]`) is a frozen union answer injected by the phase-1 agent via
-  `--data`. The agent assembles the set of active language identifiers (e.g. `["python", "typescript"]`)
-  from the full module selection.
-- **`bailiff-mod-quality` is the single writer** of `.agents/hooks/quality-languages` — a **managed** render
-  from `quality_languages`. Language modules do NOT each write this file; they contribute their language
-  token to the frozen `quality_languages` union the agent assembles.
-- When `quality_languages` is empty (no language modules selected), the file is omitted.
+| Answer | Mechanism |
+|---|---|
+| No — producer is always present | `_external_data` alias + hard `depends_on` |
+| Yes — producer is optional | agent-fed `--data` fact with standalone default |
 
-## 6. Agent-frozen `--data` facts (FR-010)
+### 4a. `_external_data` aliases (always-present producers only)
 
-- `bailiff-mod-ci` and `bailiff-mod-stack-adr` sort BEFORE language layers (alphabetical basename
-  tie-break), so they CANNOT read language answers via the run-order accumulator. The phase-1 agent
-  MUST inject their sizing facts directly as frozen `--data` answers: `ci_languages` + per-language
-  facts (manager, version, image, test command) + `ci_model` for CI; stack pins/framework/rationale
-  for stack-adr. Reproduce replays the frozen answers; no agent in the reproduce path.
-- Everything a module CAN get from an upstream layer it already ran after uses copier
-  `default: "{{ upstream_answer }}"` threading via the `init_many` accumulator (verified available).
-- **Accreting-file unions are frozen, not accumulated (M1):** `gitignore_stack`, `mise_tools`,
-  `hook_manager`+`hook_blocks`, and `quality_languages` are ALL agent-frozen union answers injected via
-  `--data` to a single designated writer — NEVER built by later layers reading earlier layers at
-  runtime (basename ordering + persisted-only accumulator make that unreliable/circular). This is the
-  established `gitignore_stack` contract, applied uniformly. Single writers: base → `.gitignore`,
-  base → `.mise.toml`, precommit → hook config file, quality → `.agents/hooks/quality-languages`.
+Only `bailiff-mod-base` is always present. Base-produced facts:
 
-## 7. Determinism / trust / secrets (unchanged constitution rules)
+| Key | Consumers |
+|---|---|
+| `project_name` | python, ts, api, apm, readme, and others |
+| `layout` | ci-github, ci-gitlab, and others |
+| `description` | apm, api, mkdocs, python, readme |
+| `default_branch` | ci-github, ci-gitlab |
+| `org` | github-repo, gitlab-repo (for CODEOWNERS) |
 
-- No `jinja2_time`; `today` injected as an answer (Constitution V). No `secret:` questions; tokens
-  from ambient env in tasks (Constitution VI / FR-005). Code/network steps are trust-gated `_tasks`
-  with the preflight ordered first (FR-009). Tool versions pinned via `.mise.toml`.
+Declare the alias and read facts as shown:
 
-## 8. Contract-lint + test shape (every module — FR-021/FR-022)
+```yaml
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
 
-- Ships `template/{{ _copier_conf.answers_file }}.jinja`, README, CHANGELOG (with `- - -`),
-  three-way registration parity. `_subdirectory: template`.
-- Loop test: hermetic init + reproduce, native/network tasks stubbed to offline marker writes (the
-  `_copy_module_with_stub_tasks` pattern in `tests/conftest.py`). Byte-assert **managed** renders;
-  presence/structure-assert **task-output**; `_skip_if_exists`-assert **seed-once**.
+project_name:
+  type: str
+  default: "{{ _external_data.base.project_name | default('', true) }}"
+```
+
+The `_external_data` declaration is the single source of truth for the data
+dependency. bailiff parses it statically (R9: values must be literal
+`.copier-answers.<basename>.yml` paths — no Jinja, no traversal). If the
+declared producer is absent from the selection, bailiff raises a preflight
+`OrderingError` before any write (R6 — there is no fallback).
+
+### 4b. Agent-fed `--data` facts (sometimes-absent producers)
+
+Use when the consumer can be selected without the producer. Examples:
+
+| Key | Producer | Rationale |
+|---|---|---|
+| `hook_manager` | precommit | deleted as a question; justfile uses standalone default |
+| `ts_linter` | ts | editorconfig works without ts |
+| `python_linter`, `ruff_line_length` | python | editorconfig works without python |
+| `monorepo_tool`, `monorepo_packages` | moon | CI works in non-monorepo stacks |
+| `js_pkg_manager` (in package-add) | ts | package-add is language-agnostic |
+
+Declare with a standalone default; the phase-1 agent populates it from the
+actual selection via `--data`:
+
+```yaml
+ts_linter:
+  type: str
+  default: ""
+  help: "TypeScript linter in use; bailiff injects from selection — leave blank."
+```
+
+Do NOT declare `_external_data` for these producers. Do NOT add
+`depends_on: [<producer>]` for the fact.
+
+## 5. Dependency ordering (R7 / R8)
+
+### 5a. Single edge type: `depends_on`
+
+`depends_on` is the only ordering edge. `run_after` and `run_before` are
+deleted. Declare as a hidden `when: false` answer:
+
+```yaml
+depends_on:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+```
+
+An `_external_data` alias implicitly creates the same ordering constraint. If
+a module declares `_external_data.base`, it also needs `depends_on: [bailiff-mod-base]`
+(the engine enforces both independently).
+
+A dangling edge (target absent from selection) is a preflight `OrderingError`.
+There is no soft "order-if-present" option.
+
+### 5b. Phases
+
+| Phase | Value | Who uses it | May depend on |
+|---|---|---|---|
+| pre | `_bailiff_phase: pre` | `bailiff-mod-base` only | pre only |
+| normal | `_bailiff_phase: normal` | all other current modules | pre + normal |
+| post | reserved for future use | — | — |
+
+Declare phase as a top-level scalar in `copier.yml`:
+
+```yaml
+_bailiff_phase: normal
+```
+
+A cross-phase forward edge (pre→normal, pre→post, normal→post) is illegal and
+rejected with an error at discovery.
+
+### 5c. `_post_tasks` — deferred work after the full render loop (R11)
+
+A module that must run after ALL other modules have rendered (e.g. the
+pre-commit fragment merge, the gitignore concat) declares `_post_tasks` as a
+top-level list in `copier.yml`. bailiff runs `_post_tasks` after the entire
+render loop, in `depends_on` order, on both init and reproduce.
+
+`_post_tasks` entries use the same shell syntax as copier `_tasks`.
+
+```yaml
+_post_tasks:
+  - "python3 scripts/_merge_precommit.py"
+```
+
+`_post_tasks` is orthogonal to the `_bailiff_phase` module phase. Phase
+controls render/ordering of the whole module; `_post_tasks` adds a deferred
+work stage for that module without changing its phase.
+
+## 6. Schema marker and migration gate (R10)
+
+bailiff appends `_bailiff_schema: 014` to each `.copier-answers.<basename>.yml`
+after rendering. `reproduce_many` refuses with a clear error and re-init
+guidance when the marker is absent or carries an older schema. This makes
+the SC-006 reproduce guarantee enforceable.
+
+The marker is written by bailiff, not by the template. Do not add it as a
+copier question.
+
+## 7. Determinism / trust / secrets (Constitution rules, unchanged)
+
+- No `jinja2_time`; `today` injected as a copier answer (Constitution V).
+- No `secret:` questions in `bailiff-mod-*`; tokens from ambient env in tasks
+  (Constitution VI / FR-005).
+- Code/network steps are trust-gated `_tasks` with the preflight ordered first
+  (FR-009).
+- Tool versions pinned via `.mise/conf.d/<vendor>-<module>.toml`.
+
+## 8. Contract-lint and test shape (FR-021 / FR-022)
+
+Every module ships:
+
+- `template/{{ _copier_conf.answers_file }}.jinja` — the reproducibility marker.
+- `README.md` — module description and usage.
+- `CHANGELOG.md` with `- - -` sentinel.
+- Three-way registration parity (copier.yml, cog.toml, catalog-sources.toml).
+- `_subdirectory: template` in copier.yml.
+
+Loop test requirements:
+
+- Hermetic init + reproduce; native/network tasks stubbed to offline marker writes
+  (`_copy_module_with_stub_tasks` pattern in `tests/conftest.py`).
+- Byte-assert MANAGED renders.
+- Presence/structure-assert TASK-OUTPUT files.
+- `_skip_if_exists`-assert SEED-ONCE files.
+
+## 9. Forward pointer — spec 015 cross-format capability translation
+
+Spec 015 adds `_agent_tasks` and `_post_agent_tasks` fields to `copier.yml`.
+These let any module (first- or third-party) declare agent-projected work in a
+structured, machine-readable form. The execution model: init-only, agent runs
+once, output frozen as recorded answers, reproduce replays without agent.
+
+The concrete 015 deliverables include: neutral drop-dir generalization of the
+`.mise/conf.d/` inversion, cross-format hook translation (pre-commit → lefthook),
+and editorconfig full-agentic capability. Do not implement `_agent_tasks` /
+`_post_agent_tasks` in 014 modules.

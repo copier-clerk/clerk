@@ -274,19 +274,25 @@ uvx bailiff init --run-spec <file>           # apply layers in dependency order
 
 **How bailiff orders and applies layers (LLM-free):**
 
-1. Reads each layer's `copier.yml` statically for `depends_on`/`run_after`/
-   `run_before` edges (hidden `when:false` answers, already parsed by discovery).
+1. Reads each layer's `copier.yml` statically for `depends_on` edges and
+   `_external_data` aliases (both are hidden `when:false` answers / top-level
+   keys, already parsed by discovery). `run_after` and `run_before` are not used
+   in spec 014+ modules.
 2. Builds a directed graph and refuses before any write if it finds:
    - a **cycle** (names the cycle members — exit 1);
    - a **dangling edge** (a dependency not in the selection — exit 1, names it);
    - a **basename collision** (two layers with the same repo basename would overwrite
      each other's answers file — exit 1, names the basename).
-3. Topologically sorts with a **stable tie-break: lexicographic by template basename**
-   among constraint-free layers — deterministic across runs and across init/reproduce.
-4. Applies one `copier copy` per layer in that order, threading earlier layers'
-   answers into later layers via copier's `data=` parameter (not `_external_data`).
-5. Each layer commits its own `.copier-answers.<basename>.yml` recording its
-   `_src_path` + `_commit`. **No bailiff-authored order or recipe file is committed.**
+3. Sorts by phase (pre → normal → post), then topologically within each phase,
+   with a **stable tie-break: lexicographic by template basename** — deterministic
+   across runs and across init/reproduce.
+4. Applies one `copier copy` per layer in that order. Cross-module facts flow via
+   copier `_external_data` aliases (always-present producers) or via agent-frozen
+   `--data` answers (sometimes-absent producers — see §cross-module facts below).
+5. After the render loop, runs each layer's `_post_tasks` in `depends_on` order.
+6. Each layer commits its own `.copier-answers.<basename>.yml` recording its
+   `_src_path` + `_commit`. bailiff appends `_bailiff_schema: 014` to each file.
+   **No bailiff-authored order or recipe file is committed.**
 
 `--check` (all-gaps preflight) runs all layers with `pretend=True`, collects every
 missing or invalid answer across all layers, and reports them in one pass — it never
@@ -341,24 +347,30 @@ Your job ends here. Do not re-run generation as a substitute for reproduce, and
 do not edit `.copier-answers.yml` by hand (copier forbids it; reproduce/upgrade
 rely on it being copier-authored).
 
-## The `bailiff-mod-*` module family (spec 009)
+## The `bailiff-mod-*` module family (spec 009 / 014)
 
 `bailiff-mod-*` are the first-party template modules, fanned out to
 `bailiff-io/bailiff-mod-<name>`. They are ordinary bailiff layers — discover →
-trust → init → reproduce works exactly as above. **Phase 0 ships two:**
+trust → init → reproduce works exactly as above. Modules follow the spec 014
+fragment/merge model: each module writes only its own fragment into the relevant
+`.d/` directory; combined output files are produced by native merges or `_post_tasks`.
 
-- **`bailiff-mod-base`** — the collapsed base scaffold and the **identity root** of
-  every project. It asks the identity questions (`project_name`, `org`,
-  `description`, `layout`, and the 13-SPDX `license`), renders the directory
-  scaffold + a seed-once `AGENTS.md`, and runs trust-gated tasks that generate
-  `.gitignore` (via `gitnr`), fetch `LICENSE` (via `gh`), `git init`, and — if
-  `initial_commit=true` — commit. **Always select `bailiff-mod-base` first**; other
-  layers `run_after` it.
-- **`bailiff-mod-python`** — a language overlay that `run_after: [bailiff-mod-base]`.
-  It threads `project_name` from base and seeds a seed-once `pyproject.toml`
-  pinned to `python_version`. It writes no `.gitignore` of its own — its Python
-  entries are contributed into base's shared `gitignore_stack` answer (one
-  writer). Renders standalone with defaults if selected without base.
+**Key modules:**
+
+- **`bailiff-mod-base`** — the identity root of every project (`_bailiff_phase: pre`).
+  Asks identity questions (`project_name`, `org`, `description`, `layout`,
+  `default_branch`, and the 13-SPDX `license`). Renders the directory scaffold
+  + a seed-once `AGENTS.md`. Trust-gated tasks generate `.gitignore` (via `gitnr`),
+  fetch `LICENSE` (via `gh`), `git init`, and optionally commit. Runs a `_post_task`
+  that folds all `.gitignore.d/*` fragments into `.gitignore` (idempotent
+  ordered-concat). Produces the base facts all other modules may read:
+  `project_name`, `layout`, `description`, `default_branch`, `org`.
+- **`bailiff-mod-python`** — Python language overlay (`_bailiff_phase: normal`,
+  `depends_on: [bailiff-mod-base]`). Reads `project_name` and `description` from
+  base via `_external_data`. Writes `.mise/conf.d/bailiff-mod-python.toml`
+  (managed), `.pre-commit.d/bailiff-mod-python.yaml` (managed, unconditional),
+  `.gitignore.d/bailiff-mod-python` (managed). Seeds a seed-once `pyproject.toml`
+  via `uv init` or `pdm init`.
 
 **Spec 007 adds the APM dependency layer:**
 
@@ -403,7 +415,7 @@ trust → init → reproduce works exactly as above. **Phase 0 ships two:**
 **Base-selection step.** When the user wants a new project, select
 `bailiff-mod-base` as the first layer, then add any language/tooling overlays. The
 multi-layer run-spec is the one from *5a*; bailiff orders base before the overlays
-from their `run_after` edges.
+from their `depends_on` edges and phase (`base` is `pre`; overlays are `normal`).
 
 **Per-module trust consent.** Both modules run code (`_tasks`), so each needs
 trust before init (step 3). Their preflight tasks (ordered first) fail loudly
@@ -427,6 +439,36 @@ author the section body and editable globs, then freeze them as the
 `architecture_md` + `agent_editable_globs` answers (with `write_architecture=true`
 to splice them). Reproduce replays those frozen answers deterministically — no
 agent is ever in the reproduce path (Constitution II/III).
+
+**Cross-module facts — two mechanisms (spec 014).** When building a multi-module
+run-spec, you supply two classes of facts via `--data`:
+
+1. **Always-present producers:** base facts (`project_name`, `layout`,
+   `description`, `default_branch`, `org`) flow via `_external_data` aliases
+   declared in the consumer's `copier.yml`. The engine reads the producer's
+   `.copier-answers.<basename>.yml`; you do not inject these via `--data`.
+2. **Sometimes-absent producers:** facts like `hook_manager`, `ts_linter`,
+   `python_linter`, `monorepo_tool` have standalone defaults in the consumer's
+   `copier.yml`. You inject the correct value via `--data` when the producing
+   module IS in the selection (e.g. `--data hook_manager=pre-commit` when
+   `bailiff-mod-precommit` is selected). When the producer is absent, leave the
+   consumer's default in place.
+
+Never wire a sometimes-absent producer via `_external_data` — if the producer is
+absent from the selection, bailiff raises a preflight `OrderingError`.
+
+**How to write a module (spec 014 checklist):**
+
+| Step | What to do |
+|---|---|
+| 1. Pick a phase | `_bailiff_phase: normal` for most modules; only base uses `pre`. |
+| 2. Declare edges | `depends_on: [bailiff-mod-base]` (hidden `when: false`). Add more targets for every side-effect dependency. |
+| 3. Read base facts | Declare `_external_data: {base: .copier-answers.bailiff-mod-base.yml}` and use `_external_data.base.<key>` in defaults. |
+| 4. Declare agent-fed facts | For sometimes-absent producers, declare the key with a standalone default string. Do not add `_external_data` or `depends_on` for the producer. |
+| 5. Write fragments, not combined files | Write `.mise/conf.d/<vendor>-<module>.toml`, `.pre-commit.d/<vendor>-<module>.yaml`, `.gitignore.d/<vendor>-<module>` as MANAGED renders. |
+| 6. Deferred work | If work must run after all modules rendered, declare it in `_post_tasks`. |
+| 7. Mark lifecycle | Comment each output with its lifecycle (MANAGED / SEED-ONCE / TASK-OUTPUT / POST-TASK OUTPUT). |
+| 8. Ship the reproducibility marker | Include `template/{{ _copier_conf.answers_file }}.jinja`. |
 
 ## Reproduce / Update as portable skills
 
@@ -504,6 +546,6 @@ copier update --vcs-ref <tag> --defaults --overwrite <dest>
 - `specs/002-catalog/contracts/catalog.md` — catalog file format, listing JSON
   shape, full-id semantics, exit codes, and `unusable` structure.
 - `specs/003-multi-template/contracts/ordering.md` — multi-template run-spec shape,
-  edge semantics (depends_on/run_after/run_before), ordering algorithm, and exit codes.
+  edge semantics (`depends_on`, phase), ordering algorithm, and exit codes.
 - `specs/001-bailiff-vertical-slice/contracts/discovery-output.md` — discover JSON.
 - `specs/001-bailiff-vertical-slice/contracts/answers-doc.md` — run-spec format.

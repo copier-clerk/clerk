@@ -7,3 +7,20 @@
 ```sh
 copier copy https://github.com/bailiff-io/{{ module_name }}.git <destination>
 ```
+
+## Questions
+
+<!-- List questions this module asks (key, type, default, purpose). -->
+
+## Outputs
+
+<!-- List managed files, seed-once files, task-output files, and fragments:
+  - .mise/conf.d/{{ module_name }}.toml        (MANAGED — mise native merge)
+  - .pre-commit.d/{{ module_name }}.yaml       (MANAGED — bundled by bailiff-mod-precommit _post_task)
+  - .gitignore.d/{{ module_name }}             (MANAGED — concatenated by bailiff-mod-base _post_task)
+-->
+
+## Dependencies
+
+- `bailiff-mod-base` (phase-1 data dependency via `_external_data`; always present)
+- <!-- add any side-effect dependencies here -->

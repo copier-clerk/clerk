@@ -36,7 +36,7 @@ reproduce path.
 Each is **one git repo = one template**, clean `vX.Y.Z` (PEP 440) tags, and ships
 `{{ _copier_conf.answers_file }}.jinja` (required for reproducibility). Content,
 not code. Every template also carries its questions, `secret:` flags, `when:false`
-dependency edges (`depends_on`/`run_after`/`run_before`), and new-format
+dependency edges (`depends_on`, `_bailiff_phase`), `_post_tasks`, and new-format
 `_migrations`.
 
 | Template | Kind | Purpose | Spec |
