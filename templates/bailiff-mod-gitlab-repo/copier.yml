@@ -1,26 +1,41 @@
 # copier.yml — bailiff-mod-gitlab-repo
 #
-# Pure side-effect module: creates the GitLab remote for the project — the
-# exact semantic port of bailiff-mod-github-repo to glab (spec 012 / FR-012).
-# Writes NO files (reconcile=false; the template/ subtree holds only the
-# answers-file marker). Idempotent: `glab repo create` is gated so that if
-# creation fails (repo already exists, no auth, glab absent) the task exits 0
-# — warn-and-continue, never abort the whole init run.
-# Public repos keep a HARD exit-1 gate: the user must have explicitly set
-# visibility=public (no silent public creation) — the gate fires BEFORE any
-# creation, identical to github-repo.
+# Manages GitLab forge metadata for the project: CODEOWNERS, issue templates,
+# and MR template under .gitlab/. Optionally creates the GitLab remote when
+# create_remote=true (init-only, non-fatal side effect).
+#
+# Managed files reconcile on reproduce; the glab-creation tasks are INIT-ONLY
+# and gated on create_remote=true — non-fatal on failure.
+# Public repos keep a HARD exit-1 gate: the user must have set visibility=public
+# intentionally (no silent public creation).
 #
 # Token source: ambient GITLAB_TOKEN (read by glab itself).
 # No secret: questions — Constitution VI / FR-005.
-#
-# Contract: FR-012 — default_enabled=false; run_after: [bailiff-mod-base];
-# reconcile=false; init-only (tasks never re-run on reproduce).
 
-# Threaded from base so the module can embed the name in task echo output.
+# --- Cross-module facts via _external_data (FR-004 / R12) --------------------
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+
+# project_name and org are read from base via _external_data; they are NOT
+# re-asked (when:false) — they exist so templates can use the values.
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base)."
+  default: "{{ _external_data.base.project_name }}"
+  when: false
+
+org:
+  type: str
+  default: "{{ _external_data.base.org }}"
+  when: false
+
+# --- Questions ----------------------------------------------------------------
+
+# Whether to create the remote repository via glab (init-only).
+# false = adopt-existing-repo path: .gitlab/ files still render.
+create_remote:
+  type: bool
+  default: false
+  help: "Run 'glab repo create' to create the GitLab remote (init-only). false = render .gitlab/ only."
 
 # Repository visibility. public keeps the HARD exit-1 abort gate.
 visibility:
@@ -47,78 +62,66 @@ push_after_create:
   default: false
   help: "Push the current branch to origin after repo creation?"
 
-# Optional group namespace to create the project under (empty = personal
-# namespace) — the glab-side counterpart of github-repo's team question.
+# Optional group namespace to create the project under (empty = personal namespace).
 team:
   type: str
   default: ""
   help: "GitLab group path to create the project under (leave empty for your personal namespace)."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# Module phase: normal (FR-020/R8). base=pre; family=normal.
+_bailiff_phase: normal
+
+# --- Dependency edges (FR-019 / R7 — single depends_on, no run_after/run_before) ---
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
-  when: false
-
-# Template subtree: only the answers-file marker lives here (no rendered files).
+# Template subtree holds managed .gitlab/ files and the answers-file marker.
 _subdirectory: template
 
-# No managed or seed-once files — this module produces no file output.
-
 # --- Trust-gated tasks (FR-007b) ----------------------------------------------
-# reconcile=false: these tasks are INIT-ONLY (not re-run on reproduce/update).
+# Remote-creation tasks are INIT-ONLY and gated on create_remote=true.
 # Tool-missing or creation failure → non-fatal exit 0 (warn-and-continue).
 # public visibility without consent → hard exit 1 (no silent public creation).
 _tasks:
-  # Preflight: check glab is available. Missing tool is non-fatal per contract.
-  - >-
-    command -v glab >/dev/null 2>&1 ||
-    { echo "bailiff-mod-gitlab-repo: glab not found — skipping repo creation (non-fatal)." >&2;
-    exit 0; }
+  # All creation tasks gate on create_remote — skip them if adopt-existing-repo.
+  - command: >-
+      command -v glab >/dev/null 2>&1 ||
+      { echo "bailiff-mod-gitlab-repo: glab not found — skipping repo creation (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
   # Hard gate: public repos are never created without explicit prior consent.
-  # There is no runtime confirmation question (Constitution VI / no secret:),
-  # so visibility=public always aborts with exit 1 — BEFORE any creation.
-  # Users who truly want a public repo must run `glab repo create` manually
-  # after reviewing the scaffold.
-  - >-
-    {% if visibility == 'public' %}
-    echo "bailiff-mod-gitlab-repo: ABORTED — visibility=public requires manual confirmation." >&2;
-    echo "  Run 'glab repo create --public' manually after reviewing the scaffold." >&2;
-    exit 1;
-    {% endif %}
-    true
+  - command: >-
+      {% if visibility == 'public' %}
+      echo "bailiff-mod-gitlab-repo: ABORTED — visibility=public requires manual confirmation." >&2;
+      echo "  Run 'glab repo create --public' manually after reviewing the scaffold." >&2;
+      exit 1;
+      {% endif %}
+      true
+    when: "{{ create_remote }}"
 
-  # Protocol: glab config controls the remote URL scheme (no per-create flag).
-  # Set once, non-fatal.
-  - >-
-    glab config set git_protocol {{ remote_protocol }}
-    || { echo "bailiff-mod-gitlab-repo: glab config set git_protocol failed — skipping (non-fatal)." >&2;
-    exit 0; }
+  # Protocol: glab config controls the remote URL scheme.
+  - command: >-
+      glab config set git_protocol {{ remote_protocol }}
+      || { echo "bailiff-mod-gitlab-repo: glab config set git_protocol failed — skipping (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
-  # Repo creation: non-fatal on any failure (glab error → warn and continue).
-  # Run from the current directory so glab wires the origin remote to it.
-  - >-
-    glab repo create
-    "{{ project_name | default('project', true) | lower | replace(' ', '-') }}"
-    --{{ visibility }}
-    {% if team %}--group "{{ team }}"{% endif %}
-    || { echo "bailiff-mod-gitlab-repo: glab repo create failed — skipping (non-fatal)." >&2;
-    exit 0; }
+  # Repo creation: non-fatal on any failure.
+  - command: >-
+      glab repo create
+      "{{ project_name | default('project', true) | lower | replace(' ', '-') }}"
+      --{{ visibility }}
+      {% if team %}--group "{{ team }}"{% endif %}
+      || { echo "bailiff-mod-gitlab-repo: glab repo create failed — skipping (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
-  # Optional push after creation (gated on push_after_create answer).
+  # Optional push after creation.
   - command: >-
       git push -u origin HEAD
       || { echo "bailiff-mod-gitlab-repo: git push failed — skipping (non-fatal)." >&2; exit 0; }
-    when: "{{ push_after_create }}"
+    when: "{{ create_remote and push_after_create }}"

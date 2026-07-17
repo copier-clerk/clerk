@@ -1,24 +1,41 @@
 # copier.yml — bailiff-mod-github-repo
 #
-# Pure side-effect module: creates the GitHub remote for the project.
-# Writes NO files (reconcile=false; the template/ subtree holds only the
-# answers-file marker). Idempotent: `gh repo create --source . origin` is
-# gated so that if creation fails (repo already exists, no auth, gh absent)
-# the task exits 0 — warn-and-continue, never abort the whole init run.
-# Public repos keep a HARD exit-1 gate: the user must have explicitly set
-# visibility=public (no silent public creation).
+# Manages GitHub forge metadata for the project: CODEOWNERS, issue templates,
+# and PR template under .github/. Optionally creates the GitHub remote when
+# create_remote=true (init-only, non-fatal side effect).
+#
+# Managed files reconcile on reproduce; the gh-creation tasks are INIT-ONLY
+# and gated on create_remote=true — non-fatal on failure.
+# Public repos keep a HARD exit-1 gate: the user must have set visibility=public
+# intentionally (no silent public creation).
 #
 # Token source: ambient GITHUB_TOKEN (or GITHUB_APM_PAT for legacy callers).
 # No secret: questions — Constitution VI / FR-005.
-#
-# Contract: docs-integration.md §bailiff-mod-github-repo
-#   default_enabled=false; run_after: [bailiff-mod-base]; reconcile=false.
 
-# Threaded from base so the module can embed the name in task echo output.
+# --- Cross-module facts via _external_data (FR-004 / R12) --------------------
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+
+# project_name and org are read from base via _external_data; they are NOT
+# re-asked (when:false) — they exist so templates can use the values.
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "The project's name (threaded from bailiff-mod-base)."
+  default: "{{ _external_data.base.project_name }}"
+  when: false
+
+org:
+  type: str
+  default: "{{ _external_data.base.org }}"
+  when: false
+
+# --- Questions ----------------------------------------------------------------
+
+# Whether to create the remote repository via gh (init-only).
+# false = adopt-existing-repo path: .github/ files still render.
+create_remote:
+  type: bool
+  default: false
+  help: "Run 'gh repo create' to create the GitHub remote (init-only). false = render .github/ only."
 
 # Repository visibility. public keeps the HARD exit-1 abort gate.
 visibility:
@@ -51,72 +68,61 @@ team:
   default: ""
   help: "GitHub team slug to grant access after creation (leave empty to omit)."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# Module phase: normal (FR-020/R8). base=pre; family=normal.
+_bailiff_phase: normal
+
+# --- Dependency edges (FR-019 / R7 — single depends_on, no run_after/run_before) ---
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
-  when: false
-
-# Template subtree: only the answers-file marker lives here (no rendered files).
+# Template subtree holds managed .github/ files and the answers-file marker.
 _subdirectory: template
 
-# No managed or seed-once files — this module produces no file output.
-
 # --- Trust-gated tasks (FR-007b) ----------------------------------------------
-# reconcile=false: these tasks are INIT-ONLY (not re-run on reproduce/update).
+# Remote-creation tasks are INIT-ONLY and gated on create_remote=true.
 # Tool-missing or creation failure → non-fatal exit 0 (warn-and-continue).
 # public visibility without consent → hard exit 1 (no silent public creation).
 _tasks:
-  # Preflight: check gh is available. Missing tool is non-fatal per contract.
-  - >-
-    command -v gh >/dev/null 2>&1 ||
-    { echo "bailiff-mod-github-repo: gh not found — skipping repo creation (non-fatal)." >&2;
-    exit 0; }
+  # All creation tasks gate on create_remote — skip them if adopt-existing-repo.
+  - command: >-
+      command -v gh >/dev/null 2>&1 ||
+      { echo "bailiff-mod-github-repo: gh not found — skipping repo creation (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
   # Hard gate: public repos are never created without explicit prior consent.
-  # There is no runtime confirmation question (Constitution VI / no secret:),
-  # so visibility=public always aborts with exit 1. Users who truly want a
-  # public repo must use `gh repo create` manually after scaffolding.
-  - >-
-    {% if visibility == 'public' %}
-    echo "bailiff-mod-github-repo: ABORTED — visibility=public requires manual confirmation." >&2;
-    echo "  Run 'gh repo create --source . --public' manually after reviewing the scaffold." >&2;
-    exit 1;
-    {% endif %}
-    true
+  - command: >-
+      {% if visibility == 'public' %}
+      echo "bailiff-mod-github-repo: ABORTED — visibility=public requires manual confirmation." >&2;
+      echo "  Run 'gh repo create --source . --public' manually after reviewing the scaffold." >&2;
+      exit 1;
+      {% endif %}
+      true
+    when: "{{ create_remote }}"
 
-  # Protocol: gh config controls remote URL scheme; --ssh/--https are not valid
-  # flags for gh repo create (confirmed absent in gh >=2.x). Set once, non-fatal.
-  - >-
-    gh config set git_protocol {{ remote_protocol }}
-    || { echo "bailiff-mod-github-repo: gh config set git_protocol failed — skipping (non-fatal)." >&2;
-    exit 0; }
+  # Protocol: gh config controls remote URL scheme.
+  - command: >-
+      gh config set git_protocol {{ remote_protocol }}
+      || { echo "bailiff-mod-github-repo: gh config set git_protocol failed — skipping (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
-  # Repo creation: non-fatal on any failure (gh error → warn and continue).
-  # --source . means the current directory is the local source; origin is the
-  # remote name bailiff-io convention uses.
-  - >-
-    gh repo create
-    --source .
-    --remote origin
-    --{{ visibility }}
-    {% if team %}--team {{ team }}{% endif %}
-    || { echo "bailiff-mod-github-repo: gh repo create failed — skipping (non-fatal)." >&2;
-    exit 0; }
+  # Repo creation: non-fatal on any failure.
+  - command: >-
+      gh repo create
+      --source .
+      --remote origin
+      --{{ visibility }}
+      {% if team %}--team {{ team }}{% endif %}
+      || { echo "bailiff-mod-github-repo: gh repo create failed — skipping (non-fatal)." >&2;
+      exit 0; }
+    when: "{{ create_remote }}"
 
-  # Optional push after creation (gated on push_after_create answer).
+  # Optional push after creation.
   - command: >-
       git push -u origin HEAD
       || { echo "bailiff-mod-github-repo: git push failed — skipping (non-fatal)." >&2; exit 0; }
-    when: "{{ push_after_create }}"
+    when: "{{ create_remote and push_after_create }}"

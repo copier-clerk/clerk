@@ -1,18 +1,21 @@
 """spec 011 T018: bailiff-mod-github-repo loop tests.
 
-Three scenarios per contract (docs-integration.md §bailiff-mod-github-repo):
+Three scenarios per contract (R12/FR-024):
 
-1. visibility=public → hard exit 1 before any gh call (no silent public creation).
-2. gh absent → non-fatal exit 0 (warn-and-continue); scaffold completes.
-3. gh present (stubbed offline) → init succeeds, answers file written.
+1. visibility=public + create_remote=true → hard exit 1 before any gh call.
+2. gh absent + create_remote=true → non-fatal exit 0; scaffold completes.
+3. gh present (stubbed offline) + create_remote=true → init succeeds, answers written.
+4. create_remote=false (default) → .github/ files render; no gh tasks run.
 
-This module writes NO project files; the only rendered output is the answers
-file. Lifecycle class: pure side-effect (reconcile=false).
+This module writes .github/ managed files (CODEOWNERS, ISSUE_TEMPLATE,
+PULL_REQUEST_TEMPLATE) plus the answers file. Remote creation is init-only,
+gated on create_remote=true.
 """
 
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 from textwrap import dedent
 
@@ -21,7 +24,27 @@ import yaml
 
 from bailiff import runner, trust
 from bailiff.errors import BailiffError
-from tests.conftest import _GH_STUB_TASKS, TemplateRepo, _copy_module_with_stub_tasks
+from tests.conftest import (
+    _GH_STUB_TASKS,
+    _MODULES_DIR,
+    TemplateRepo,
+    _copy_module_with_stub_tasks,
+    _git,
+)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _seed_base_answers(dest: Path, *, project_name: str = "myproj", org: str = "myorg") -> None:
+    """Write a minimal base answers file so _external_data.base resolves."""
+    dest.mkdir(parents=True, exist_ok=True)
+    answers = {"project_name": project_name, "org": org}
+    (dest / ".copier-answers.bailiff-mod-base.yml").write_text(
+        yaml.dump(answers, default_flow_style=False)
+    )
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -62,8 +85,7 @@ def bailiff_mod_github_repo_no_gh(tmp_path: Path) -> TemplateRepo:
     )
 
 
-# Stub that exercises the public visibility gate: the task block replicates the
-# copier.yml logic for visibility=public and exits 1 unconditionally.
+# Stub that exercises the public visibility gate: exits 1 unconditionally.
 _GH_PUBLIC_STUB_TASKS = dedent(
     """\
     _tasks:
@@ -93,12 +115,13 @@ def test_public_visibility_aborts(
     bailiff_mod_github_repo_public: TemplateRepo, tmp_path: Path
 ) -> None:
     """visibility=public must cause the task to exit 1 (hard abort-without-consent gate)."""
-    trust.add_trust(bailiff_mod_github_repo_public.url)
     dest = tmp_path / "proj"
+    _seed_base_answers(dest, project_name="mypub")
+    trust.add_trust(bailiff_mod_github_repo_public.url)
     spec = runner.RunSpec(
         source=bailiff_mod_github_repo_public.url,
         dest=str(dest),
-        answers={"project_name": "mypub", "visibility": "public"},
+        answers={"visibility": "public", "create_remote": True},
     )
     # copier propagates non-zero task exit; bailiff wraps it as BailiffError.
     with pytest.raises(BailiffError):
@@ -112,22 +135,24 @@ def test_public_visibility_aborts(
 
 def test_gh_absent_is_nonfatal(bailiff_mod_github_repo_no_gh: TemplateRepo, tmp_path: Path) -> None:
     """When gh is absent the task exits 0 and the answers file is still written."""
-    trust.add_trust(bailiff_mod_github_repo_no_gh.url)
     dest = tmp_path / "proj"
+    _seed_base_answers(dest)
+    trust.add_trust(bailiff_mod_github_repo_no_gh.url)
     spec = runner.RunSpec(
         source=bailiff_mod_github_repo_no_gh.url,
         dest=str(dest),
-        answers={"project_name": "myproj", "visibility": "private"},
+        answers={"visibility": "private", "create_remote": True},
     )
     # Must NOT raise — non-fatal exit 0.
     runner.init(spec, today="2026-07-14")
 
-    # Answers file written (module IS reproducible).
-    answers_files = list(dest.glob(".copier-answers*.yml"))
-    assert answers_files, "answers file must exist even when gh is absent"
+    # The module writes its own answers file (distinct from the pre-seeded base answers).
+    module_af_files = [
+        f for f in dest.glob(".copier-answers*.yml") if "bailiff-mod-base" not in f.name
+    ]
+    assert module_af_files, "module answers file must exist even when gh is absent"
 
-    af = yaml.safe_load(answers_files[0].read_text())
-    assert af["project_name"] == "myproj"
+    af = yaml.safe_load(module_af_files[0].read_text())
     assert af["visibility"] == "private"
 
 
@@ -139,14 +164,15 @@ def test_gh_absent_is_nonfatal(bailiff_mod_github_repo_no_gh: TemplateRepo, tmp_
 def test_init_stubbed_gh_writes_answers(
     bailiff_mod_github_repo: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Stubbed gh: init completes and the answers file records all question values."""
-    trust.add_trust(bailiff_mod_github_repo.url)
+    """Stubbed gh: init completes; answers file records question values; .github/ rendered."""
     dest = tmp_path / "proj"
+    _seed_base_answers(dest)
+    trust.add_trust(bailiff_mod_github_repo.url)
     spec = runner.RunSpec(
         source=bailiff_mod_github_repo.url,
         dest=str(dest),
         answers={
-            "project_name": "myproj",
+            "create_remote": True,
             "visibility": "private",
             "remote_protocol": "https",
             "push_after_create": False,
@@ -155,29 +181,71 @@ def test_init_stubbed_gh_writes_answers(
     )
     runner.init(spec, today="2026-07-14")
 
-    # Answers file written with correct values.
-    answers_files = list(dest.glob(".copier-answers*.yml"))
-    assert answers_files, "answers file missing after init"
+    # Module answers file written (exclude the pre-seeded base answers file).
+    module_af_files = [
+        f for f in dest.glob(".copier-answers*.yml") if "bailiff-mod-base" not in f.name
+    ]
+    assert module_af_files, "module answers file missing after init"
 
-    af = yaml.safe_load(answers_files[0].read_text())
+    af = yaml.safe_load(module_af_files[0].read_text())
     assert af["visibility"] == "private"
     assert af["remote_protocol"] == "https"
     assert af["push_after_create"] is False
     assert af["team"] == ""
+    assert af["create_remote"] is True
 
-    # No other files written (pure side-effect module).
-    rendered = [
-        p
-        for p in dest.iterdir()
-        if p.name
-        not in {
-            ".copier-answers.bailiff-mod-github-repo.yml",
-            ".copier-answers.yml",
-            ".bailiff-gh-preflight",
-        }
-        and not p.name.startswith(".copier-answers")
-    ]
-    assert not rendered, f"unexpected files rendered by side-effect module: {rendered}"
+    # Managed .github/ files must be rendered.
+    assert (dest / ".github" / "CODEOWNERS").is_file(), ".github/CODEOWNERS must render"
+    assert (dest / ".github" / "ISSUE_TEMPLATE" / "bug_report.md").is_file()
+    assert (dest / ".github" / "ISSUE_TEMPLATE" / "feature_request.md").is_file()
+    assert (dest / ".github" / "PULL_REQUEST_TEMPLATE" / "pull_request_template.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Test: create_remote=false → .github/ renders but no gh tasks run
+# ---------------------------------------------------------------------------
+
+
+def _copy_github_repo_real(tmp_path: Path) -> TemplateRepo:
+    """Clone the real bailiff-mod-github-repo WITHOUT stubbing tasks.
+
+    Used for create_remote=false tests: the real tasks have ``when: "{{ create_remote }}"``
+    so they never run when false — no stub needed to prove the gate works.
+    """
+    src = _MODULES_DIR / "bailiff-mod-github-repo"
+    dest_root = tmp_path / "bailiff-mod-github-repo-real"
+    dest_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dest_root, dirs_exist_ok=True)
+    _git(dest_root, "init", "-q")
+    _git(dest_root, "add", "-A")
+    _git(dest_root, "commit", "-qm", "module")
+    _git(dest_root, "tag", "v1.0.0")
+    return TemplateRepo(path=dest_root, tag="v1.0.0")
+
+
+def test_create_remote_false_renders_metadata_no_task(tmp_path: Path) -> None:
+    """create_remote=false: .github/ files present; real tasks gated and never run (FR-024)."""
+    # Use the real (non-stubbed) module — tasks are gated on create_remote; with false
+    # all task bodies are skipped, so no tool invocation occurs.
+    module = _copy_github_repo_real(tmp_path)
+    dest = tmp_path / "proj"
+    _seed_base_answers(dest)
+    trust.add_trust(module.url)
+    spec = runner.RunSpec(
+        source=module.url,
+        dest=str(dest),
+        answers={"create_remote": False, "visibility": "private"},
+    )
+    runner.init(spec, today="2026-07-14")
+
+    # .github/ files must render regardless of create_remote.
+    assert (dest / ".github" / "CODEOWNERS").is_file(), ".github/CODEOWNERS must render"
+    assert (dest / ".github" / "ISSUE_TEMPLATE" / "bug_report.md").is_file()
+
+    # No side-effect files should exist (real tasks are when:false-gated).
+    assert not (dest / ".bailiff-gh-preflight").exists(), (
+        "no gh side-effect when create_remote=false"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +262,5 @@ def test_no_secret_questions() -> None:
         / "copier.yml"
     )
     text = copier_yml.read_text()
-    # 'secret:' appearing as a YAML key (not in a comment) must not be present.
     lines_with_secret = [line for line in text.splitlines() if re.match(r"^\s+secret\s*:", line)]
     assert not lines_with_secret, f"secret: questions found in copier.yml: {lines_with_secret}"
