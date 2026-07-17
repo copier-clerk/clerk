@@ -2,6 +2,7 @@
 # Hook fragment: bailiff-mod-precommit's bundler merges all .pre-commit.d/*.yaml
 # into .pre-commit-config.yaml as a _post_task (spec 014 FR-011).
 # This fragment is inert when bailiff-mod-precommit is absent or hook_manager=none.
+repos:
 {% if ts_linter == 'biome' %}
   # ---------------------------------------------------------------------------
   # Biome — lint + format (replaces eslint+prettier for JS/TS/JSON/CSS)
@@ -41,4 +42,6 @@
           - "@typescript-eslint/parser@8.32.0"
           - "@typescript-eslint/eslint-plugin@8.32.0"
           - "eslint-config-prettier@10.1.5"
+{% else %}
+  []
 {% endif %}
