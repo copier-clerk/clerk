@@ -63,6 +63,13 @@ def main() -> int:
             print(f"_merge_precommit: skipping {frag_path.name}: {exc}", file=sys.stderr)
             continue
 
+        if not isinstance(data, dict):
+            raise SystemExit(
+                f"bailiff precommit bundler: fragment {frag_path.name} must be a"
+                f" mapping with a top-level 'repos:' key, got"
+                f" {type(data).__name__}. See the .pre-commit-config.yaml schema."
+            )
+
         if exclude is None and data.get("exclude"):
             exclude = str(data["exclude"])
 

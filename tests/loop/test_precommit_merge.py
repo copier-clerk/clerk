@@ -288,6 +288,33 @@ def test_bundler_rev_pin_conflict_is_exit_zero(tmp_path: Path) -> None:
     assert rc == 0, "rev-pin conflict must exit 0 (highest-wins+warn, not abort)"
 
 
+def test_bundler_non_dict_fragment_raises_clear_error(tmp_path: Path) -> None:
+    """Bare list fragment must cause a non-zero exit with a clear error message.
+
+    A fragment that is a top-level YAML list (not a mapping) is a malformed
+    authoring error; the bundler must fail loudly rather than crash with an
+    AttributeError.
+    """
+    frag_dir = tmp_path / ".pre-commit.d"
+    frag_dir.mkdir()
+    # Write a bare list — the malformed shape that triggered the bug
+    (frag_dir / "bad.yaml").write_text(
+        "- repo: https://github.com/pre-commit/pre-commit-hooks\n"
+        "  rev: v5.0.0\n"
+        "  hooks:\n"
+        "  - id: trailing-whitespace\n"
+    )
+
+    bundler = _get_bundler_path()
+    rc, stderr = _run_bundler(tmp_path, bundler)
+
+    assert rc != 0, "bundler must exit non-zero for a non-dict fragment"
+    assert "bad.yaml" in stderr, f"error must name the offending file; got: {stderr!r}"
+    assert "repos" in stderr.lower() or "mapping" in stderr.lower(), (
+        f"error must mention expected shape; got: {stderr!r}"
+    )
+
+
 def test_bundler_deterministic_output(tmp_path: Path) -> None:
     """Same fragment set → identical .pre-commit-config.yaml bytes on repeated runs."""
     _write_fragment(
