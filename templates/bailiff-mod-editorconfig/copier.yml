@@ -4,30 +4,27 @@
 # Deliberately NOT part of base (keeps base thin — ratified). Pure MANAGED
 # render — ZERO _tasks.
 #
-# `.editorconfig` sections are sized from FROZEN language facts: `ts_linter`
-# is read from bailiff-mod-ts via _external_data (spec 014 FR-004); Python
-# facts (`python_linter`, `ruff_line_length`) are injected by bailiff via
-# --data. INVARIANT: indentation derives from the linter's convention ONLY,
-# never from line-width facts.
+# `.editorconfig` sections are sized from FROZEN language facts that the
+# phase-1 agent injects via --data: `ts_linter`, `python_linter`, and
+# `ruff_line_length`. This is the same agent-fed model as hook_manager (R13):
+# ts is sometimes absent, so ts_linter is NOT read via _external_data — the
+# agent passes it as a --data freeze when ts is in the stack, empty otherwise.
+# INVARIANT: indentation derives from the linter's convention ONLY, never from
+# line-width facts.
 #
-# When no language facts are present, only the universal defaults section
-# renders — no language sections are invented.
+# When no language facts are frozen (standalone init), only the universal
+# defaults section renders — no language sections are invented.
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
 # questions; no jinja2_time; ordering edge is depends_on (when:false).
 
-# --- Cross-module facts (spec 014 FR-004/_facts.md) --------------------------
-# ts is a hard dependency when its answers file is read: absent → loud
-# OrderingError at preflight (FR-006).
-_external_data:
-  ts: .copier-answers.bailiff-mod-ts.yml
-
-# ts_linter — read from bailiff-mod-ts via _external_data alias (FR-006a).
-# Empty when ts module is absent → no TS/JS section rendered.
+# ts_linter — agent-injected --data fact. Empty when ts is absent from the
+# stack → no TS/JS section rendered. biome and eslint-prettier both follow
+# the 2-space indent convention.
 ts_linter:
   type: str
-  default: "{{ _external_data.ts.ts_linter }}"
-  help: "TS linter identity (read from bailiff-mod-ts via _external_data; empty = no TS section). biome or eslint-prettier."
+  default: "{{ ts_linter }}"
+  help: "TS linter identity (agent-frozen --data fact; empty = no TS section). biome or eslint-prettier."
 
 # python_linter — frozen Python linter identity (agent injects 'ruff' when a
 # Python module is selected). Empty = no Python section.
@@ -44,11 +41,10 @@ ruff_line_length:
   help: "Python max line length from the frozen ruff setting (used when python_linter is set)."
 
 # --- Dependency edge (spec 014 FR-019/R7: depends_on is the only ordering edge) ---
-# ts is a hard dep because we read _external_data.ts.* (FR-006).
+# No cross-module _external_data reads → no hard producer dep.
 depends_on:
   type: yaml
-  default:
-    - bailiff-mod-ts
+  default: []
   when: false
 
 # Phase: normal (spec 014 FR-020/R8).

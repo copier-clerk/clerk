@@ -1,8 +1,8 @@
 # bailiff-mod-editorconfig
 
 Editor whitespace defaults micro-module (spec 012 / FR-006, spec 014 rewrite). Renders a managed
-`.editorconfig` whose language sections derive from the project's frozen language facts — deliberately
-NOT part of `bailiff-mod-base` (keeps base thin, ratified).
+`.editorconfig` whose language sections derive from frozen language facts — deliberately NOT part
+of `bailiff-mod-base` (keeps base thin, ratified).
 
 ## Outputs
 
@@ -19,34 +19,21 @@ NOT part of `bailiff-mod-base` (keeps base thin, ratified).
 - **Python section** renders when `python_linter` is set (PEP 8 / ruff convention: 4-space indent,
   `max_line_length` from `ruff_line_length`).
 - **INVARIANT**: indentation derives from the linter's convention ONLY, never from line-width facts.
-- **No language facts present** → universal defaults only; no sections invented.
+- **No language facts frozen** → universal defaults only; no sections invented.
 - **Zero `_tasks`**: pure render; reproduce needs no toolchain or network.
-
-## Cross-module facts (`_external_data`)
-
-`ts_linter` is read from `bailiff-mod-ts` via the `_external_data` alias (spec 014 FR-004):
-
-```yaml
-_external_data:
-  ts: .copier-answers.bailiff-mod-ts.yml
-```
-
-This makes `bailiff-mod-ts` a **hard dependency**: if ts is absent from the stack, bailiff raises
-a loud `OrderingError` at preflight (FR-006). Python facts (`python_linter`, `ruff_line_length`)
-are injected by bailiff via `--data`.
 
 ## Questions
 
+All three language-fact questions are injected by the phase-1 agent via `--data`. They are empty
+when the corresponding language module is absent from the stack.
+
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `ts_linter` | str | `{{ _external_data.ts.ts_linter }}` | read from bailiff-mod-ts; empty = no TS section |
-| `python_linter` | str | `""` | frozen fact (e.g. `ruff`); empty = no Python section |
+| `ts_linter` | str | `"{{ ts_linter }}"` | agent-frozen `--data` fact; empty = no TS section |
+| `python_linter` | str | `""` | agent-frozen `--data` fact (e.g. `ruff`); empty = no Python section |
 | `ruff_line_length` | str | `"88"` | feeds Python `max_line_length` only |
 
-## Dependency edge
-
-`depends_on: [bailiff-mod-ts]` — ts must be applied before editorconfig (the `_external_data` read
-is the ordering constraint, spec 014 FR-019/R7).
+This module has no `_external_data` reads and no hard producer dependency. It works standalone.
 
 ## Usage
 

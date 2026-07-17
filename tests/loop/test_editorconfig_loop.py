@@ -1,12 +1,12 @@
 """spec 012 T004 / spec 014 T040: bailiff-mod-editorconfig loop tests (FR-006).
 
 Pure MANAGED render — zero _tasks. Assertions:
-- init alone (no ts facts) → universal defaults only, no language sections;
-- ts_linter=biome (via _external_data.ts) → TS section with 2-space indent;
-- ts_linter=eslint-prettier (via _external_data.ts) → TS section with 2-space indent;
+- init alone (no language facts) → universal defaults only, no language sections;
+- ts_linter=biome frozen → TS section with the linter's 2-space indent convention;
 - python facts + ruff_line_length=88 → Python section max_line_length=88, indent 4
   (indentation from the linter convention, NEVER from line width);
-- spec 014: _external_data.ts alias declared, ts_linter default uses the alias path;
+- spec 014: no _external_data alias; ts_linter default is the bare frozen key;
+  depends_on does NOT include bailiff-mod-ts (standalone contract);
 - no secret: questions.
 """
 
@@ -27,9 +27,6 @@ from tests.conftest import (
 )
 
 _EC_FILE = Path(".editorconfig")
-
-# Name of the ts answers file that editorconfig reads via _external_data.
-_TS_ANSWERS_FILE = ".copier-answers.bailiff-mod-ts.yml"
 
 _UNIVERSAL_LINES = [
     "charset = utf-8",
@@ -62,20 +59,6 @@ def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
 
 
-def _seed_ts_answers(dest: Path, ts_linter: str = "") -> None:
-    """Write a minimal ts answers file so _external_data.ts resolves in tests.
-
-    In a real stack ts runs first; in standalone editorconfig tests we pre-seed
-    the file that copier would otherwise warn-and-skip (returning {}).
-    """
-    dest.mkdir(parents=True, exist_ok=True)
-    answers = {
-        "_src_path": "bailiff-mod-ts",
-        "ts_linter": ts_linter,
-    }
-    (dest / _TS_ANSWERS_FILE).write_text(yaml.dump(answers))
-
-
 def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
     trust.add_trust(repo.url)
     spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
@@ -91,10 +74,8 @@ def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
 
 
 def test_universal_defaults_only(bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path) -> None:
-    """No ts facts → universal section only, no language sections invented."""
-    dest = tmp_path / "proj"
-    _seed_ts_answers(dest, ts_linter="")
-    text = _init(bailiff_mod_editorconfig, dest, {})
+    """No frozen language facts → universal section only, no language sections invented."""
+    text = _init(bailiff_mod_editorconfig, tmp_path / "proj", {"ts_linter": ""})
 
     assert "root = true" in text
     for line in _UNIVERSAL_LINES:
@@ -112,10 +93,8 @@ def test_universal_defaults_only(bailiff_mod_editorconfig: TemplateRepo, tmp_pat
 def test_ts_section_from_linter_convention(
     bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path, linter: str
 ) -> None:
-    """ts_linter from _external_data.ts → TS section uses the linter's 2-space indent convention."""
-    dest = tmp_path / "proj"
-    _seed_ts_answers(dest, ts_linter=linter)
-    text = _init(bailiff_mod_editorconfig, dest, {})
+    """ts_linter frozen → TS section uses the linter's 2-space indent convention."""
+    text = _init(bailiff_mod_editorconfig, tmp_path / "proj", {"ts_linter": linter})
 
     ts_section = text.split("[*.{js")[1]
     assert "indent_style = space" in ts_section
@@ -133,12 +112,10 @@ def test_python_section_indent_and_line_length(
     bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path
 ) -> None:
     """python facts frozen → indent 4 (ruff/PEP8 convention) + max_line_length=ruff_line_length."""
-    dest = tmp_path / "proj"
-    _seed_ts_answers(dest, ts_linter="")
     text = _init(
         bailiff_mod_editorconfig,
-        dest,
-        {"python_linter": "ruff", "ruff_line_length": "88"},
+        tmp_path / "proj",
+        {"ts_linter": "", "python_linter": "ruff", "ruff_line_length": "88"},
     )
 
     assert "[*.py]" in text
@@ -147,12 +124,10 @@ def test_python_section_indent_and_line_length(
     assert "max_line_length = 88" in py_section
 
     # Different line length changes ONLY max_line_length, never the indent.
-    dest_120 = tmp_path / "proj120"
-    _seed_ts_answers(dest_120, ts_linter="")
     text_120 = _init(
         bailiff_mod_editorconfig,
-        dest_120,
-        {"python_linter": "ruff", "ruff_line_length": "120"},
+        tmp_path / "proj120",
+        {"ts_linter": "", "python_linter": "ruff", "ruff_line_length": "120"},
     )
     py_120 = text_120.split("[*.py]")[1]
     assert "max_line_length = 120" in py_120
@@ -163,44 +138,42 @@ def test_python_section_indent_and_line_length(
 
 
 # ---------------------------------------------------------------------------
-# spec 014: _external_data alias declared (FR-004 / T040)
+# spec 014: standalone contract — no _external_data, no ts hard-dep (T040)
 # ---------------------------------------------------------------------------
 
 
-def test_external_data_alias_declared() -> None:
-    """copier.yml declares _external_data.ts pointing at the ts answers file (FR-006a)."""
+def test_no_external_data_alias() -> None:
+    """editorconfig has no _external_data block — ts_linter is agent-fed --data (R13 class)."""
     copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    text = copier_yml.read_text()
-    assert "_external_data:" in text
-    data = yaml.safe_load(text)
-    ext = data.get("_external_data", {})
-    assert "ts" in ext, "_external_data.ts alias missing"
-    assert ext["ts"] == ".copier-answers.bailiff-mod-ts.yml", (
-        "ts alias must point to the literal answers file (FR-006a)"
+    data = yaml.safe_load(copier_yml.read_text())
+    assert "_external_data" not in data, (
+        "_external_data must NOT be present: ts is sometimes absent; "
+        "ts_linter is agent-fed --data, not a cross-module read"
     )
 
 
-def test_ts_linter_default_uses_external_data_path() -> None:
-    """ts_linter default references _external_data.ts.ts_linter (not the bare threaded key)."""
+def test_ts_linter_default_is_bare_frozen_key() -> None:
+    """ts_linter default is the bare frozen key '{{ ts_linter }}', not an _external_data path."""
     copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
     text = copier_yml.read_text()
-    assert "{{ _external_data.ts.ts_linter }}" in text, (
-        "ts_linter default must use _external_data.ts.ts_linter (FR-006a)"
+    assert 'default: "{{ ts_linter }}"' in text, (
+        "ts_linter default must be the bare frozen key (agent-fed --data)"
     )
-    assert 'default: "{{ ts_linter }}"' not in text, (
-        "bare threaded {{ ts_linter }} default must be removed (spec 014 T040)"
+    assert "_external_data.ts.ts_linter" not in text, (
+        "_external_data path must not appear for ts_linter"
     )
 
 
-def test_depends_on_ts_not_run_after() -> None:
-    """depends_on includes bailiff-mod-ts; run_after and run_before are absent (spec 014 R7)."""
+def test_depends_on_excludes_ts() -> None:
+    """depends_on must NOT include bailiff-mod-ts — editorconfig is standalone (R13 class)."""
     copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    text = copier_yml.read_text()
-    data = yaml.safe_load(text)
+    data = yaml.safe_load(copier_yml.read_text())
     deps = data.get("depends_on", {}).get("default", [])
-    assert "bailiff-mod-ts" in deps, "depends_on must include bailiff-mod-ts"
-    assert "run_after" not in data, "run_after must be removed (spec 014 R7)"
-    assert "run_before" not in data, "run_before must be removed (spec 014 R7)"
+    assert "bailiff-mod-ts" not in deps, (
+        "bailiff-mod-ts must not be in depends_on: ts is sometimes absent"
+    )
+    assert "run_after" not in data, "run_after must be absent (spec 014 R7)"
+    assert "run_before" not in data, "run_before must be absent (spec 014 R7)"
 
 
 # ---------------------------------------------------------------------------
