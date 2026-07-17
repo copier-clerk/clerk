@@ -4,11 +4,21 @@
 # ZERO _tasks — pure render, no tool execution. Sized from agent-frozen --data.
 #
 # Contract: spec 011 T017 / contracts/ci-github-gitlab.md
-# Grill fixes applied: optional:true needs, interruptible+auto_cancel coupling,
-# compare_to on branch arm only, canonical workflow:rules guard, fallback_keys
-# on caches, pinned images, bun.lock cache key.
+# Grill fixes applied: optional:true needs on change-gated jobs (optimized model),
+# interruptible+auto_cancel coupling, compare_to on branch arm only, canonical
+# workflow:rules guard, fallback_keys on caches, pinned images, bun.lock cache key.
 #
 # NO secret: questions (Constitution VI). Edges are when:false hidden answers.
+#
+# Cross-module facts via _external_data (spec 014 / FR-004):
+#   base  → project_name, default_branch (HARD dependency; absent → preflight error)
+#   moon  → monorepo_tool, monorepo_packages (HARD dependency when moon is in selection)
+
+# --- Cross-module facts via _external_data (spec 014 / FR-004) ---------------
+
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+  moon: .copier-answers.bailiff-mod-moon.yml
 
 # --- CI model & options (shared question shape) ------------------------------
 
@@ -78,20 +88,20 @@ monorepo_tool:
     - nx
     - pnpm-workspace
     - moon
-  default: none
-  help: "Monorepo tool (turborepo/nx/pnpm-workspace/moon); required for monorepo-affected model."
+  default: "{{ _external_data.moon.monorepo_tool | default('none') }}"
+  help: "Monorepo tool (turborepo/nx/pnpm-workspace/moon); required for monorepo-affected model. Read from moon module via _external_data."
 
 # monorepo_packages: frozen list of package paths for parent-child pipelines.
 # Empty → inline rules:changes per path detection.
 monorepo_packages:
   type: yaml
-  default: []
-  help: "Monorepo package paths for parent-child trigger jobs (agent-frozen; empty = inline rules:changes)."
+  default: "{{ _external_data.moon.monorepo_packages | default([]) }}"
+  help: "Monorepo package paths for parent-child trigger jobs. Read from moon module via _external_data."
 
 default_branch:
   type: str
-  default: "{{ default_branch }}"
-  help: "Default branch name (threaded from base; used in rules:changes compare_to)."
+  default: "{{ _external_data.base.default_branch }}"
+  help: "Default branch name (read from base via _external_data; used in rules:changes compare_to)."
 
 # --- GitLab-specific question ------------------------------------------------
 
@@ -107,8 +117,8 @@ gitlab_tier:
 
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "Project name (threaded from bailiff-mod-base)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "Project name (read from base via _external_data)."
 
 today:
   type: str
@@ -117,20 +127,15 @@ today:
 
 # --- Dependency edges (when:false — FR-005) ----------------------------------
 
-run_after:
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # The template body lives under template/ so copier renders only that subtree.

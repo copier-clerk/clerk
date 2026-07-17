@@ -24,7 +24,16 @@ zero `_tasks`, reproduces config-consistently.
 | `ci_cache` | `true` | Enable language caches |
 | `ci_concurrency_cancel` | `true` | `workflow:auto_cancel` when `interruptible` |
 | `ci_oidc_provider` | `none` | `gitlab` → renders `id_tokens:` block |
-| `monorepo_tool` | `none` | `turborepo`/`nx`/`pnpm-workspace` for monorepo model |
+
+## Cross-module facts
+
+Read via `_external_data` aliases (spec 014 / FR-004). `bailiff-mod-base` is a hard
+dependency; absent → preflight error.
+
+| Alias | Source module | Facts read |
+|---|---|---|
+| `base` | `bailiff-mod-base` | `project_name`, `default_branch` |
+| `moon` | `bailiff-mod-moon` | `monorepo_tool`, `monorepo_packages` |
 
 ## Usage
 
