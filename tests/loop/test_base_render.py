@@ -149,46 +149,19 @@ def test_base_monorepo_adds_targets(bailiff_mod_base: TemplateRepo, tmp_path: Pa
     assert "## Path Mapping" not in agents
 
 
-def test_base_github_host_false_no_github_dir(
-    bailiff_mod_base: TemplateRepo, tmp_path: Path
-) -> None:
-    """github_host=false → .github/ must not be scaffolded at all."""
+def test_base_never_scaffolds_github_dir(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """R12/FR-022: base never scaffolds .github/ — forge metadata lives in bailiff-mod-github-repo.
+
+    github_host is no longer a base question.
+    """
     dest = tmp_path / "proj"
     _init_base(
         bailiff_mod_base,
         dest,
-        {
-            "project_name": "demo",
-            "org": "acme",
-            "license": "mit",
-            "github_host": False,
-        },
+        {"project_name": "demo", "org": "acme", "license": "mit"},
     )
-    assert not (dest / ".github").exists(), "github_host=false must not scaffold .github/"
-
-
-def test_base_github_host_true_scaffolds_github(
-    bailiff_mod_base: TemplateRepo, tmp_path: Path
-) -> None:
-    """github_host=true (default) → minimal .github/ present, no workflows/."""
-    dest = tmp_path / "proj"
-    _init_base(
-        bailiff_mod_base,
-        dest,
-        {
-            "project_name": "demo",
-            "org": "acme",
-            "license": "mit",
-            "github_host": True,
-        },
-    )
-    assert (dest / ".github").is_dir(), "github_host=true must scaffold .github/"
-    assert not (dest / ".github" / "workflows").exists(), (
-        ".github/workflows must not be scaffolded by base (that is bailiff-mod-ci)"
-    )
-    assert (dest / ".github" / "CODEOWNERS").is_file(), "CODEOWNERS must be present"
-    assert not (dest / ".github" / "dependabot.yml").exists(), (
-        "dependabot.yml removed in spec 012 (pre-v1.0.0) — separate bailiff-mod-dep-updates"
+    assert not (dest / ".github").exists(), (
+        "base must not scaffold .github/ (moved to bailiff-mod-github-repo in R12)"
     )
 
 
@@ -269,18 +242,16 @@ def test_base_copyright_name_in_license(bailiff_mod_base: TemplateRepo, tmp_path
     assert "My Legal Name" in license_text, "copyright_name must appear in LICENSE"
 
 
-def test_base_mise_toml_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
-    """MANAGED: .mise.toml is rendered from the frozen mise_tools answer."""
+def test_base_mise_conf_d_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """MANAGED: .mise/conf.d/bailiff-mod-base.toml is rendered (base scaffold entry-point)."""
     dest = tmp_path / "proj"
     _init_base(
         bailiff_mod_base,
         dest,
-        {
-            "project_name": "demo",
-            "license": "mit",
-            "mise_tools": [{"python": "3.13"}],
-        },
+        {"project_name": "demo", "license": "mit"},
     )
-    mise = (dest / ".mise.toml").read_text()
-    assert "[tools]" in mise, ".mise.toml must contain [tools] section"
-    assert "python" in mise, ".mise.toml must list python tool"
+    mise_drop = dest / ".mise" / "conf.d" / "bailiff-mod-base.toml"
+    assert mise_drop.is_file(), ".mise/conf.d/bailiff-mod-base.toml must be scaffolded"
+    assert "[tools]" in mise_drop.read_text(), (
+        ".mise/conf.d/bailiff-mod-base.toml must contain [tools]"
+    )
