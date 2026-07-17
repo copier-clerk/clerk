@@ -1,10 +1,12 @@
-"""spec 012 T004: bailiff-mod-editorconfig loop tests (FR-006).
+"""spec 012 T004 / spec 014 T040: bailiff-mod-editorconfig loop tests (FR-006).
 
 Pure MANAGED render — zero _tasks. Assertions:
 - init alone (no language facts) → universal defaults only, no language sections;
 - ts_linter=biome frozen → TS section with the linter's 2-space indent convention;
 - python facts + ruff_line_length=88 → Python section max_line_length=88, indent 4
   (indentation from the linter convention, NEVER from line width);
+- spec 014: no _external_data alias; ts_linter default is the bare frozen key;
+  depends_on does NOT include bailiff-mod-ts (standalone contract);
 - no secret: questions.
 """
 
@@ -15,6 +17,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 from bailiff import runner, trust
 from tests.conftest import (
@@ -132,6 +135,45 @@ def test_python_section_indent_and_line_length(
 
 
 # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
+
+
+# ---------------------------------------------------------------------------
+# spec 014: standalone contract — no _external_data, no ts hard-dep (T040)
+# ---------------------------------------------------------------------------
+
+
+def test_no_external_data_alias() -> None:
+    """editorconfig has no _external_data block — ts_linter is agent-fed --data (R13 class)."""
+    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
+    data = yaml.safe_load(copier_yml.read_text())
+    assert "_external_data" not in data, (
+        "_external_data must NOT be present: ts is sometimes absent; "
+        "ts_linter is agent-fed --data, not a cross-module read"
+    )
+
+
+def test_ts_linter_default_is_bare_frozen_key() -> None:
+    """ts_linter default is the bare frozen key '{{ ts_linter }}', not an _external_data path."""
+    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
+    text = copier_yml.read_text()
+    assert 'default: "{{ ts_linter }}"' in text, (
+        "ts_linter default must be the bare frozen key (agent-fed --data)"
+    )
+    assert "_external_data.ts.ts_linter" not in text, (
+        "_external_data path must not appear for ts_linter"
+    )
+
+
+def test_depends_on_excludes_ts() -> None:
+    """depends_on must NOT include bailiff-mod-ts — editorconfig is standalone (R13 class)."""
+    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
+    data = yaml.safe_load(copier_yml.read_text())
+    deps = data.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-ts" not in deps, (
+        "bailiff-mod-ts must not be in depends_on: ts is sometimes absent"
+    )
+    assert "run_after" not in data, "run_after must be absent (spec 014 R7)"
+    assert "run_before" not in data, "run_before must be absent (spec 014 R7)"
 
 
 # ---------------------------------------------------------------------------

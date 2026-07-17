@@ -1,26 +1,30 @@
 # copier.yml — bailiff-mod-editorconfig
 #
-# Editor whitespace defaults micro-module (spec 012 / FR-006). Deliberately NOT
-# part of base (keeps base thin — ratified). Pure MANAGED render — ZERO _tasks.
+# Editor whitespace defaults micro-module (spec 012 / FR-006, spec 014 rewrite).
+# Deliberately NOT part of base (keeps base thin — ratified). Pure MANAGED
+# render — ZERO _tasks.
 #
-# `.editorconfig` sections are sized from FROZEN language facts the phase-1
-# agent injects via --data (FR-006): `ts_linter`, the Python linter identity
-# (`python_linter`), and `ruff_line_length`. INVARIANT: indentation derives
-# from the linter's convention ONLY, never from line-width facts.
+# `.editorconfig` sections are sized from FROZEN language facts that the
+# phase-1 agent injects via --data: `ts_linter`, `python_linter`, and
+# `ruff_line_length`. This is the same agent-fed model as hook_manager (R13):
+# ts is sometimes absent, so ts_linter is NOT read via _external_data — the
+# agent passes it as a --data freeze when ts is in the stack, empty otherwise.
+# INVARIANT: indentation derives from the linter's convention ONLY, never from
+# line-width facts.
 #
 # When no language facts are frozen (standalone init), only the universal
 # defaults section renders — no language sections are invented.
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
-# questions; no jinja2_time; edges are when:false hidden answers.
+# questions; no jinja2_time; ordering edge is depends_on (when:false).
 
-# ts_linter — threaded fact (FR-002 axis key). Empty when no TS module is
-# selected → no TS/JS section. biome and eslint-prettier both follow the
-# 2-space indent convention.
+# ts_linter — agent-injected --data fact. Empty when ts is absent from the
+# stack → no TS/JS section rendered. biome and eslint-prettier both follow
+# the 2-space indent convention.
 ts_linter:
   type: str
   default: "{{ ts_linter }}"
-  help: "TS linter identity (threaded/frozen fact; empty = no TS section). biome or eslint-prettier."
+  help: "TS linter identity (agent-frozen --data fact; empty = no TS section). biome or eslint-prettier."
 
 # python_linter — frozen Python linter identity (agent injects 'ruff' when a
 # Python module is selected). Empty = no Python section.
@@ -36,24 +40,15 @@ ruff_line_length:
   default: "88"
   help: "Python max line length from the frozen ruff setting (used when python_linter is set)."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
-  type: yaml
-  default:
-    - bailiff-mod-base
-  when: false
-
+# --- Dependency edge (spec 014 FR-019/R7: depends_on is the only ordering edge) ---
+# No cross-module _external_data reads → no hard producer dep.
 depends_on:
   type: yaml
   default: []
   when: false
 
-run_before:
-  type: yaml
-  default: []
-  when: false
+# Phase: normal (spec 014 FR-020/R8).
+_bailiff_phase: normal
 
 # Template body lives under template/ — copier renders only that subtree.
 _subdirectory: template
-
-# .editorconfig is MANAGED: byte-identical on reproduce. No _tasks (FR-006).
