@@ -1,10 +1,11 @@
 # copier.yml — bailiff-mod-go
 #
 # The Go language overlay: add Go tooling (go mod, golangci-lint) as a copier
-# layer (spec 014). Reads project_name from base via _external_data alias;
-# reads hook_manager from precommit via _external_data alias. Contributes:
+# layer (spec 014). Reads project_name from base via _external_data alias.
+# Contributes:
 #   - .mise/conf.d/bailiff-mod-go.toml (own tools, mise merges natively)
-#   - .pre-commit.d/bailiff-mod-go.yaml (golangci hook block, precommit bundler merges)
+#   - .pre-commit.d/bailiff-mod-go.yaml (golangci hook block, unconditional fragment;
+#     precommit bundler merges it when precommit is in the stack — inert otherwise)
 #   - .gitignore.d/bailiff-mod-go (Go gitignore lines, base concat _post_task merges)
 #
 # Contract (Constitution VI): ships template/{{ _copier_conf.answers_file }}.jinja;
@@ -14,19 +15,11 @@
 # base is a hard dependency: absent → loud OrderingError at preflight (FR-006).
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  precommit: .copier-answers.bailiff-mod-precommit.yml
 
 project_name:
   type: str
   default: "{{ _external_data.base.project_name }}"
   help: "The project's name (read from bailiff-mod-base via _external_data)."
-
-# hook_manager read from precommit answers; default empty so a standalone run
-# renders gracefully when precommit is absent.
-hook_manager:
-  type: str
-  default: "{{ _external_data.precommit.hook_manager | default('') }}"
-  help: "Hook manager (read from bailiff-mod-precommit via _external_data; pre-commit/lefthook/none)."
 
 # --- Go toolchain axes -------------------------------------------------------
 

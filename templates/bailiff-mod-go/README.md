@@ -26,14 +26,14 @@ via `_external_data` aliases.
 | `app_kind` | `cli` / `service` / `library` (default `cli`) | `library` drops `cmd/` entirely. |
 | `test_runner` | `go-test` / `gotestsum` (default `go-test`) | Private — collision-class key (FR-007). `gotestsum` adds a mise tool entry. |
 | `use_vendor_mode` | bool (default `false`) | When `true`, adds `vendor/` to the gitignore fragment. |
-| `golangci_hook_rev` | str (default `""`) | Rev for the golangci-lint pre-commit hook block. Empty → no fragment rendered. |
+| `golangci_hook_rev` | str (default `""`) | Rev for the golangci-lint pre-commit hook block. Empty → hook block omitted from fragment. |
 
 ## Ordering & facts
 
 - `depends_on: [bailiff-mod-base]` — base applies first (`_bailiff_phase: pre`); this module is `normal` phase.
 - `project_name` read from base via `_external_data.base.project_name` (FR-004).
-- `hook_manager` read from precommit via `_external_data.precommit.hook_manager` (FR-004).
 - `test_runner` is **bare-private** — collision-class across go/rust/ts; never threaded or aliased.
+- No `hook_manager` dependency (R13): `.pre-commit.d/bailiff-mod-go.yaml` renders unconditionally; `bailiff-mod-precommit`'s bundler merges it when present.
 
 ## Prerequisites (FR-007b)
 
