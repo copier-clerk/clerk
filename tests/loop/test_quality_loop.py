@@ -111,7 +111,9 @@ def test_quality_single_language(bailiff_mod_quality: TemplateRepo, tmp_path: Pa
     assert lines == ["python"]
 
 
-def test_quality_gitignore_fragment_rendered(bailiff_mod_quality: TemplateRepo, tmp_path: Path) -> None:
+def test_quality_gitignore_fragment_rendered(
+    bailiff_mod_quality: TemplateRepo, tmp_path: Path
+) -> None:
     """FR-013: .gitignore.d/bailiff-mod-quality fragment is always rendered."""
     dest = tmp_path / "proj"
     _init(bailiff_mod_quality, dest, {"quality_languages": []})
