@@ -4,14 +4,15 @@
   .pre-commit-config.yaml as a _post_task; this fragment is inert when precommit is absent
   (FR-011/012, _fragment-merge.md).
 -#}
-- repo: https://github.com/antonbabenko/pre-commit-terraform
-  {% if pre_commit_terraform_rev -%}
-  rev: "{{ pre_commit_terraform_rev }}"
-  {% else -%}
-  rev: ""  # pin via pre_commit_terraform_rev answer or update manually
-  {% endif -%}
-  hooks:
-    - id: terraform_fmt
-    - id: terraform_validate
-    - id: tflint
-    - id: terraform_trivy
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    {% if pre_commit_terraform_rev -%}
+    rev: "{{ pre_commit_terraform_rev }}"
+    {% else -%}
+    rev: ""  # pin via pre_commit_terraform_rev answer or update manually
+    {% endif -%}
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+      - id: tflint
+      - id: terraform_trivy

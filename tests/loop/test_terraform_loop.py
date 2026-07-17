@@ -471,6 +471,32 @@ class TestFragmentOutputs:
         fragment = (dest / ".pre-commit.d" / "bailiff-mod-terraform.yaml").read_text()
         assert "antonbabenko/pre-commit-terraform" in fragment
 
+    def test_precommit_fragment_is_bundler_shaped(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
+        """Fragment MUST be a mapping with a top-level ``repos:`` list.
+
+        The precommit bundler (_merge_precommit.py) rejects any fragment that is
+        not ``{repos: [...]}`` and aborts the whole init. Every other module's
+        fragment uses this shape; a bare top-level list here hard-fails a
+        terraform+precommit stack (real-render acceptance finding, spec 014).
+        """
+        dest = tmp_path / "proj"
+        _init(
+            bailiff_mod_terraform,
+            dest,
+            {"tf_flavor": "terraform", "terraform_version": "1.12.2", "tflint_version": "0.57.0"},
+        )
+        raw = (dest / ".pre-commit.d" / "bailiff-mod-terraform.yaml").read_text()
+        parsed = yaml.safe_load(raw)
+        assert isinstance(parsed, dict), (
+            "fragment must be a mapping; the bundler requires a top-level 'repos:' key"
+        )
+        assert isinstance(parsed.get("repos"), list) and parsed["repos"], (
+            "fragment must carry a non-empty 'repos:' list"
+        )
+        assert parsed["repos"][0]["repo"].endswith("pre-commit-terraform")
+
     def test_gitignore_fragment_contains_terraform_dir(
         self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
     ) -> None:
