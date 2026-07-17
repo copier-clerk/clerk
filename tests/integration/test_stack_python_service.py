@@ -3,10 +3,10 @@ justfile + ci-github + dep-updates.
 
 Verifies the frozen-union / single-writer contract (_cross-cutting §2/§4/§5/§6)
 holds when the whole realistic stack composes:
-- base is the only writer of .mise.toml (all contributed tokens present);
+- each module writes its own .mise/conf.d/<module>.toml fragment (no .mise.toml);
 - precommit is the only writer of the hook config (contributed blocks present once);
 - quality writes the quality-languages hook file;
-- dep-updates resolves dependabot from the THREADED github_host=true base answer.
+- dep-updates defaults to renovate (R12: dep_update_tool no longer threaded from github_host).
 """
 
 from __future__ import annotations
@@ -68,8 +68,7 @@ _LAYERS = [
             "default_branch": "main",
         },
     ),
-    # github_host is deliberately NOT passed: it must THREAD from base's answer
-    # (dep-updates sorts after base) and resolve dep_update_tool=dependabot.
+    # No dep_update_tool override — dep-updates defaults to renovate per R12.
     ("bailiff-mod-dep-updates", {"dep_ecosystems": ["uv", "github-actions"]}),
 ]
 
@@ -104,7 +103,7 @@ def test_all_layers_rendered(stack: Path) -> None:
     assert len(answers) == len(_LAYERS), f"one answers file per layer, got {answers}"
 
 
-def test_mise_toml_single_writer_union(stack: Path) -> None:
+def test_mise_conf_d_fragments(stack: Path) -> None:
     """014 model: each module writes its own .mise/conf.d/<module>.toml fragment."""
     # At least one conf.d fragment must exist.
     frags = list(stack.rglob(".mise/conf.d/*.toml"))
