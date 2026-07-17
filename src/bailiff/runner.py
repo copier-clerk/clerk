@@ -236,6 +236,9 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     # copier name when no custom answers_file is supplied).
     if not check:
         _write_schema_marker(spec.dest, ".copier-answers.yml")
+        # Whole-project initial commit as the last engine step (see
+        # _finalize_initial_commit) so the tree is clean after init.
+        _finalize_initial_commit(spec.answers, spec.dest)
     return RunResult(dest=spec.dest, src=spec.source, ref=spec.ref, pretend=check)
 
 
@@ -473,6 +476,41 @@ def _write_schema_marker(dest: str, af_name: str) -> None:
     af_path.write_text(existing + f"{_BAILIFF_SCHEMA_KEY}: '{_BAILIFF_SCHEMA_VERSION}'\n")
 
 
+def _initial_commit_requested(all_answers: dict[str, Any]) -> bool:
+    """True when the scaffold should be committed by the engine after the full run.
+
+    Reads the ``initial_commit`` and ``run_git_init`` answers (produced by
+    ``bailiff-mod-base``). Both must be truthy: a commit needs a repo, and it is
+    opt-in. copier serializes bool answers as real booleans, but a run-spec may
+    carry strings — accept the common truthy string forms too.
+    """
+
+    def _truthy(v: Any) -> bool:
+        if isinstance(v, str):
+            return v.strip().lower() in {"true", "yes", "1", "on"}
+        return bool(v)
+
+    return _truthy(all_answers.get("initial_commit")) and _truthy(
+        all_answers.get("run_git_init", True)
+    )
+
+
+def _finalize_initial_commit(all_answers: dict[str, Any], dest: str) -> None:
+    """Commit the whole scaffold once, AFTER the full render loop + post-tasks + markers.
+
+    The initial commit is a whole-project concern, not a per-module task: a base
+    ``_task`` fires at base's position in the render loop (base is ``pre`` phase),
+    so it would commit only base's own files and leave every later layer's output —
+    plus post-task outputs (``.gitignore`` concat, the pre-commit bundler) and the
+    appended ``_bailiff_schema`` markers — uncommitted. Running the commit here, as
+    the last engine step, leaves a clean tree after init. Gated on
+    ``initial_commit and run_git_init``; a no-op when the tree is already clean.
+    """
+    if not _initial_commit_requested(all_answers):
+        return
+    discovery.git_commit_if_dirty(dest, "Initial project scaffold")
+
+
 def _run_post_tasks(
     plan: list[tuple[TemplateRecord, str]],
     descs: dict[str, discovery.Discovery],
@@ -619,6 +657,12 @@ def init_many(
             _write_schema_marker(dest, af_name)
         # spec 014 FR-021/R11: run _post_tasks after the full render loop.
         _run_post_tasks(plan, descs, dest)
+        # Whole-project initial commit AFTER post-tasks + schema markers, so the
+        # tree is clean after init (not a per-module task — see
+        # _finalize_initial_commit). Reads base's initial_commit/run_git_init.
+        _finalize_initial_commit(
+            {k: v for layer in answers_map.values() for k, v in layer.items()}, dest
+        )
         return results
 
     # check=True: all-gaps preflight — run all layers, collect all errors.
