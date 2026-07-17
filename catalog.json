@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-07-17T16:10:01Z",
+  "generated_at": "2026-07-17T16:52:59Z",
   "modules": [
     {
       "name": "bailiff-mod-agentic",
@@ -17,9 +17,10 @@
       "name": "bailiff-mod-api",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-api.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -28,9 +29,10 @@
       "name": "bailiff-mod-apm",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-apm.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -39,9 +41,10 @@
       "name": "bailiff-mod-base",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-base.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -50,9 +53,10 @@
       "name": "bailiff-mod-cdk",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-cdk.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [
         "iac-tool"
@@ -63,9 +67,10 @@
       "name": "bailiff-mod-ci-github",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-ci-github.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.1.1",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.1.1"
       ],
       "provides": [],
       "exclusive": false
@@ -74,9 +79,10 @@
       "name": "bailiff-mod-ci-gitlab",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-ci-gitlab.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.1.1",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.1.1"
       ],
       "provides": [],
       "exclusive": false
@@ -98,9 +104,10 @@
       "name": "bailiff-mod-cocogitto",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-cocogitto.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -109,9 +116,10 @@
       "name": "bailiff-mod-dep-updates",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-dep-updates.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -120,9 +128,10 @@
       "name": "bailiff-mod-devcontainer",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-devcontainer.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -131,9 +140,10 @@
       "name": "bailiff-mod-editorconfig",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-editorconfig.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -142,9 +152,10 @@
       "name": "bailiff-mod-github-repo",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-github-repo.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -153,9 +164,10 @@
       "name": "bailiff-mod-gitlab-repo",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-gitlab-repo.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -164,9 +176,10 @@
       "name": "bailiff-mod-go",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-go.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -175,9 +188,10 @@
       "name": "bailiff-mod-justfile",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-justfile.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -186,9 +200,10 @@
       "name": "bailiff-mod-mkdocs",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-mkdocs.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -197,9 +212,10 @@
       "name": "bailiff-mod-moon",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-moon.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -208,9 +224,10 @@
       "name": "bailiff-mod-package-add",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-package-add.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -219,9 +236,10 @@
       "name": "bailiff-mod-precommit",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-precommit.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -230,9 +248,10 @@
       "name": "bailiff-mod-python",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-python.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -241,9 +260,10 @@
       "name": "bailiff-mod-quality",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-quality.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -252,9 +272,10 @@
       "name": "bailiff-mod-readme",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-readme.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -274,9 +295,10 @@
       "name": "bailiff-mod-stack-adr",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-stack-adr.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
@@ -285,9 +307,10 @@
       "name": "bailiff-mod-terraform",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-terraform.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [
         "iac-tool"
@@ -298,9 +321,10 @@
       "name": "bailiff-mod-ts",
       "description": "",
       "source": "https://github.com/bailiff-io/bailiff-mod-ts.git",
-      "latest_version": "v0.1.0",
+      "latest_version": "v0.2.0",
       "tags": [
-        "v0.1.0"
+        "v0.1.0",
+        "v0.2.0"
       ],
       "provides": [],
       "exclusive": false
