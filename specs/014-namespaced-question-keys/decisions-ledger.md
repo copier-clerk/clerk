@@ -309,20 +309,30 @@ COMPLETE set. Facts read via `_external_data` aliases (each read is a validated 
   - `description` KEPT + made a base fact (renders into base AGENTS.md, readme README.md, api
     openapi.yaml, apm apm.yml, mkdocs site_description+index). Consumers: apm, api, mkdocs, python,
     readme.
-- **precommit-produced** (alias `_external_data.precommit.*`) — ADDED after critique: **`hook_manager`**.
-  Consumers: python, ts, api, go, rust, terraform, justfile. Precommit co-occurs with language overlays
-  in the same stack, so `hook_manager` is a genuine non-exclusive cross-layer read — private-by-default
-  without this alias would render `hook_manager` EMPTY and silently break lint/hook wiring.
+- **precommit-produced** (alias `_external_data.precommit.*`) — ~~`hook_manager`~~ **STRUCK by R13
+  (2026-07-17): `hook_manager` is NOT a cross-module fact.** No language module RENDERS `hook_manager`
+  (grep-verified across python/ts/api/go/rust/terraform template bodies) — in the old model it only
+  gated whether to CONTRIBUTE a hook block, which under the fragment/merge model (R1/R11) is the
+  precommit bundler's job, not the language's. Making it a fact forced precommit as a HARD dependency of
+  every language (FR-006), breaking `[base + language]` standalone stacks. Ruling (A): languages
+  contribute an UNCONDITIONAL `.pre-commit.d/*.yaml` fragment and do NOT read `hook_manager`; ONLY
+  precommit reads its own `hook_manager` (not cross-module). Consumers list voided. See R13.
 - **ts-produced** (alias `_external_data.ts.*`) — ADDED after critique: **`js_pkg_manager`** (consumers:
   justfile, package-add) and **`ts_linter`** (consumer: editorconfig).
 - **moon-produced** (alias `_external_data.moon.*`): `monorepo_tool` (ci-github, ci-gitlab),
   `monorepo_packages` (ci-gitlab, cocogitto). Proves the mechanism is not base-specific.
 
-Producers are therefore **base + precommit + ts + moon** (not base+moon as originally scoped). Reading a
-base fact auto-requires base as a dependency; reading `hook_manager` auto-requires precommit; etc. (R6).
+Producers after the R12/R13 corrections are **base + ts + moon** (precommit is NO LONGER a cross-module
+producer — its only reader was itself; R13). Reading a base fact auto-requires base as a dependency; etc. (R6).
+Final base facts: `project_name`, `layout`, `description`, `default_branch`, **`org`** (added by R12 —
+forge modules read `_external_data.base.org` for CODEOWNERS; see below).
 
 - **Stay BARE-PRIVATE (NOT facts):**
-  - `org`, `copyright_name`, `branch_strategy` — base-only, no cross-module reader.
+  - ~~`org`~~ `copyright_name`, `branch_strategy` — base-only, no cross-module reader. **`org` MOVED to
+    base facts (R12 correction, 2026-07-17):** the forge modules (github-repo/gitlab-repo) read
+    `_external_data.base.org` for CODEOWNERS ownership lines — a legitimate cross-reader. `org` is now a
+    base-produced fact with identical status to `project_name`. (Verified: `org` is a bare question in
+    base copier.yml:28, so the read is mechanically sound; the hard `depends_on: base` already orders it.)
   - **Exclusive-sibling keys** — `visibility`/`remote_protocol`/`push_after_create`/`team` (github-repo
     vs gitlab-repo); the `ci_*` keys (ci-github vs ci-gitlab); `placement_dir` (terraform/cdk/
     cloudformation — mutually-exclusive IaC siblings). Never co-occur at runtime.
@@ -342,6 +352,53 @@ base fact auto-requires base as a dependency; reading `hook_manager` auto-requir
 The `__`-separator question is void — the vendor-prefix scheme was dropped entirely (R1-threading).
 Bare keys only; copier's single-leading-`_` reservation is not engaged.
 
+### R13 — `hook_manager` NOT a fact (ruling A); cross-format capability translation deferred to spec 015 (ratified 2026-07-17)
+
+**Trigger:** the fan-out revealed the `.pre-commit.d/` fragment model is pre-commit-FORMAT-specific. With
+`hook_manager=lefthook`, language hooks (ruff/biome/clippy/golangci) silently VANISH — the bundler emits
+only `.pre-commit-config.yaml`; nothing projects the fragments into `lefthook.yml`. Pre-014, `lefthook.yml`
+looped over the `hook_blocks` union, so lefthook DID get language hooks. So the fragment model as built is a
+regression for the non-default hook manager.
+
+**Ruling A (maintainer, 2026-07-17):** DROP `hook_manager` as a cross-module fact.
+- No language module reads `hook_manager` (grep-verified: no language template body renders it). Languages
+  contribute an UNCONDITIONAL `.pre-commit.d/*.yaml` fragment; only precommit reads its OWN `hook_manager`.
+- This keeps `[base + language]` stacks generatable WITHOUT precommit (FR-006 hard-dep avoided). python's
+  implementation is the reference; go/rust/api/terraform DROP their `_external_data.precommit` alias +
+  `depends_on: [bailiff-mod-precommit]` (keep the unconditional fragment). justfile keeps its graceful
+  raw-tool `lint` recipe (never hard-reads the fact).
+- **precommit phase is UNCHANGED: `_bailiff_phase: normal` + merge as a `_post_task` (R11).** It does NOT
+  move to `post` phase — phase controls render/ordering (precommit renders early), `_post_tasks` gives the
+  merge its "run last". These are orthogonal; only the merge runs post-loop, not the module.
+- **014 SHIPS the pre-commit path (works, verified).** lefthook is a DOCUMENTED KNOWN LIMITATION for 014:
+  with `hook_manager=lefthook`, language-contributed hooks are NOT wired (must warn/omit, NOT silently
+  drop). The general fix is spec 015 below.
+
+**Spec 015 (ratified DIRECTION — normalized project-wide agent-projected capability contract):** the real
+problem is generic-intent → tool-specific-config translation, and it is NOT hooks-specific — it applies to
+EVERY capability with pluggable backends (hooks: pre-commit/lefthook; CI; formatters; future third-party).
+Design principles ratified for 015:
+1. **Contributor declares capability INTENT into a neutral drop-dir, manager-agnostic** (generalize the
+   `.mise/conf.d/` inversion): the contributor NEVER depends on or imports the consumer/manager. It drops a
+   fragment; whichever manager module is selected scans the dir. None selected → inert. This is why the
+   contributor needs NO `depends_on` on "precommit-or-lefthook-or-…" (the messy N-managers coupling the
+   maintainer rejected).
+2. **Translation tiering — escalate only when the lower tier can't express it:** native drop-in merge (mise)
+   > mechanical same-format merge (single-manager pre-commit, gitignore) > **agent-mediated translation**
+   (cross-format: pre-commit vs lefthook vs third-party). A static neutral schema was REJECTED — it can't
+   cover unknown third-party managers and becomes a leaky superset of every backend's config.
+3. **Cross-format translation is done by the phase-1 AGENT and FROZEN as a recorded answer** — identical in
+   class to how `bailiff-mod-dep-updates` already maps package managers into the chosen tool's vocabulary
+   (dependabot ids vs renovate managers) and freezes it. Reproduce replays the frozen config → deterministic,
+   agent-free (Constitution III preserved).
+4. **NORMALIZE + MAKE MACHINE-READABLE:** today "the agent fills this" exists ONLY as scattered free-text
+   `copier.yml` comments + narrative in `_cross-cutting.md`/`013 spec`/`SKILL.md` — there is NO uniform
+   marker a tool (or author, or third party) can rely on. 015 MUST define a normalized, machine-readable
+   marker for "this output is agent-projected from the selected stack" and DOCUMENT the one canonical pattern
+   (FR-018 authoring guide + cross-cutting contract) so every module — first- or third-party — follows the
+   same shape. The agent MUST check/redo the projection based on the actual module SELECTION, for ALL
+   capabilities, not just hooks.
+
 ## Out of scope for 014
 
 - NEW modules and net-new user-facing module CAPABILITIES. (NOTE: R12's forge cleanup — moving `.github/`
@@ -353,4 +410,8 @@ Bare keys only; copier's single-leading-`_` reservation is not engaged.
 - The `framework` point-fix itself (separate branch).
 - Conditional-Jinja contribution expressiveness beyond what the pre-commit fragment needs.
 - Stack presets (013 FR-017, still deferred).
+- **Cross-format capability translation / lefthook language-hook wiring → SPEC 015** (R13): the normalized
+  agent-projected capability contract (neutral drop-dir + machine-readable agent-projected marker +
+  agent-does-cross-format-translation-and-freezes + documentation). 014 ships pre-commit-path-only with
+  lefthook as a documented known limitation.
 - Constitution amendment (none anticipated; engine changes fall under the 013 C-11 relaxation).
