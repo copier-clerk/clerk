@@ -2,40 +2,37 @@
 #
 # Single writer of .agents/hooks/quality-languages: a sorted-unique list of
 # active language identifiers, one per line. The phase-1 agent freezes the
-# quality_languages union (all active language tokens) and injects it via
-# --data; this module renders the file deterministically from that frozen
-# answer. Empty list → file omitted entirely (Jinja conditional on directory
-# name suppresses the path). Pure render: no _tasks.
+# quality_languages union (all active language tokens) and injects via --data;
+# this module renders the file deterministically from that answer. Empty list →
+# file omitted entirely (Jinja conditional on directory name suppresses the
+# path). Pure render: no _tasks.
 #
-# Contract (_cross-cutting §5, M1): agent-frozen union → single writer,
-# same pattern as gitignore_stack (bailiff-mod-base). NOT runtime accumulation.
-# MANAGED (not seed-once): reconcile=true, byte-identical on init and reproduce.
+# quality_languages is NOT a cross-module fact — it is declared AND consumed
+# by this module alone (spec 014 _fragment-merge.md). No _external_data alias.
+#
+# Fragment contributions (spec 014 / _fragment-merge.md):
+#   .gitignore.d/bailiff-mod-quality  — quality tooling gitignore lines
 #
 # Constitution compliance: no secret: questions; no jinja2_time.
 
 # Agent-frozen union answer: the phase-1 agent assembles the full set of active
 # language identifiers (e.g. ["python", "typescript"]) and injects via --data.
-# Open list, NOT a choices: dropdown (M1 contract: de-opinionated open union).
+# Open list, NOT a choices: dropdown (de-opinionated open union).
 quality_languages:
   type: yaml
   default: []
   help: "bailiff injects this — sorted list of active language identifiers (e.g. [python, typescript])."
 
-# --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+# --- Dependency edges (when:false hidden answers — spec 014 FR-019) ----------
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # Template body lives under template/ — copier renders only that subtree.

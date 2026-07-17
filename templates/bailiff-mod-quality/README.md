@@ -1,11 +1,10 @@
 # bailiff-mod-quality
 
-Single writer of `.agents/hooks/quality-languages` — a sorted-unique list of
-active language identifiers, one per line. The phase-1 agent freezes the
-`quality_languages` union and injects it via `--data`; this module renders the
-file deterministically (spec 011, _cross-cutting §5).
+Writes `.agents/hooks/quality-languages` — a sorted-unique list of active
+language identifiers, one per line. Pure render module: no tasks, no native
+commands.
 
-Pure render module: no tasks, no native commands. `run_after: [bailiff-mod-base]`.
+`depends_on: [bailiff-mod-base]`, `phase: normal`.
 
 ## Usage
 
@@ -19,8 +18,11 @@ Or via `bailiff init` with `quality_languages` injected by the phase-1 agent.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `quality_languages` | yaml list | `[]` | Sorted active language identifiers, injected by the agent via `--data`. |
+| `quality_languages` | yaml list | `[]` | Active language identifiers; the phase-1 agent injects the sorted union via `--data`. |
 
 ## Output
 
-- `.agents/hooks/quality-languages` — MANAGED, sorted-unique language tokens one per line. Omitted when list is empty.
+| Path | Lifecycle | Condition |
+|------|-----------|-----------|
+| `.agents/hooks/quality-languages` | MANAGED | Omitted when `quality_languages` is empty. |
+| `.gitignore.d/bailiff-mod-quality` | MANAGED | Always rendered; folded into `.gitignore` by base's post-task. |

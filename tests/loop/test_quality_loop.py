@@ -1,10 +1,12 @@
-"""spec 011 §quality / SC-001, SC-002 (T010): bailiff-mod-quality renders correctly.
+"""spec 014 T049 / SC-001: bailiff-mod-quality renders correctly.
 
 Init bailiff-mod-quality and assert:
 - Non-empty quality_languages → .agents/hooks/quality-languages written with
   sorted-unique tokens, one per line (SC-001, MANAGED lifecycle);
 - Duplicate inputs are deduped and sorted before writing;
-- Empty quality_languages → .agents/hooks/quality-languages NOT written (SC-001).
+- Empty quality_languages → .agents/hooks/quality-languages NOT written (SC-001);
+- .gitignore.d/bailiff-mod-quality fragment always rendered (FR-013);
+- depends_on/phase (when:false) absent from answers file (FR-019).
 
 Pure render module: no tasks to stub. The fixture copies the real template tree.
 """
@@ -109,6 +111,16 @@ def test_quality_single_language(bailiff_mod_quality: TemplateRepo, tmp_path: Pa
     assert lines == ["python"]
 
 
+def test_quality_gitignore_fragment_rendered(bailiff_mod_quality: TemplateRepo, tmp_path: Path) -> None:
+    """FR-013: .gitignore.d/bailiff-mod-quality fragment is always rendered."""
+    dest = tmp_path / "proj"
+    _init(bailiff_mod_quality, dest, {"quality_languages": []})
+
+    frag = dest / ".gitignore.d" / "bailiff-mod-quality"
+    assert frag.is_file(), ".gitignore.d/bailiff-mod-quality not rendered"
+    assert frag.read_text().strip(), "gitignore fragment must not be empty"
+
+
 def test_quality_answers_recorded(bailiff_mod_quality: TemplateRepo, tmp_path: Path) -> None:
     """quality_languages is persisted to the recorded answers file; hidden edges are not."""
     import yaml
@@ -118,7 +130,8 @@ def test_quality_answers_recorded(bailiff_mod_quality: TemplateRepo, tmp_path: P
 
     af = yaml.safe_load((dest / ".copier-answers.yml").read_text())
     assert af["quality_languages"] == ["python", "go"], "quality_languages not in answers"
-    # Hidden ordering edges must NOT appear in answers (FR-004).
-    assert "run_after" not in af
-    assert "depends_on" not in af
-    assert "run_before" not in af
+    # Hidden ordering edges must NOT appear in answers (spec 014 FR-019).
+    assert "run_after" not in af, "stale run_after must not be recorded"
+    assert "run_before" not in af, "stale run_before must not be recorded"
+    assert "depends_on" not in af, "depends_on (when:false) must not be recorded"
+    assert "phase" not in af, "phase (when:false) must not be recorded"
