@@ -317,8 +317,22 @@ COMPLETE set. Facts read via `_external_data` aliases (each read is a validated 
   every language (FR-006), breaking `[base + language]` standalone stacks. Ruling (A): languages
   contribute an UNCONDITIONAL `.pre-commit.d/*.yaml` fragment and do NOT read `hook_manager`; ONLY
   precommit reads its own `hook_manager` (not cross-module). Consumers list voided. See R13.
-- **ts-produced** (alias `_external_data.ts.*`) — ADDED after critique: **`js_pkg_manager`** (consumers:
-  justfile, package-add) and **`ts_linter`** (consumer: editorconfig).
+- **ts-produced** (alias `_external_data.ts.*`) — **`js_pkg_manager`** (consumers: justfile, package-add).
+  **`ts_linter` STRUCK as a ts fact (R13 extension, 2026-07-17 — second instance of the sometimes-absent-
+  producer class):** editorconfig consumes `ts_linter`, but editorconfig is documented to work STANDALONE
+  (no ts → empty TS/JS section). Reading it via `_external_data.ts` made ts a HARD dependency (FR-006),
+  breaking `[base+editorconfig]` — identical to the `hook_manager` problem. Disposition (maintainer-ratified,
+  same logic as ruling A): `ts_linter` stays a **phase-1 agent-frozen `--data` fact** in editorconfig
+  (`default: "{{ ts_linter }}"`, empty standalone, populated by the agent when ts is in the stack) — NOT an
+  `_external_data` read, NO `depends_on: ts`. This matches editorconfig's already-agentic siblings
+  `python_linter`/`ruff_line_length`. **014 thus ships TWO fact mechanisms by design:** `_external_data`
+  aliases for ALWAYS-PRESENT producers (base facts, precommit-was-struck, moon, ts's `js_pkg_manager` where
+  the consumer already hard-needs ts), and agent-frozen `--data` for SOMETIMES-ABSENT producers
+  (`hook_manager`, `ts_linter`, `python_linter`, `ruff_line_length`). The clean unification (optional
+  `_external_data` reads) is spec 015. **editorconfig is recorded as a SECOND instance for 015's agentic-
+  capability-customisation scope** (drop the linter questions entirely; the agent writes `.editorconfig`
+  sections from the selected languages via `_agent_tasks`) — same class + same solution as the hook
+  translation.
 - **moon-produced** (alias `_external_data.moon.*`): `monorepo_tool` (ci-github, ci-gitlab),
   `monorepo_packages` (ci-gitlab, cocogitto). Proves the mechanism is not base-specific.
 
