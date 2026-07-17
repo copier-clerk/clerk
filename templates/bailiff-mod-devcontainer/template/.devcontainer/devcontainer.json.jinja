@@ -3,6 +3,6 @@
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/devcontainers-extra/features/mise:1": {}
-  }{% if mise_tools %},
-  "postCreateCommand": "mise trust && mise install {% for item in mise_tools %}{% for tool, version in item.items() %}{{ tool }}@{{ version }}{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %} {% endif %}{% endfor %}"{% endif %}
+  },
+  "postCreateCommand": "mise trust && mise install"
 }

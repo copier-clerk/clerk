@@ -1,40 +1,29 @@
 # bailiff-mod-devcontainer
 
-Reproducible containerized dev environment (spec 012 / FR-005). Renders
-`.devcontainer/devcontainer.json` whose toolchain derives from the **same
-frozen `mise_tools` union** that `bailiff-mod-base` pins into `.mise.toml` —
-the container and the host install the identical tool set, so there is zero
-drift between "works on my machine" and "works in the container".
+Renders `.devcontainer/devcontainer.json` for a reproducible containerized dev environment.
 
 ## Outputs
 
 | File | Lifecycle | Notes |
 |---|---|---|
-| `.devcontainer/devcontainer.json` | **managed** | config-consistent on reproduce; derived from frozen `mise_tools` |
+| `.devcontainer/devcontainer.json` | **managed** | config-consistent on reproduce |
 
 ## Design
 
-- **Fixed base image**: `mcr.microsoft.com/devcontainers/base:ubuntu`. There is
-  deliberately no `devcontainer_image` question — the module's value is
-  zero-decision reproducibility. Edit the file after scaffold if you need a
-  different image.
-- **mise feature**: `ghcr.io/devcontainers-extra/features/mise:1` installs mise
-  in the container; `postCreateCommand` installs each frozen `mise_tools` entry
-  at the exact pinned version.
-- **Empty `mise_tools`**: renders a minimal valid `devcontainer.json` (base
-  image + mise feature, no install command) — a valid no-op layer.
+- **Fixed base image**: `mcr.microsoft.com/devcontainers/base:ubuntu`. No `devcontainer_image` question — edit the file after scaffold for a different image.
+- **mise feature**: `ghcr.io/devcontainers-extra/features/mise:1` installs mise in the container.
+- **Bare `postCreateCommand`**: runs `mise trust && mise install` without an explicit tool list. mise reads the merged `.mise/conf.d/` drop-ins written by base and language modules, so the container installs the same tool set as the host.
 - **Zero `_tasks`**: pure render; reproduce needs no toolchain or network.
-- **Single-writer discipline (M1)**: this module consumes `mise_tools`; it does
-  NOT write `.mise.toml` (base is the single writer).
 
 ## Questions
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `project_name` | str | threaded from base | devcontainer `name` field |
-| `mise_tools` | yaml | `[]` | agent-frozen union, injected via `--data` |
+| `project_name` | str | read from base answers | devcontainer `name` field |
 
-Edge: `run_after: [bailiff-mod-base]`.
+`project_name` is read from `_external_data.base.project_name` (`.copier-answers.bailiff-mod-base.yml`). Base must be present in any stack that includes this module.
+
+Edge: `depends_on: [bailiff-mod-base]`, `phase: normal`.
 
 ## Usage
 
