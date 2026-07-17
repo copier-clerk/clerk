@@ -16,7 +16,6 @@ import pytest
 import yaml
 
 from tests.integration.conftest import (
-    BIOME_HOOK_BLOCK,
     init_stack,
 )
 
@@ -45,7 +44,7 @@ _LAYERS = [
     ),
     (
         "bailiff-mod-precommit",
-        {"hook_manager": "pre-commit", "hook_blocks": [BIOME_HOOK_BLOCK]},
+        {"hook_manager": "pre-commit", "hook_blocks": []},
     ),
     ("bailiff-mod-editorconfig", {"ts_linter": "biome"}),
     (
@@ -85,7 +84,8 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def test_all_layers_rendered(stack: Path) -> None:
     for rel in (
-        ".mise.toml",
+        ".mise/conf.d/bailiff-mod-base.toml",  # base (014: per-module conf.d fragment)
+        ".mise/conf.d/bailiff-mod-ts.toml",  # ts
         "tsconfig.json",
         "biome.json",
         "vitest.config.ts",
@@ -95,6 +95,7 @@ def test_all_layers_rendered(stack: Path) -> None:
         ".github/workflows/ci.yml",
     ):
         assert (stack / rel).is_file(), f"missing output: {rel}"
+    assert not (stack / ".mise.toml").exists(), ".mise.toml must not exist in 014 model"
     assert len(list(stack.glob(".copier-answers.*.yml"))) == len(_LAYERS)
 
 
@@ -115,8 +116,9 @@ def test_ci_workflow_ts_job(stack: Path) -> None:
 
 
 def test_hook_file_biome_block_once(stack: Path) -> None:
+    # 014: ts fragment uses official biomejs/pre-commit repo with id biome-ci
     text = (stack / ".pre-commit-config.yaml").read_text()
-    assert text.count("biome-check") == 1
+    assert text.count("biome-ci") == 1
     parsed = yaml.safe_load(text)
     assert "repos" in parsed
 
@@ -129,10 +131,13 @@ def test_ts_linter_choice_excludes_eslint(stack: Path) -> None:
         assert eslintrc.read_bytes() == b"", "eslintrc must be empty when biome is the linter"
 
 
-def test_mise_union_has_node_and_bun(stack: Path) -> None:
-    text = (stack / ".mise.toml").read_text()
-    assert 'node = "22"' in text
-    assert 'bun = "1.2.0"' in text
+def test_mise_union_has_node(stack: Path) -> None:
+    # 014 model: ts module writes its own conf.d fragment; no single .mise.toml.
+    ts_frag = (stack / ".mise/conf.d/bailiff-mod-ts.toml").read_text()
+    assert 'node = "22"' in ts_frag
+    assert not (stack / ".mise.toml").exists(), ".mise.toml must not exist in 014 model"
+    # bun is bootstrapped via task, not a mise conf.d tool — must not appear here.
+    assert "bun" not in ts_frag
 
 
 def test_readme_static_skeleton(stack: Path) -> None:

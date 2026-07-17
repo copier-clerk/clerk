@@ -92,9 +92,14 @@ def test_mkdocs_wired_to_docs(stack: Path) -> None:
 
 
 def test_mise_union_docs_api_tokens(stack: Path) -> None:
-    text = (stack / ".mise.toml").read_text()
-    for token in ('python = "3.13"', 'spectral = "6.13.0"', 'mkdocs = "1.6.1"'):
-        assert token in text
+    # 014 model: each module writes its own .mise/conf.d/<module>.toml fragment.
+    assert not (stack / ".mise.toml").exists(), ".mise.toml must not exist in 014 model"
+    api_frag = (stack / ".mise/conf.d/bailiff-mod-api.toml").read_text()
+    assert "spectral" in api_frag  # api module pins its own spectral version
+    mkdocs_frag = (stack / ".mise/conf.d/bailiff-mod-mkdocs.toml").read_text()
+    assert "mkdocs" in mkdocs_frag  # mkdocs module pins its own version
+    python_frag = (stack / ".mise/conf.d/bailiff-mod-python.toml").read_text()
+    assert 'python = "3.13"' in python_frag
 
 
 def test_seed_once_edits_survive_reproduce(stack: Path) -> None:
