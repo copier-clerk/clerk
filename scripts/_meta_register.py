@@ -57,8 +57,8 @@ def _copier_yml(name: str) -> None:
         "\n"
         "project_name:\n"
         "  type: str\n"
-        '  default: "{{ _external_data.base.project_name | default(\'\', true) }}"\n'
-        '  help: "Project name (read from bailiff-mod-base via _external_data; standalone: empty)."\n'
+        "  default: \"{{ _external_data.base.project_name | default('', true) }}\"\n"
+        '  help: "Project name (from bailiff-mod-base via _external_data; standalone: empty)."\n'
         "\n"
         "# --- Questions ---------------------------------------------------------------\n"
         "# Add module-specific questions here.\n"
