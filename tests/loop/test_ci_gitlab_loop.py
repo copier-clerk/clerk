@@ -461,7 +461,7 @@ def test_no_secret_questions(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 def test_answers_file_written_no_hidden_edges(
     bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Answers file is written; hidden edges (run_after, depends_on) are not persisted."""
+    """Answers file is written; hidden edges (depends_on, phase) are not persisted."""
     answers = {**_BASE_ANSWERS, "ci_model": "standard"}
     dest = tmp_path / "proj"
     trust.add_trust(bailiff_mod_ci_gitlab.url)
@@ -472,7 +472,94 @@ def test_answers_file_written_no_hidden_edges(
     assert af_path.is_file(), "answers file must be written"
     af = yaml.safe_load(af_path.read_text())
 
-    assert "run_after" not in af, "run_after (hidden edge) must not be persisted"
+    assert "run_after" not in af, "run_after (removed edge) must not be persisted"
     assert "depends_on" not in af, "depends_on (hidden edge) must not be persisted"
+    assert "phase" not in af, "phase (hidden edge) must not be persisted"
     assert af.get("ci_model") == "standard"
     assert af.get("ci_languages") == _TWO_LANG_LANGUAGES
+
+
+# ---------------------------------------------------------------------------
+# spec 014: _external_data aliases (FR-004 / FR-006a)
+# ---------------------------------------------------------------------------
+
+
+_BASE_ANSWERS_FILE = ".copier-answers.bailiff-mod-base.yml"
+_MOON_ANSWERS_FILE = ".copier-answers.bailiff-mod-moon.yml"
+
+
+def _seed_producer_answers(dest: Path) -> None:
+    """Pre-seed base and moon answers files so _external_data aliases resolve.
+
+    In a real stack base runs first; in standalone tests we write the files
+    copier would otherwise warn-and-skip (returning {}).
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / _BASE_ANSWERS_FILE).write_text(
+        yaml.dump(
+            {
+                "_src_path": "bailiff-mod-base",
+                "project_name": "alias-proj",
+                "default_branch": "develop",
+            }
+        )
+    )
+    (dest / _MOON_ANSWERS_FILE).write_text(
+        yaml.dump(
+            {
+                "_src_path": "bailiff-mod-moon",
+                "monorepo_tool": "moon",
+                "monorepo_packages": ["packages/api", "packages/web"],
+            }
+        )
+    )
+
+
+def test_external_data_aliases_resolve(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
+    """_external_data.base and .moon resolve from pre-seeded answers files.
+
+    Facts are NOT passed in the answers dict; they must come from aliases.
+    Proves FR-004 / FR-006a: literal path, alias resolves, values flow into render.
+    """
+    dest = tmp_path / "proj"
+    _seed_producer_answers(dest)
+
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    # Omit project_name, default_branch, monorepo_tool, monorepo_packages from answers —
+    # they must come exclusively from _external_data.
+    spec = runner.RunSpec(
+        source=bailiff_mod_ci_gitlab.url,
+        dest=str(dest),
+        answers={
+            "ci_model": "monorepo-affected",
+            "ci_languages": _TWO_LANG_LANGUAGES,
+            "ci_lang_facts": _TWO_LANG_FACTS,
+        },
+    )
+    runner.init(spec, today="2026-07-17")
+
+    # default_branch resolved from base — compare_to should reference 'develop'
+    text = (dest / ".gitlab-ci.yml").read_text()
+    assert "develop" in text, "default_branch from _external_data.base must appear in rendered output"
+
+    # monorepo_tool=moon (from moon answers) → moon-ci job, not trigger fan-out
+    parsed = yaml.safe_load(text)
+    assert "moon-ci" in parsed, "_external_data.moon.monorepo_tool=moon must render moon-ci job"
+    trigger_jobs = [k for k in parsed if str(k).startswith("trigger:")]
+    assert not trigger_jobs, "moon branch must not render trigger jobs when tool=moon from alias"
+
+
+def test_external_data_alias_declared() -> None:
+    """copier.yml declares _external_data with literal paths for base and moon."""
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-ci-gitlab"
+        / "copier.yml"
+    )
+    text = copier_yml.read_text()
+    assert "_external_data:" in text, "copier.yml must declare _external_data block"
+    assert ".copier-answers.bailiff-mod-base.yml" in text, "base alias must use literal path"
+    assert ".copier-answers.bailiff-mod-moon.yml" in text, "moon alias must use literal path"
