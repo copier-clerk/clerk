@@ -1136,17 +1136,20 @@ _APM_STUB_BASE_YML = dedent(
 # preserved, but native tool calls (bun/pnpm/uv/cargo/go) are replaced with a
 # deterministic marker write. This keeps the guard logic hermetically testable
 # without requiring any language toolchain on the CI host.
+# Stub tasks use _external_data.base.layout and _external_data.ts.js_pkg_manager
+# (spec 014 FR-004). Tests must pre-seed .copier-answers.bailiff-mod-base.yml and
+# .copier-answers.bailiff-mod-ts.yml in dest before calling _init.
 _PACKAGE_ADD_STUB_TASKS = dedent(
     r"""
     _tasks:
       # Monorepo gate (no-op when layout != monorepo — same as real task 1).
       - command: >-
-          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi
-        when: "{{ layout != 'monorepo' }}"
+          if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi
+        when: "{{ _external_data.base.layout != 'monorepo' }}"
       # Path-traversal guard (SEC-001) — preserved verbatim from the real template.
       # Exits 1 on bad input before any mkdir; no side effects on traversal attempts.
       - command: >-
-          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+          if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
           name="{{ name }}";
           dir="{{ dir }}";
           err() { echo "pkg-add: $1" >&2; exit 1; };
@@ -1157,7 +1160,7 @@ _PACKAGE_ADD_STUB_TASKS = dedent(
           true
       # Stub scaffold + registration: mkdir + marker (no native tool invocation).
       - command: >-
-          if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+          if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
           mkdir -p "{{ dir.rstrip('/') }}/{{ name }}";
           printf 'package-add-ok lang={{ lang }} name={{ name }}\\n'
           > .bailiff-package-add-preflight

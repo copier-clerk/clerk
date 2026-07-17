@@ -2,30 +2,30 @@
 #
 # Monorepo-only overlay: scaffolds a new package directory + seed manifest, then
 # registers it in the workspace via the native add command (FR-007). Gated on
-# base answer layout=='monorepo' (run_after: [bailiff-mod-base]).
+# base answer layout=='monorepo' (depends_on: [bailiff-mod-base]).
 #
 # SEC-001: the 4-condition path-traversal guard runs BEFORE any mkdir — dir and
 # name are validated against /, \, .., ., and empty in the preflight task.
 # No secret: questions (Constitution VI / FR-005).
+#
+# Fact consumers (spec 014 FR-004):
+#   base.layout          — gating all tasks on monorepo
+#   ts.js_pkg_manager    — TS workspace registration + tool preflight (makes ts a hard dep)
 
 # Note: no _answers_file override — copier's default is used (see bailiff-mod-base
 # for rationale); bailiff passes .copier-answers.bailiff-mod-package-add.yml at
 # multi-template init.
 
 # ---------------------------------------------------------------------------
-# Monorepo gate: reject when base layout is not monorepo (hidden; threaded).
+# Cross-module facts via _external_data (spec 014 / FR-004)
+#
+# base is a HARD dependency: absent → loud preflight OrderingError (FR-006).
+# ts is a HARD dependency when lang=ts: absent → loud preflight OrderingError.
 # ---------------------------------------------------------------------------
 
-# Threaded from base via copier's default threading (FR-010). Standalone fallback
-# renders to 'single' (no base supplied) which means all tasks are no-ops
-# (guarded behind the monorepo check in the task block).
-layout:
-  type: str
-  default: "{{ layout or 'single' }}"
-  choices:
-    - single
-    - monorepo
-  when: false
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+  ts: .copier-answers.bailiff-mod-ts.yml
 
 # ---------------------------------------------------------------------------
 # Questions
@@ -52,17 +52,6 @@ dir:
   type: str
   default: "packages/"
   help: "Parent directory for the new package (default: packages/)."
-
-# JS/TS package manager — threaded from bailiff-mod-base or an upstream layer
-# (FR-010). Dead options (npm, yarn) are not offered (Constitution / FR-002).
-js_pkg_manager:
-  type: str
-  choices:
-    - bun
-    - pnpm
-  default: "{{ js_pkg_manager or 'bun' }}"
-  help: "JS/TS package manager (threaded from bailiff-mod-base)."
-  when: "{{ lang == 'ts' }}"
 
 # Python package manager for the new package.
 python_pkg_manager:
@@ -101,20 +90,15 @@ today:
 # Dependency edges (when:false hidden answers — FR-004)
 # ---------------------------------------------------------------------------
 
-run_after:
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # The template body lives under template/ so copier renders only that subtree.
@@ -156,17 +140,17 @@ _tasks:
   # 1. Monorepo gate — no-op when not monorepo (do not abort, just skip).
   #    All remaining tasks are also guarded so this is belt-and-suspenders.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then
-        echo "bailiff-mod-package-add: layout='{{ layout }}' (need monorepo) — skipping." >&2;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then
+        echo "bailiff-mod-package-add: layout='{{ _external_data.base.layout }}' (need monorepo) — skipping." >&2;
         exit 0;
       fi
-    when: "{{ layout != 'monorepo' }}"
+    when: "{{ _external_data.base.layout != 'monorepo' }}"
 
   # 2. Path-traversal guard (SEC-001) — MUST run before any mkdir.
   #    Rejects: empty name, empty dir, or either containing /, \, .., .
   #    Exits 1 with a clear message; no directory is created on failure.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       name="{{ name }}";
       dir="{{ dir }}";
       err() { echo "bailiff-mod-package-add: $1" >&2; exit 1; };
@@ -178,9 +162,9 @@ _tasks:
 
   # 3. Tool preflight — language-specific tool must be on PATH.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ js_pkg_manager }}" = "bun" ]; then
+        if [ "{{ _external_data.ts.js_pkg_manager }}" = "bun" ]; then
           command -v bun >/dev/null 2>&1 ||
           { echo "bailiff-mod-package-add: required tool 'bun' not found on PATH." >&2;
             echo "  bun — https://bun.sh/docs/installation" >&2; exit 1; };
@@ -211,17 +195,17 @@ _tasks:
 
   # 4. Create package directory.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       mkdir -p "{{ dir.rstrip('/') }}/{{ name }}"
 
   # 5. Native init — init-only-guarded so reproduce never re-runs the tool.
   #    task-output lifecycle: the manifest is produced by the native tool;
   #    _skip_if_exists (above) makes it seed-once on subsequent runs.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ js_pkg_manager }}" = "bun" ]; then
+        if [ "{{ _external_data.ts.js_pkg_manager }}" = "bun" ]; then
           test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && bun init -y);
         else
           test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && pnpm init);
@@ -243,10 +227,10 @@ _tasks:
   #    pnpm/bun: workspace.yaml or package.json workspaces[] is managed by the
   #    tool itself; uv: uv.lock / pyproject.toml [tool.uv.workspace]; go: go.work.
   - command: >-
-      if [ "{{ layout }}" != "monorepo" ]; then exit 0; fi;
+      if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ js_pkg_manager }}" = "pnpm" ]; then
+        if [ "{{ _external_data.ts.js_pkg_manager }}" = "pnpm" ]; then
           pnpm add --workspace "${pkg_dir}" 2>/dev/null || true;
         else
           bun add "${pkg_dir}" 2>/dev/null || true;

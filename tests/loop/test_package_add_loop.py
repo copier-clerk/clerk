@@ -9,6 +9,10 @@ Verifies:
 
 All native tool calls (bun/pnpm/uv/cargo/go) are stubbed offline via the
 bailiff_mod_package_add fixture (tests/conftest.py _PACKAGE_ADD_STUB_TASKS).
+
+spec 014 FR-004: layout is read via _external_data.base.layout; js_pkg_manager via
+_external_data.ts.js_pkg_manager. Tests pre-seed the producer answers files before
+calling _init (same pattern as test_moon_loop.py:_seed_base_answers).
 """
 
 from __future__ import annotations
@@ -16,10 +20,30 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from bailiff import runner, trust
 from bailiff.errors import BailiffError
 from tests.conftest import TemplateRepo
+
+_BASE_ANSWERS_FILE = ".copier-answers.bailiff-mod-base.yml"
+_TS_ANSWERS_FILE = ".copier-answers.bailiff-mod-ts.yml"
+
+
+def _seed_base_answers(dest: Path, layout: str) -> None:
+    """Pre-seed base answers file so _external_data.base.layout resolves."""
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / _BASE_ANSWERS_FILE).write_text(
+        yaml.dump({"_src_path": "bailiff-mod-base", "layout": layout})
+    )
+
+
+def _seed_ts_answers(dest: Path, js_pkg_manager: str = "bun") -> None:
+    """Pre-seed ts answers file so _external_data.ts.js_pkg_manager resolves."""
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / _TS_ANSWERS_FILE).write_text(
+        yaml.dump({"_src_path": "bailiff-mod-ts", "js_pkg_manager": js_pkg_manager})
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -55,13 +79,13 @@ def test_guard_rejects_bad_name(
 ) -> None:
     """SEC-001: bad name is rejected — no directory created, no marker written."""
     dest = tmp_path / "proj"
-    dest.mkdir()
+    _seed_base_answers(dest, layout="monorepo")
 
     with pytest.raises((BailiffError, SystemExit, Exception)):
         _init(
             bailiff_mod_package_add,
             dest,
-            {"name": bad_name, "lang": "python", "layout": "monorepo", "dir": "packages/"},
+            {"name": bad_name, "lang": "python", "dir": "packages/"},
         )
 
     # ZERO side effects: no package dir under packages/
@@ -93,13 +117,13 @@ def test_guard_rejects_bad_dir(
 ) -> None:
     """SEC-001: bad dir is rejected — no directory created, no marker written."""
     dest = tmp_path / "proj"
-    dest.mkdir()
+    _seed_base_answers(dest, layout="monorepo")
 
     with pytest.raises((BailiffError, SystemExit, Exception)):
         _init(
             bailiff_mod_package_add,
             dest,
-            {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": bad_dir},
+            {"name": "mypkg", "lang": "python", "dir": bad_dir},
         )
 
     # ZERO side effects: no dir created anywhere under dest, no marker written.
@@ -119,13 +143,13 @@ def test_guard_rejects_bad_dir(
 def test_single_layout_is_noop(bailiff_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
     """layout='single' — tasks exit 0, no package dir is created, no marker written."""
     dest = tmp_path / "proj"
-    dest.mkdir()
+    _seed_base_answers(dest, layout="single")
 
     # Must NOT raise — the gate exits 0, not 1.
     _init(
         bailiff_mod_package_add,
         dest,
-        {"name": "mypkg", "lang": "python", "layout": "single", "dir": "packages/"},
+        {"name": "mypkg", "lang": "python", "dir": "packages/"},
     )
 
     # Gate skipped all work — no package dir, no marker.
@@ -148,18 +172,11 @@ def test_happy_path_scaffolds_package_dir(
 ) -> None:
     """Valid monorepo inputs: package dir is created and marker is written."""
     dest = tmp_path / "proj"
-    dest.mkdir()
-
-    answers: dict = {
-        "name": "mypkg",
-        "lang": lang,
-        "layout": "monorepo",
-        "dir": "packages/",
-    }
+    _seed_base_answers(dest, layout="monorepo")
     if lang == "ts":
-        answers["js_pkg_manager"] = "bun"
+        _seed_ts_answers(dest, js_pkg_manager="bun")
 
-    _init(bailiff_mod_package_add, dest, answers)
+    _init(bailiff_mod_package_add, dest, {"name": "mypkg", "lang": lang, "dir": "packages/"})
 
     # Package directory created.
     pkg_dir = dest / "packages" / "mypkg"
@@ -178,11 +195,9 @@ def test_happy_path_scaffolds_package_dir(
 
 
 def test_answers_file_recorded(bailiff_mod_package_add: TemplateRepo, tmp_path: Path) -> None:
-    """Visible answers are persisted; hidden edges (run_after, depends_on) are not."""
-    import yaml
-
+    """Visible answers are persisted; hidden edges (depends_on, phase) are not."""
     dest = tmp_path / "proj"
-    dest.mkdir()
+    _seed_base_answers(dest, layout="monorepo")
 
     _init(
         bailiff_mod_package_add,
@@ -190,7 +205,6 @@ def test_answers_file_recorded(bailiff_mod_package_add: TemplateRepo, tmp_path: 
         {
             "name": "mypkg",
             "lang": "python",
-            "layout": "monorepo",
             "dir": "packages/",
             "python_pkg_manager": "uv",
             "resolve_stack": False,
@@ -206,8 +220,10 @@ def test_answers_file_recorded(bailiff_mod_package_add: TemplateRepo, tmp_path: 
 
     assert af["name"] == "mypkg"
     assert af["lang"] == "python"
-    # layout is hidden (when: false) — copier does not persist hidden answers.
-    assert "layout" not in af, "hidden layout must not be persisted"
+    # layout is no longer a question (read via _external_data.base.layout).
+    assert "layout" not in af, "layout must not be in answers (read via _external_data)"
+    # js_pkg_manager is no longer a question (read via _external_data.ts.js_pkg_manager).
+    assert "js_pkg_manager" not in af, "js_pkg_manager must not be in answers"
     # Hidden edges must NOT appear in answers (FR-004 / FR-013).
     assert "run_after" not in af, "run_after must not be persisted"
     assert "depends_on" not in af, "depends_on must not be persisted"
@@ -227,12 +243,12 @@ def test_seed_once_manifest_not_overwritten_on_reproduce(
     run must NOT clobber the edited file because _skip_if_exists is in effect.
     """
     dest = tmp_path / "proj"
-    dest.mkdir()
+    _seed_base_answers(dest, layout="monorepo")
 
     _init(
         bailiff_mod_package_add,
         dest,
-        {"name": "mypkg", "lang": "python", "layout": "monorepo", "dir": "packages/"},
+        {"name": "mypkg", "lang": "python", "dir": "packages/"},
     )
 
     # Create a seed manifest with hand-edited content (simulating project ownership).
