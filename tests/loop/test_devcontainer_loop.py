@@ -97,7 +97,7 @@ def test_devcontainer_post_create_command_bare_mise_install(
 # ---------------------------------------------------------------------------
 
 
-def test_devcontainer_postCreateCommand_always_present(
+def test_devcontainer_post_create_command_always_present(
     bailiff_mod_devcontainer: TemplateRepo, tmp_path: Path
 ) -> None:
     """postCreateCommand is unconditional — not gated on a tool list (spec 014 FR-009)."""
