@@ -2,8 +2,7 @@
 #
 # IaC overlay for Terraform / OpenTofu projects. Generic skeleton — does NOT
 # ask cloud_provider or state_backend (user configures those via commented
-# examples in backend.tf). Works standalone or depends_on bailiff-mod-base
-# (and bailiff-mod-precommit for hook_manager).
+# examples in backend.tf). Works standalone or depends_on bailiff-mod-base.
 #
 # MANAGED: versions.tf, .tflint.hcl, .terraform-version
 # SEED-ONCE: main.tf, variables.tf, outputs.tf, backend.tf, terraform.tfvars.example
@@ -14,11 +13,9 @@
 # NO secret: questions; edges are when:false hidden answers.
 
 # --- Cross-module facts (spec 014 FR-006 / _facts.md) ----------------------
-# base produces project_name; precommit produces hook_manager.
-# Reading _external_data.<alias>.<key> makes the producer a HARD dependency.
+# base produces project_name. Reading _external_data.base.* makes base a HARD dependency.
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  precommit: .copier-answers.bailiff-mod-precommit.yml
 
 # --- Questions ---------------------------------------------------------------
 
@@ -74,13 +71,6 @@ placement_dir:
   default: "infrastructure"
   help: "Subdirectory for IaC files (default: infrastructure; use '.' for repo root)."
 
-# hook_manager read from precommit's answers file via _external_data alias.
-# Controls whether the pre-commit.d fragment is active.
-hook_manager:
-  type: str
-  default: "{{ _external_data.precommit.hook_manager }}"
-  help: "Hook manager (read from precommit via _external_data; pre-commit/lefthook/none)."
-
 today:
   type: str
   default: ""
@@ -94,24 +84,12 @@ _bailiff_exclusive: true
 # --- Phase + dependency edges (FR-019/FR-020/R7/R8) -------------------------
 _bailiff_phase: normal
 
-# depends_on: both base (for project_name fact) and precommit (for hook_manager fact)
-# are HARD data-dependencies declared via _external_data above; the engine also
-# enforces them via ordering. run_after/run_before are unused (R7).
+# depends_on: base is the HARD data-dependency for project_name (declared via
+# _external_data above). Engine enforces ordering (FR-019/R7 — no run_after/run_before).
 depends_on:
   type: yaml
   default:
     - bailiff-mod-base
-    - bailiff-mod-precommit
-  when: false
-
-run_after:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
   when: false
 
 # The template body lives under template/ so copier renders only that subtree.
