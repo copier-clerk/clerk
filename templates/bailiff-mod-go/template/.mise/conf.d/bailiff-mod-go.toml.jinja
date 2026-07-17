@@ -1,0 +1,6 @@
+{#- .mise/conf.d/bailiff-mod-go.toml — managed by bailiff-mod-go.
+    Each module owns its fragment; mise merges all conf.d/*.toml natively (FR-008). -#}
+[tools]
+go = "{{ go_version }}"
+{% if test_runner == "gotestsum" %}gotestsum = "latest"
+{% endif %}

@@ -1,0 +1,11 @@
+{#- .pre-commit.d/bailiff-mod-go.yaml — golangci-lint hook fragment.
+    Rendered unconditionally; inert when precommit is absent from the stack.
+    bailiff-mod-precommit's _post_task bundler merges this when present (FR-011).
+    An empty rev means no hook block is emitted (a blank fragment is valid). -#}
+{%- if golangci_hook_rev %}
+repos:
+  - repo: https://github.com/golangci/golangci-lint
+    rev: "{{ golangci_hook_rev }}"
+    hooks:
+      - id: golangci-lint
+{%- endif %}

@@ -1,0 +1,14 @@
+{#- .gitignore.d/bailiff-mod-go — Go gitignore fragment.
+    Folded into .gitignore by bailiff-mod-base's _post_task concat (FR-013). -#}
+# Go build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+{% if use_vendor_mode %}vendor/
+{% endif %}

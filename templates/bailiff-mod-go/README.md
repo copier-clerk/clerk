@@ -1,11 +1,9 @@
 # bailiff-mod-go
 
 The Go **language overlay** — adds Go tooling (go mod, golangci-lint) as a
-copier layer that `run_after`
-[`bailiff-mod-base`](https://github.com/bailiff-io/bailiff-mod-base) (spec 011).
-Threads `project_name` from base; seeds `go.mod` via `go mod init`
-(task-output → seed-once); seeds `.golangci.yml` (seed-once) and
-`cmd/<name>/main.go` stub for cli/service app kinds.
+copier layer. Reads `project_name` from
+[`bailiff-mod-base`](https://github.com/bailiff-io/bailiff-mod-base)
+via `_external_data`.
 
 ## What it produces
 
@@ -14,28 +12,26 @@ Threads `project_name` from base; seeds `go.mod` via `go mod init`
 | `go.mod` | **task-output → seed-once** (`_skip_if_exists`) | Native `go mod init` on a fresh tree; `_skip_if_exists` preserves edits on reproduce. |
 | `.golangci.yml` | **seed-once** (`_skip_if_exists`) | Sensible golangci-lint v2 defaults; user-tunable after init. |
 | `cmd/<name>/main.go` | **seed-once** (`_skip_if_exists`) | Stub entry point for cli/service. **Omitted for library** (`_exclude` on cmd/). |
-| Go `.gitignore` entries | **agent-frozen union** (via base) | Contributed to `gitignore_stack`; base is the single writer of `.gitignore`. |
-| go version in `.mise.toml` | **agent-frozen union** (via base) | Contributed to `mise_tools`; base is the single writer of `.mise.toml`. |
-| golangci hook block | **agent-frozen union** (via precommit) | Contributed to `hook_blocks`; precommit is the single writer of the hook config file. |
+| `.mise/conf.d/bailiff-mod-go.toml` | **managed** | Go toolchain version fragment; mise merges all `conf.d/*.toml` natively. |
+| `.pre-commit.d/bailiff-mod-go.yaml` | **managed** | golangci-lint hook block; bundled into `.pre-commit-config.yaml` by `bailiff-mod-precommit`'s `_post_task`. Hook block content omitted when `golangci_hook_rev` is empty; file always rendered. |
+| `.gitignore.d/bailiff-mod-go` | **managed** | Go gitignore lines (binaries, test outputs, optionally `vendor/`); folded into `.gitignore` by `bailiff-mod-base`'s `_post_task`. |
 
 ## Questions
 
 | Key | Choices / default | Notes |
 |---|---|---|
-| `go_version` | `1.23` / `1.22` / `1.21` (default `1.23`) | Pinned in `mise_tools` and `go.mod`. |
+| `go_version` | `1.23` / `1.22` / `1.21` (default `1.23`) | Pinned in `.mise/conf.d/bailiff-mod-go.toml` and `go.mod`. |
 | `app_kind` | `cli` / `service` / `library` (default `cli`) | `library` drops `cmd/` entirely. |
-| `test_runner` | `go-test` / `gotestsum` (default `go-test`) | `gotestsum` adds a `mise_tools` entry. |
-| `use_vendor_mode` | bool (default `false`) | When `true`, adds `vendor/` to the Go gitignore token. |
-| `golangci_hook_rev` | str (default `""`) | Rev for the golangci-lint pre-commit hook block. |
+| `test_runner` | `go-test` / `gotestsum` (default `go-test`) | Private — collision-class key (FR-007). `gotestsum` adds a mise tool entry. |
+| `use_vendor_mode` | bool (default `false`) | When `true`, adds `vendor/` to the gitignore fragment. |
+| `golangci_hook_rev` | str (default `""`) | Rev for the golangci-lint pre-commit hook block. Empty → hook block omitted from fragment. |
 
-## Ordering & threading
+## Ordering & facts
 
-- `run_after: [bailiff-mod-base]` — base applies first; `project_name` is
-  threaded via `default: "{{ project_name }}"` (ADR-0003, FR-010).
-- `gitignore_stack`, `mise_tools`, `hook_blocks` are **agent-frozen union**
-  answers injected via `--data` by the phase-1 agent (M1). This module
-  contributes its tokens but does NOT write `.gitignore`, `.mise.toml`, or
-  the hook config file.
+- `depends_on: [bailiff-mod-base]` — base applies first (`_bailiff_phase: pre`); this module is `normal` phase.
+- `project_name` read from base via `_external_data.base.project_name` (FR-004).
+- `test_runner` is **bare-private** — collision-class across go/rust/ts; never threaded or aliased.
+- No `hook_manager` dependency (R13): `.pre-commit.d/bailiff-mod-go.yaml` renders unconditionally; `bailiff-mod-precommit`'s bundler merges it when present.
 
 ## Prerequisites (FR-007b)
 
