@@ -515,9 +515,7 @@ def _seed_producer_answers(dest: Path) -> None:
     )
 
 
-def test_external_data_aliases_resolve(
-    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
-) -> None:
+def test_external_data_aliases_resolve(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
     """_external_data.base and .moon resolve from pre-seeded answers files.
 
     Facts are NOT passed in the answers dict; they must come from aliases.
@@ -542,7 +540,9 @@ def test_external_data_aliases_resolve(
 
     # default_branch resolved from base — compare_to should reference 'develop'
     text = (dest / ".gitlab-ci.yml").read_text()
-    assert "develop" in text, "default_branch from _external_data.base must appear in rendered output"
+    assert "develop" in text, (
+        "default_branch from _external_data.base must appear in rendered output"
+    )
 
     # monorepo_tool=moon (from moon answers) → moon-ci job, not trigger fan-out
     parsed = yaml.safe_load(text)
