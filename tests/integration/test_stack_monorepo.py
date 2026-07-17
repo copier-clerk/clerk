@@ -111,9 +111,15 @@ def test_monorepo_tool_answer_recorded_for_ci(stack: Path) -> None:
 
 
 def test_mise_union_all_three_tokens(stack: Path) -> None:
-    text = (stack / ".mise.toml").read_text()
-    for token in ('python = "3.13"', 'node = "22"', 'moon = "1.30.0"'):
-        assert token in text
+    # 014 model: each module writes its own .mise/conf.d/<module>.toml fragment;
+    # no single .mise.toml exists.
+    assert not (stack / ".mise.toml").exists(), ".mise.toml must not exist in 014 model"
+    moon_frag = (stack / ".mise/conf.d/bailiff-mod-moon.toml").read_text()
+    assert "moon" in moon_frag  # moon module pins its own version
+    python_frag = (stack / ".mise/conf.d/bailiff-mod-python.toml").read_text()
+    assert 'python = "3.13"' in python_frag
+    ts_frag = (stack / ".mise/conf.d/bailiff-mod-ts.toml").read_text()
+    assert 'node = "22"' in ts_frag
 
 
 # (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)

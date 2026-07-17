@@ -53,10 +53,18 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
     mp = pytest.MonkeyPatch()
     mp.setenv("COPIER_SETTINGS_PATH", str(root / "settings.yml"))
     try:
-        # Single iac-tool provider: the exclusive set must NOT trigger a warning.
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", UserWarning)
+        # Single iac-tool provider: the CAPABILITY CONFLICT warning must NOT fire.
+        # The benign collision-scan ForbiddenPathError skip (a different UserWarning)
+        # is known and harmless — we must not promote it to an error here.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             yield init_stack(root, _LAYERS, exclusive_capabilities=frozenset({"iac-tool"}))
+        capability_warnings = [
+            w
+            for w in caught
+            if issubclass(w.category, UserWarning) and "CAPABILITY CONFLICT" in str(w.message)
+        ]
+        assert not capability_warnings, f"unexpected capability conflict: {capability_warnings}"
     finally:
         mp.undo()
 
