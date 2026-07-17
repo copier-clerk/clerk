@@ -1,25 +1,27 @@
 # bailiff-mod-package-add
 
-A **monorepo-only** overlay that scaffolds a new package directory and registers
-it in the workspace via the native toolchain add command (FR-007).
-Runs `run_after: [bailiff-mod-base]`.
+A monorepo-only overlay that scaffolds a new package directory and registers
+it in the workspace via the native toolchain add command.
+
+Requires `bailiff-mod-base` (layout fact) and `bailiff-mod-ts` when `lang=ts`
+(js_pkg_manager fact). Both are read via `_external_data` at render time.
 
 ## What it produces
 
 | Output | Lifecycle | Notes |
 |---|---|---|
-| `<dir>/<name>/package.json` (ts) | **task-output → seed-once** | Produced by `bun init` / `pnpm init`; `_skip_if_exists` guards against overwrite. |
-| `<dir>/<name>/pyproject.toml` (python) | **task-output → seed-once** | Produced by `uv init` / `pdm init`; `_skip_if_exists` guards against overwrite. |
-| `<dir>/<name>/go.mod` (go) | **task-output → seed-once** | Produced by `go mod init`; `_skip_if_exists` guards against overwrite. |
-| `<dir>/<name>/Cargo.toml` (rust) | **task-output → seed-once** | Produced by `cargo new`; `_skip_if_exists` guards against overwrite. |
+| `<dir>/<name>/package.json` (ts) | task-output → seed-once | Produced by `bun init` / `pnpm init`; `_skip_if_exists` guards against overwrite. |
+| `<dir>/<name>/pyproject.toml` (python) | task-output → seed-once | Produced by `uv init` / `pdm init`; `_skip_if_exists` guards against overwrite. |
+| `<dir>/<name>/go.mod` (go) | task-output → seed-once | Produced by `go mod init`; `_skip_if_exists` guards against overwrite. |
+| `<dir>/<name>/Cargo.toml` (rust) | task-output → seed-once | Produced by `cargo new`; `_skip_if_exists` guards against overwrite. |
 
 ## Security
 
 **SEC-001 / path-traversal guard**: `name` and `dir` are validated before any
 `mkdir` runs. Inputs containing `/`, `\`, `..`, `.` (dot-only), or empty string
-are rejected immediately with exit 1 and zero side effects.
+are rejected with exit 1 and zero side effects.
 
-## Native workspace registration (FR-007)
+## Native workspace registration
 
 After the package is scaffolded, the appropriate native add command registers it
 in the monorepo workspace:
@@ -32,13 +34,13 @@ in the monorepo workspace:
 | rust | cargo | `cargo add --path <dir>/<name>` |
 | go | go | `go work use <dir>/<name>` |
 
-## Ordering & gating
+## Ordering and gating
 
-- `run_after: [bailiff-mod-base]` — base fully applied before this overlay.
-- Gated on `layout == 'monorepo'`; all tasks are no-ops on `single` layout.
-- `js_pkg_manager` is threaded from bailiff-mod-base via `default: "{{ js_pkg_manager }}"`.
+- `depends_on: [bailiff-mod-base]` — base applies before this overlay.
+- Gated on `layout == 'monorepo'` (read from base via `_external_data`); all tasks are no-ops on `single` layout.
+- `js_pkg_manager` is read from `bailiff-mod-ts` via `_external_data` when `lang=ts`.
 
-## Prerequisites (FR-007b)
+## Prerequisites
 
 Language-specific tool must be on PATH before applying:
 
