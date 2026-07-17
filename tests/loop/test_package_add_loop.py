@@ -216,7 +216,7 @@ def test_answers_file_recorded(bailiff_mod_package_add: TemplateRepo, tmp_path: 
     assert af["lang"] == "python"
     # layout is no longer a question (read via _external_data.base.layout).
     assert "layout" not in af, "layout must not be in answers (read via _external_data)"
-    # js_pkg_manager is no longer a question (read via _external_data.ts.js_pkg_manager).
+    # js_pkg_manager is when:ts-gated; absent from answers when lang != ts.
     assert "js_pkg_manager" not in af, "js_pkg_manager must not be in answers"
     # Hidden edges must NOT appear in answers (FR-004 / FR-013).
     assert "run_after" not in af, "run_after must not be persisted"
