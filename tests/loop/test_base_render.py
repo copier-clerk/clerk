@@ -149,10 +149,11 @@ def test_base_monorepo_adds_targets(bailiff_mod_base: TemplateRepo, tmp_path: Pa
     assert "## Path Mapping" not in agents
 
 
-def test_base_never_scaffolds_github_dir(
-    bailiff_mod_base: TemplateRepo, tmp_path: Path
-) -> None:
-    """R12/FR-022: base never scaffolds .github/ — forge metadata lives in bailiff-mod-github-repo."""
+def test_base_never_scaffolds_github_dir(bailiff_mod_base: TemplateRepo, tmp_path: Path) -> None:
+    """R12/FR-022: base never scaffolds .github/ — forge metadata lives in bailiff-mod-github-repo.
+
+    github_host is no longer a base question.
+    """
     dest = tmp_path / "proj"
     _init_base(
         bailiff_mod_base,
@@ -251,4 +252,6 @@ def test_base_mise_conf_d_rendered(bailiff_mod_base: TemplateRepo, tmp_path: Pat
     )
     mise_drop = dest / ".mise" / "conf.d" / "bailiff-mod-base.toml"
     assert mise_drop.is_file(), ".mise/conf.d/bailiff-mod-base.toml must be scaffolded"
-    assert "[tools]" in mise_drop.read_text(), ".mise/conf.d/bailiff-mod-base.toml must contain [tools]"
+    assert "[tools]" in mise_drop.read_text(), (
+        ".mise/conf.d/bailiff-mod-base.toml must contain [tools]"
+    )
