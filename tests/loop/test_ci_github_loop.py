@@ -11,6 +11,8 @@ Tests cover:
 - R4 fail-loud guard: empty ci_languages + no monorepo_tool → warning comment
   + no-op job, NOT a silent empty file.
 - merge_queue_org_confirmed=false emits warning header on merge-queue model.
+- spec 014: default_branch + monorepo_tool resolve from pre-seeded _external_data
+  files when omitted from the answers dict.
 """
 
 from __future__ import annotations
@@ -502,6 +504,49 @@ def test_answers_file_written(ci_github_repo: TemplateRepo, tmp_path: Path) -> N
 
     af = yaml.safe_load(answers_files[0].read_text())
     assert af["ci_model"] == "minimal"
+
+
+# ---------------------------------------------------------------------------
+# spec 014: _external_data resolution
+# ---------------------------------------------------------------------------
+
+
+def test_external_data_resolves_base_and_moon(ci_github_repo: TemplateRepo, tmp_path: Path) -> None:
+    """default_branch and monorepo_tool resolve from pre-seeded _external_data files.
+
+    Omits both facts from the answers dict so copier evaluates the
+    _external_data defaults; pre-seeds .copier-answers.bailiff-mod-base.yml
+    and .copier-answers.bailiff-mod-moon.yml so the aliases resolve.
+    """
+    dest = tmp_path / "proj"
+    dest.mkdir(parents=True, exist_ok=True)
+
+    (dest / ".copier-answers.bailiff-mod-base.yml").write_text(
+        yaml.dump({"_src_path": "bailiff-mod-base", "default_branch": "develop"})
+    )
+    (dest / ".copier-answers.bailiff-mod-moon.yml").write_text(
+        yaml.dump({"_src_path": "bailiff-mod-moon", "monorepo_tool": "turborepo"})
+    )
+
+    answers = {
+        "ci_model": "monorepo-affected",
+        "ci_languages": ["python"],
+        "ci_lang_facts": {"python": {"manager": "uv", "version": "3.13", "test_runner": "pytest", "image": ""}},
+        "ci_cache": False,
+        "ci_concurrency_cancel": False,
+        "ci_required_gate": False,
+        "merge_queue_org_confirmed": False,
+        # default_branch and monorepo_tool intentionally omitted — resolved via _external_data
+    }
+
+    _run_copier(ci_github_repo.url, ci_github_repo.tag, dest, answers=answers, overwrite=True)
+
+    ci = (dest / _CI_FILE).read_text()
+    # default_branch from _external_data.base
+    assert '"develop"' in ci or "develop" in ci
+    # monorepo_tool=turborepo (not moon) → paths-filter branch, not moon ci
+    assert "dorny/paths-filter@v3" in ci
+    assert "moon ci" not in ci
 
 
 # ---------------------------------------------------------------------------
