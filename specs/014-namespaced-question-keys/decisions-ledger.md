@@ -393,6 +393,37 @@ neither → no hooks. So:
   question, adds nothing) and clears C-06 with no gate-weakening. capability presence = module presence,
   consistent with R12 (github_host) and the mise/gitignore drop-in model.
 
+### R13 GENERALIZED — `_external_data` is ONLY for always-present producers; sometimes-absent producers use agent-fed `--data` (STANDING RULE, ratified 2026-07-17)
+
+After the same disposition was applied FOUR times (hook_manager, ts_linter, then moon-facts + package-add's
+js_pkg_manager, caught by the integration suite), the maintainer ratified the underlying rule as standing so
+it need not be re-adjudicated per instance:
+
+> **A module MAY read a producer's fact via `_external_data` ONLY IF that producer is GUARANTEED PRESENT
+> whenever the consumer is.** Because `_external_data` reads are HARD dependencies (FR-006: absent producer →
+> loud `OrderingError`), reading a SOMETIMES-ABSENT producer breaks every valid stack that omits it. Only
+> **base** is always-present. Reads of OPTIONAL/SELECTED producers (precommit, ts, moon, and any module a
+> stack can legitimately omit) MUST instead be **phase-1 agent-fed `--data` facts** (empty/standalone default
+> when the producer is absent; the agent populates the value from the actual selection). The clean
+> optional-`_external_data`-read unification is deferred to spec 015.
+
+**Litmus:** "Can a valid stack include the CONSUMER but NOT the producer?" If yes → agent-fed `--data`, no
+`_external_data`, no `depends_on` on the producer.
+
+**Instances fixed under this rule (all: revert `_external_data.<producer>.<key>` → agent-fed `default:
+"{{ <key> }}"`, drop the alias + any `depends_on: [<producer>]`):**
+- `hook_manager` (precommit) — deleted as a question entirely (R13 refinement above).
+- `ts_linter` (ts → editorconfig) — editorconfig works standalone.
+- `monorepo_tool` / `monorepo_packages` (moon → ci-github, ci-gitlab, cocogitto) — moon is monorepo-ONLY; these
+  consumers run in non-monorepo stacks. Caught by `tests/integration/test_stack_ts_app.py` (dangling-edge
+  `OrderingError`: ci-github declared `_external_data['moon']` but moon absent).
+- `js_pkg_manager` (ts → package-add) — package-add is language-AGNOSTIC (`lang` ∈ python/rust/ts/…); it needs
+  ts only when `lang=ts`, so ts is sometimes-absent. (justfile/package-add already agent-fed for js_pkg_manager
+  where correct; package-add's `_external_data.ts` read is the one to revert.)
+
+**Base facts (`project_name`/`layout`/`description`/`default_branch`/`org`) KEEP `_external_data` — base is
+always present.** This is the rule's whole point: base=always → `_external_data` OK; everything else → `--data`.
+
 **Ruling A (maintainer, 2026-07-17):** DROP `hook_manager` as a cross-module fact.
 - No language module reads `hook_manager` (grep-verified: no language template body renders it). Languages
   contribute an UNCONDITIONAL `.pre-commit.d/*.yaml` fragment; only precommit reads its OWN `hook_manager`.
