@@ -1,0 +1,8 @@
+# quality tooling — managed by bailiff-mod-quality (DO NOT EDIT BY HAND)
+# Fragment: bailiff-mod-base's post-task folds all .gitignore.d/* into .gitignore
+# using delimited blocks (spec 014 FR-013).
+
+# Aider AI assistant runtime files
+.aider*
+!.aider.conf.yml
+!.aiderignore
