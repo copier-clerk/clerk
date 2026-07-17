@@ -5,31 +5,39 @@
 # frozen facts) or agent-draft (render `readme_body` verbatim from a pre-generated
 # frozen answer injected via --data — no agent invocation in the reproduce path).
 #
-# Threads project_name/description/stack from bailiff-mod-base via copier's default
-# "{{ <key> }}" mechanism (FR-010). run_after: [bailiff-mod-base].
+# Reads project_name and description from bailiff-mod-base via _external_data alias
+# (spec 014 FR-004/FR-006). bailiff enforces that bailiff-mod-base is present and
+# ordered before this module.
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; no secret: questions;
 # no tasks (pure render, no network/tool dependency).
 
-# Threaded from base via copier's default: "{{ project_name }}" mechanism.
-# Standalone fallback: renders empty when no upstream base supplied it.
+# --- External data (spec 014 _external_data aliases) --------------------------
+# Facts are read from producer answers files — never threaded via blanket bleed.
+
+_external_data:
+  base: .copier-answers.bailiff-mod-base.yml
+
+# --- Facts read from base (project_name, description) -------------------------
+
+# Read from base via _external_data alias (spec 014 / FR-004).
 project_name:
   type: str
-  default: "{{ project_name }}"
-  help: "Project name (threaded from bailiff-mod-base)."
+  default: "{{ _external_data.base.project_name }}"
+  help: "Project name (read from bailiff-mod-base via _external_data.base)."
 
-# One-line description threaded from base.
+# Read from base via _external_data alias (spec 014 / FR-004).
 description:
   type: str
-  default: "{{ description }}"
-  help: "One-line project description (threaded from bailiff-mod-base)."
+  default: "{{ _external_data.base.description }}"
+  help: "One-line project description (read from bailiff-mod-base via _external_data.base)."
 
-# Stack summary threaded from base (or supplied directly). Used in static-skeleton
-# to describe the tech stack in the README.
+# Stack summary: readme-only, self-referential — not a cross-module fact.
+# Used in static-skeleton to describe the tech stack in the README.
 stack:
   type: str
-  default: "{{ stack }}"
-  help: "Stack summary (e.g. 'Python/FastAPI/uv'), threaded from upstream answers."
+  default: ""
+  help: "Stack summary (e.g. 'Python/FastAPI/uv') — supplied directly, not a cross-module fact."
 
 # README style: static-skeleton renders deterministically from frozen facts;
 # agent-draft renders the frozen `readme_body` verbatim (agent writes it once,
@@ -67,20 +75,16 @@ today:
   help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
 
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
-run_after:
+
+depends_on:
   type: yaml
   default:
     - bailiff-mod-base
   when: false
 
-depends_on:
-  type: yaml
-  default: []
-  when: false
-
-run_before:
-  type: yaml
-  default: []
+phase:
+  type: str
+  default: normal
   when: false
 
 # The template body lives under template/ so copier renders only that subtree.

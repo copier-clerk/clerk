@@ -1,24 +1,32 @@
-"""spec 011 bailiff-mod-readme loop tests (T012).
+"""spec 011 bailiff-mod-readme loop tests (T012 / spec 014 T035/T037).
 
 Covers:
 - static-skeleton style: deterministic render from frozen facts (SEED-ONCE).
 - agent-draft style: README.md rendered from frozen readme_body verbatim (SEED-ONCE).
 - _skip_if_exists: existing README.md is NOT clobbered on reproduce regardless of style.
 - No agent invocation in reproduce path (only frozen answers replayed).
+- _external_data: project_name + description resolved from base answers file (spec 014).
 
 Uses runner.init (single RunSpec) to exercise bailiff-mod-readme standalone —
-the run_after: [bailiff-mod-base] edge is a runtime ordering hint, not a hard
-dependency that blocks standalone usage (FR-010 self-containment).
+explicit answers override the _external_data defaults so standalone tests remain valid.
+The _external_data test uses init_many with base pre-seeded (FR-006 / contract).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
 from bailiff import runner, trust
-from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
+from bailiff.catalog import TemplateRecord
+from tests.conftest import (
+    _BASE_STUB_TASKS,
+    TemplateRepo,
+    _copy_module_with_stub_tasks,
+)
 
 # bailiff-mod-readme is a pure render module with no network/tool tasks.
 # The stub is a no-op marker so the fixture pattern stays consistent with the suite.
@@ -36,9 +44,29 @@ def bailiff_mod_readme(tmp_path: Path) -> TemplateRepo:
     )
 
 
+@pytest.fixture
+def bailiff_mod_base(tmp_path: Path) -> TemplateRepo:
+    """The real bailiff-mod-base template as a hermetic repo (tasks stubbed offline)."""
+    return _copy_module_with_stub_tasks(
+        "bailiff-mod-base", tmp_path / "bailiff-mod-base", _BASE_STUB_TASKS
+    )
+
+
 @pytest.fixture(autouse=True)
 def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
+
+
+def _record(full_id: str, repo: TemplateRepo, has_tasks: bool = False) -> TemplateRecord:
+    return TemplateRecord(
+        full_id=full_id,
+        source=repo.url,
+        ref=repo.tag,
+        versions=[repo.tag],
+        reproducible=True,
+        has_tasks=has_tasks,
+        questions=["project_name"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +211,6 @@ def test_agent_draft_seed_once_on_reproduce(
 
 def test_answers_file_recorded(bailiff_mod_readme: TemplateRepo, tmp_path: Path) -> None:
     """Answers file is written and includes the frozen answers."""
-    import yaml
-
     trust.add_trust(bailiff_mod_readme.url)
 
     dest = tmp_path / "proj"
@@ -207,3 +233,50 @@ def test_answers_file_recorded(bailiff_mod_readme: TemplateRepo, tmp_path: Path)
     assert data["project_name"] == "myproj"
     assert data["readme_style"] == "static-skeleton"
     assert bailiff_mod_readme.url in data["_src_path"]
+
+
+# ---------------------------------------------------------------------------
+# _external_data: project_name + description resolved from base (spec 014)
+# ---------------------------------------------------------------------------
+
+
+def test_external_data_resolves_from_base(
+    bailiff_mod_base: TemplateRepo,
+    bailiff_mod_readme: TemplateRepo,
+    tmp_path: Path,
+) -> None:
+    """project_name and description are resolved via _external_data.base (spec 014 T035/T037).
+
+    Uses init_many with base pre-seeded so the base answers file is present when
+    readme renders — confirms FR-006a path: base facts flow through _external_data alias.
+    """
+    trust.add_trust(bailiff_mod_base.url)
+    trust.add_trust(bailiff_mod_readme.url)
+
+    selection: list[tuple[TemplateRecord, dict[str, Any]]] = [
+        (
+            _record("demo/bailiff-mod-base", bailiff_mod_base, has_tasks=True),
+            {
+                "project_name": "extdata-proj",
+                "description": "Description from base.",
+                "org": "acme",
+                "license": "mit",
+                "layout": "single",
+                "gitignore_stack": [],
+            },
+        ),
+        (
+            _record("demo/bailiff-mod-readme", bailiff_mod_readme),
+            {"readme_style": "static-skeleton", "stack": "Python/uv"},
+        ),
+    ]
+    dest = tmp_path / "proj"
+    runner.init_many(selection, str(dest), today="2026-01-01")
+
+    readme = dest / "README.md"
+    assert readme.is_file(), "README.md not created when using _external_data"
+    content = readme.read_text()
+    assert "extdata-proj" in content, "project_name not resolved via _external_data.base (T035)"
+    assert "Description from base." in content, (
+        "description not resolved via _external_data.base (T037)"
+    )
