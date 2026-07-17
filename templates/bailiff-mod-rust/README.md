@@ -26,7 +26,7 @@ Passes `--lib` to `cargo init` when `crate_kind=lib`. Upstream omitted this flag
 
 - `depends_on: [bailiff-mod-base]` (hidden `when:false` answer); `phase: normal`.
 - `project_name` reads `_external_data.base.project_name` (FR-004 / spec 014).
-- `hook_manager` reads `_external_data.precommit.hook_manager` (from the `.pre-commit.d/` fragment template).
+- `hook_manager` is not read by this module; the `.pre-commit.d/` fragment renders unconditionally (R13).
 - `test_runner` is a bare-private question — `{cargo-test, nextest}` domains are disjoint from other modules (collision-class, no cross-layer alias).
 
 ## Fragment contributions (spec 014 model)
