@@ -1,6 +1,7 @@
-"""spec 011 T011: bailiff-mod-justfile loop tests.
+"""spec 011 T011 / spec 014: bailiff-mod-justfile loop tests.
 
-Verifies the justfile module's seed-once lifecycle and threaded axes:
+Verifies the justfile module's seed-once lifecycle, threaded axes, and
+spec-014 edge/phase model:
 - T011-a: python + pre-commit renders idiomatic recipes using the right tool names.
 - T011-b: ts + pnpm + lefthook (non-default combo) renders pnpm and lefthook in recipes.
 - T011-c: ts + bun + none renders bun test and a native fallback lint (no hook manager).
@@ -8,6 +9,9 @@ Verifies the justfile module's seed-once lifecycle and threaded axes:
 - T011-e: language="" renders fail-loud stubs for all recipes.
 - T011-f: seed-once — user-edited justfile survives reproduce byte-identical.
 - T011-g: all 15 lang×hook_manager combos produce syntactically valid justfiles.
+- T014-a: depends_on=[bailiff-mod-base]; no run_after/run_before (R7).
+- T014-b: _bailiff_phase=normal; no hard dep on precommit/ts (R13).
+- T014-c: .mise/conf.d/bailiff-mod-justfile.toml.jinja installs just.
 
 No network or tool tasks: the module only renders a static file, so no stub needed.
 """
@@ -23,10 +27,13 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import yaml
 from jinja2.sandbox import SandboxedEnvironment
 
 from bailiff import runner, trust
 from tests.conftest import TemplateRepo, _copy_module_with_stub_tasks
+
+_MODULES_DIR = Path(__file__).parent.parent.parent / "templates"
 
 # bailiff-mod-justfile has no _tasks so the stub is an empty no-op placeholder.
 _JUSTFILE_STUB_TASKS = dedent(
@@ -311,3 +318,65 @@ def test_all_combos_produce_valid_justfile(language: str, hook_manager: str) -> 
         _assert_justfile_valid(tmp_path)
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# T014-a: depends_on=[bailiff-mod-base]; no run_after/run_before (spec 014 R7)
+# ---------------------------------------------------------------------------
+
+
+def test_depends_on_base_no_run_after_or_run_before() -> None:
+    """depends_on=[bailiff-mod-base]; run_after and run_before are absent (spec 014 R7)."""
+    copier_yml = (_MODULES_DIR / "bailiff-mod-justfile" / "copier.yml").read_text()
+    data = yaml.safe_load(copier_yml)
+    assert "run_after" not in data, "run_after must be absent (spec 014 R7)"
+    assert "run_before" not in data, "run_before must be absent (spec 014 R7)"
+    assert data.get("depends_on", {}).get("default") == ["bailiff-mod-base"], (
+        "depends_on must be [bailiff-mod-base]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# T014-b: _bailiff_phase=normal; no hard dep on precommit/ts (R13)
+# ---------------------------------------------------------------------------
+
+
+def test_phase_normal_and_no_hard_ts_precommit_dep() -> None:
+    """_bailiff_phase=normal; hook_manager/js_pkg_manager are agent-fed (R13 — no hard deps)."""
+    copier_yml_path = _MODULES_DIR / "bailiff-mod-justfile" / "copier.yml"
+    raw = copier_yml_path.read_text()
+    data = yaml.safe_load(raw)
+
+    # Phase must be expressed as a top-level YAML key _bailiff_phase.
+    assert "_bailiff_phase" in raw, "_bailiff_phase top-level key must be present"
+    assert data.get("_bailiff_phase") == "normal", "_bailiff_phase must be 'normal'"
+
+    # Neither bailiff-mod-precommit nor bailiff-mod-ts may appear in depends_on.
+    deps = data.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-precommit" not in deps, (
+        "bailiff-mod-precommit must not be in depends_on: hook_manager is agent-fed (R13)"
+    )
+    assert "bailiff-mod-ts" not in deps, (
+        "bailiff-mod-ts must not be in depends_on: js_pkg_manager is agent-fed (R13)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# T014-c: .mise/conf.d/bailiff-mod-justfile.toml.jinja installs just
+# ---------------------------------------------------------------------------
+
+
+def test_mise_confd_fragment_installs_just() -> None:
+    """bailiff-mod-justfile renders .mise/conf.d/bailiff-mod-justfile.toml with just."""
+    confd = (
+        _MODULES_DIR
+        / "bailiff-mod-justfile"
+        / "template"
+        / ".mise"
+        / "conf.d"
+        / "bailiff-mod-justfile.toml.jinja"
+    )
+    assert confd.is_file(), ".mise/conf.d/bailiff-mod-justfile.toml.jinja must exist"
+    content = confd.read_text()
+    assert "[tools]" in content, "conf.d fragment must have a [tools] section"
+    assert "just" in content, "conf.d fragment must declare just as a tool"
