@@ -12,13 +12,15 @@
 #
 # Cross-module facts via _external_data (spec 014 / FR-004):
 #   base  → project_name, default_branch (HARD dependency; absent → preflight error)
-#   moon  → monorepo_tool, monorepo_packages (HARD dependency when moon is in selection)
+#
+# monorepo_tool + monorepo_packages are agent-fed via --data (R13 GENERALIZED):
+#   moon is MONOREPO-ONLY; ci-gitlab runs in non-monorepo stacks too, so these
+#   facts cannot be a hard _external_data edge — they default to none/[] when absent.
 
 # --- Cross-module facts via _external_data (spec 014 / FR-004) ---------------
 
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  moon: .copier-answers.bailiff-mod-moon.yml
 
 # --- CI model & options (shared question shape) ------------------------------
 
@@ -88,15 +90,15 @@ monorepo_tool:
     - nx
     - pnpm-workspace
     - moon
-  default: "{{ _external_data.moon.monorepo_tool | default('none') }}"
-  help: "Monorepo tool (turborepo/nx/pnpm-workspace/moon); required for monorepo-affected model. Read from moon module via _external_data."
+  default: "{{ monorepo_tool | default('none') }}"
+  help: "Monorepo tool (turborepo/nx/pnpm-workspace/moon); required for monorepo-affected model. Agent-fed via --data."
 
 # monorepo_packages: frozen list of package paths for parent-child pipelines.
 # Empty → inline rules:changes per path detection.
 monorepo_packages:
   type: yaml
-  default: "{{ _external_data.moon.monorepo_packages | default([]) }}"
-  help: "Monorepo package paths for parent-child trigger jobs. Read from moon module via _external_data."
+  default: "{{ monorepo_packages | default([]) }}"
+  help: "Monorepo package paths for parent-child trigger jobs. Agent-fed via --data."
 
 default_branch:
   type: str

@@ -27,13 +27,15 @@ zero `_tasks`, reproduces config-consistently.
 
 ## Cross-module facts
 
-Read via `_external_data` aliases (spec 014 / FR-004). `bailiff-mod-base` is a hard
-dependency; absent → preflight error.
+`bailiff-mod-base` is a hard `_external_data` dependency; absent → preflight error.
 
 | Alias | Source module | Facts read |
 |---|---|---|
 | `base` | `bailiff-mod-base` | `project_name`, `default_branch` |
-| `moon` | `bailiff-mod-moon` | `monorepo_tool`, `monorepo_packages` |
+
+`monorepo_tool` and `monorepo_packages` are agent-fed via `--data` (not `_external_data`).
+Moon is monorepo-only; ci-gitlab runs in non-monorepo stacks and cannot depend on it.
+Both default to `none` / `[]` when absent.
 
 ## Usage
 
