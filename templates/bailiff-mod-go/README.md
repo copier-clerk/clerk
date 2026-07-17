@@ -1,11 +1,9 @@
 # bailiff-mod-go
 
 The Go **language overlay** — adds Go tooling (go mod, golangci-lint) as a
-copier layer (spec 014). Reads `project_name` from
-[`bailiff-mod-base`](https://github.com/bailiff-io/bailiff-mod-base) and
-`hook_manager` from
-[`bailiff-mod-precommit`](https://github.com/bailiff-io/bailiff-mod-precommit)
-via `_external_data` aliases.
+copier layer. Reads `project_name` from
+[`bailiff-mod-base`](https://github.com/bailiff-io/bailiff-mod-base)
+via `_external_data`.
 
 ## What it produces
 
@@ -15,7 +13,7 @@ via `_external_data` aliases.
 | `.golangci.yml` | **seed-once** (`_skip_if_exists`) | Sensible golangci-lint v2 defaults; user-tunable after init. |
 | `cmd/<name>/main.go` | **seed-once** (`_skip_if_exists`) | Stub entry point for cli/service. **Omitted for library** (`_exclude` on cmd/). |
 | `.mise/conf.d/bailiff-mod-go.toml` | **managed** | Go toolchain version fragment; mise merges all `conf.d/*.toml` natively. |
-| `.pre-commit.d/bailiff-mod-go.yaml` | **managed** | golangci-lint hook block; bundled into `.pre-commit-config.yaml` by `bailiff-mod-precommit`'s `_post_task`. Omitted when `golangci_hook_rev` is empty. |
+| `.pre-commit.d/bailiff-mod-go.yaml` | **managed** | golangci-lint hook block; bundled into `.pre-commit-config.yaml` by `bailiff-mod-precommit`'s `_post_task`. Hook block content omitted when `golangci_hook_rev` is empty; file always rendered. |
 | `.gitignore.d/bailiff-mod-go` | **managed** | Go gitignore lines (binaries, test outputs, optionally `vendor/`); folded into `.gitignore` by `bailiff-mod-base`'s `_post_task`. |
 
 ## Questions
