@@ -1,0 +1,18 @@
+# Terraform / OpenTofu — local working dirs and state (NOT the lock file)
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.tfstate.lock.info
+
+# Override files (local customisation — never commit)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config files
+.terraformrc
+terraform.rc
+
+# Init sentinel (bailiff internal)
+.bailiff-tf-init-done

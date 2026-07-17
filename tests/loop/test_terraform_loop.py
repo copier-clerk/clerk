@@ -414,3 +414,72 @@ class TestOpenTofuFlavor:
         _reproduce(bailiff_mod_terraform_tofu, dest)
 
         assert (iac / "main.tf").read_text() == "# tofu project main.tf\n"
+
+
+# ---------------------------------------------------------------------------
+# Fragment output tests (spec 014: mise conf.d / pre-commit.d / gitignore.d)
+# ---------------------------------------------------------------------------
+
+
+class TestFragmentOutputs:
+    """Assertions for the three .d/ fragment files added in spec 014."""
+
+    def test_mise_confd_terraform_flavor(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
+        """mise conf.d fragment contains terraform + tflint tool pins."""
+        dest = tmp_path / "proj"
+        _init(
+            bailiff_mod_terraform,
+            dest,
+            {"tf_flavor": "terraform", "terraform_version": "1.12.2", "tflint_version": "0.57.0"},
+        )
+        confd = (dest / ".mise" / "conf.d" / "bailiff-mod-terraform.toml").read_text()
+        assert 'terraform = "1.12.2"' in confd
+        assert 'tflint = "0.57.0"' in confd
+        assert "opentofu" not in confd
+
+    def test_mise_confd_opentofu_flavor(
+        self, bailiff_mod_terraform_tofu: TemplateRepo, tmp_path: Path
+    ) -> None:
+        """mise conf.d fragment contains opentofu + tflint tool pins for opentofu flavor."""
+        dest = tmp_path / "proj"
+        _init(
+            bailiff_mod_terraform_tofu,
+            dest,
+            {"tf_flavor": "opentofu", "opentofu_version": "1.10.0", "tflint_version": "0.57.0"},
+        )
+        confd = (dest / ".mise" / "conf.d" / "bailiff-mod-terraform.toml").read_text()
+        assert 'opentofu = "1.10.0"' in confd
+        assert 'tflint = "0.57.0"' in confd
+        assert "terraform =" not in confd
+
+    def test_precommit_fragment_renders_unconditionally(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
+        """pre-commit.d fragment contains the hook repo regardless of hook_manager value.
+
+        The bundler (bailiff-mod-precommit _post_task) decides whether to activate
+        it; this module renders unconditionally so the fragment is always present.
+        """
+        dest = tmp_path / "proj"
+        _init(
+            bailiff_mod_terraform,
+            dest,
+            {"tf_flavor": "terraform", "terraform_version": "1.12.2", "tflint_version": "0.57.0"},
+        )
+        fragment = (dest / ".pre-commit.d" / "bailiff-mod-terraform.yaml").read_text()
+        assert "antonbabenko/pre-commit-terraform" in fragment
+
+    def test_gitignore_fragment_contains_terraform_dir(
+        self, bailiff_mod_terraform: TemplateRepo, tmp_path: Path
+    ) -> None:
+        """gitignore.d fragment contains .terraform/ entry."""
+        dest = tmp_path / "proj"
+        _init(
+            bailiff_mod_terraform,
+            dest,
+            {"tf_flavor": "terraform", "terraform_version": "1.12.2", "tflint_version": "0.57.0"},
+        )
+        fragment = (dest / ".gitignore.d" / "bailiff-mod-terraform").read_text()
+        assert ".terraform/" in fragment
