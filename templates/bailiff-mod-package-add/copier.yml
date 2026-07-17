@@ -10,7 +10,7 @@
 #
 # Fact consumers (spec 014 FR-004):
 #   base.layout          — gating all tasks on monorepo
-#   ts.js_pkg_manager    — TS workspace registration + tool preflight (makes ts a hard dep)
+#   js_pkg_manager       — agent-fed via --data; used only in lang=ts branch (no ts hard dep)
 
 # Note: no _answers_file override — copier's default is used (see bailiff-mod-base
 # for rationale); bailiff passes .copier-answers.bailiff-mod-package-add.yml at
@@ -20,12 +20,12 @@
 # Cross-module facts via _external_data (spec 014 / FR-004)
 #
 # base is a HARD dependency: absent → loud preflight OrderingError (FR-006).
-# ts is a HARD dependency when lang=ts: absent → loud preflight OrderingError.
+# ts is SOMETIMES-ABSENT (adding a Python/Go/Rust package needs no TS module),
+# so js_pkg_manager is agent-fed via --data instead of read from ts answers.
 # ---------------------------------------------------------------------------
 
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  ts: .copier-answers.bailiff-mod-ts.yml
 
 # ---------------------------------------------------------------------------
 # Questions
@@ -72,6 +72,15 @@ rust_edition:
   default: "2024"
   help: "Rust edition (2024 recommended)."
   when: "{{ lang == 'rust' }}"
+
+# JS/TS package manager — agent-fed via --data; used only when lang=ts.
+# Not read from bailiff-mod-ts answers because ts is sometimes-absent
+# (adding a Python/Go/Rust package implies no TS module in the stack).
+js_pkg_manager:
+  type: str
+  default: ""
+  help: "JS package manager (bun or pnpm); agent injects this when lang=ts."
+  when: "{{ lang == 'ts' }}"
 
 # Agent-injected: resolve sibling pins for cross-package dependency alignment.
 # When true the phase-1 agent pre-resolves version pins; empty = no extra deps.
@@ -164,7 +173,7 @@ _tasks:
   - command: >-
       if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ _external_data.ts.js_pkg_manager }}" = "bun" ]; then
+        if [ "{{ js_pkg_manager }}" = "bun" ]; then
           command -v bun >/dev/null 2>&1 ||
           { echo "bailiff-mod-package-add: required tool 'bun' not found on PATH." >&2;
             echo "  bun — https://bun.sh/docs/installation" >&2; exit 1; };
@@ -205,7 +214,7 @@ _tasks:
       if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ _external_data.ts.js_pkg_manager }}" = "bun" ]; then
+        if [ "{{ js_pkg_manager }}" = "bun" ]; then
           test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && bun init -y);
         else
           test -f "${pkg_dir}/package.json" || (cd "${pkg_dir}" && pnpm init);
@@ -230,7 +239,7 @@ _tasks:
       if [ "{{ _external_data.base.layout }}" != "monorepo" ]; then exit 0; fi;
       pkg_dir="{{ dir.rstrip('/') }}/{{ name }}";
       if [ "{{ lang }}" = "ts" ]; then
-        if [ "{{ _external_data.ts.js_pkg_manager }}" = "pnpm" ]; then
+        if [ "{{ js_pkg_manager }}" = "pnpm" ]; then
           pnpm add --workspace "${pkg_dir}" 2>/dev/null || true;
         else
           bun add "${pkg_dir}" 2>/dev/null || true;

@@ -1128,9 +1128,9 @@ _APM_STUB_BASE_YML = dedent(
 # preserved, but native tool calls (bun/pnpm/uv/cargo/go) are replaced with a
 # deterministic marker write. This keeps the guard logic hermetically testable
 # without requiring any language toolchain on the CI host.
-# Stub tasks use _external_data.base.layout and _external_data.ts.js_pkg_manager
-# (spec 014 FR-004). Tests must pre-seed .copier-answers.bailiff-mod-base.yml and
-# .copier-answers.bailiff-mod-ts.yml in dest before calling _init.
+# Stub tasks use _external_data.base.layout (spec 014 FR-004); js_pkg_manager is
+# agent-fed via answers dict (not read from ts answers — ts is sometimes-absent).
+# Tests must pre-seed .copier-answers.bailiff-mod-base.yml before calling _init.
 _PACKAGE_ADD_STUB_TASKS = dedent(
     r"""
     _tasks:
