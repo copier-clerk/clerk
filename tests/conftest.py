@@ -996,6 +996,7 @@ _PRECOMMIT_STUB_TASKS = dedent(
     """
 )
 
+
 def _copy_module_with_stub_tasks(
     module_name: str,
     dest_root: Path,

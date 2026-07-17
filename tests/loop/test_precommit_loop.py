@@ -199,7 +199,9 @@ def test_hook_manager_choices_are_precommit_and_none(
     assert set(choices) == {"pre-commit", "none"}, (
         f"hook_manager choices must be {{pre-commit, none}}, got {choices!r}"
     )
-    assert "lefthook" not in choices, "lefthook must not be a hook_manager choice (deferred to spec 015)"
+    assert "lefthook" not in choices, (
+        "lefthook must not be a hook_manager choice (deferred to spec 015)"
+    )
 
 
 def test_hook_manager_precommit_never_produces_lefthook_yml(
@@ -208,7 +210,9 @@ def test_hook_manager_precommit_never_produces_lefthook_yml(
     """hook_manager=pre-commit never produces lefthook.yml."""
     dest = tmp_path / "proj"
     _init(bailiff_mod_precommit, dest, {"hook_manager": "pre-commit"})
-    assert not (dest / "lefthook.yml").exists(), "lefthook.yml must never be produced by this module"
+    assert not (dest / "lefthook.yml").exists(), (
+        "lefthook.yml must never be produced by this module"
+    )
 
 
 # ---------------------------------------------------------------------------
