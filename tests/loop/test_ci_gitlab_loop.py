@@ -8,7 +8,9 @@ Covers:
 - all 5 models with a 2-language ci_lang_facts fixture (python + typescript);
 - optional:true needs on change-gated jobs (optimized model);
 - merge-queue + free tier → fallback + header warning;
-- empty ci_languages + monorepo_tool=none → loud warning job (R4 guard).
+- empty ci_languages + monorepo_tool=none → loud warning job (R4 guard);
+- base+ci-gitlab without moon inits cleanly (R13 GENERALIZED: monorepo facts are
+  agent-fed --data, not a hard moon _external_data edge).
 """
 
 from __future__ import annotations
@@ -485,13 +487,12 @@ def test_answers_file_written_no_hidden_edges(
 
 
 _BASE_ANSWERS_FILE = ".copier-answers.bailiff-mod-base.yml"
-_MOON_ANSWERS_FILE = ".copier-answers.bailiff-mod-moon.yml"
 
 
-def _seed_producer_answers(dest: Path) -> None:
-    """Pre-seed base and moon answers files so _external_data aliases resolve.
+def _seed_base_answers(dest: Path) -> None:
+    """Pre-seed base answers file so _external_data.base alias resolves.
 
-    In a real stack base runs first; in standalone tests we write the files
+    In a real stack base runs first; in standalone tests we write the file
     copier would otherwise warn-and-skip (returning {}).
     """
     dest.mkdir(parents=True, exist_ok=True)
@@ -504,29 +505,22 @@ def _seed_producer_answers(dest: Path) -> None:
             }
         )
     )
-    (dest / _MOON_ANSWERS_FILE).write_text(
-        yaml.dump(
-            {
-                "_src_path": "bailiff-mod-moon",
-                "monorepo_tool": "moon",
-                "monorepo_packages": ["packages/api", "packages/web"],
-            }
-        )
-    )
 
 
-def test_external_data_aliases_resolve(bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path) -> None:
-    """_external_data.base and .moon resolve from pre-seeded answers files.
+def test_external_data_base_alias_resolves(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
+    """_external_data.base resolves from pre-seeded answers file (FR-004 / FR-006a).
 
-    Facts are NOT passed in the answers dict; they must come from aliases.
-    Proves FR-004 / FR-006a: literal path, alias resolves, values flow into render.
+    project_name and default_branch are NOT in answers — must come from the alias.
+    monorepo facts are agent-fed via answers (R13 GENERALIZED: no moon _external_data edge).
     """
     dest = tmp_path / "proj"
-    _seed_producer_answers(dest)
+    _seed_base_answers(dest)
 
     trust.add_trust(bailiff_mod_ci_gitlab.url)
-    # Omit project_name, default_branch, monorepo_tool, monorepo_packages from answers —
-    # they must come exclusively from _external_data.
+    # Omit project_name, default_branch — must resolve from _external_data.base.
+    # monorepo facts are agent-fed, not aliased from moon.
     spec = runner.RunSpec(
         source=bailiff_mod_ci_gitlab.url,
         dest=str(dest),
@@ -534,6 +528,8 @@ def test_external_data_aliases_resolve(bailiff_mod_ci_gitlab: TemplateRepo, tmp_
             "ci_model": "monorepo-affected",
             "ci_languages": _TWO_LANG_LANGUAGES,
             "ci_lang_facts": _TWO_LANG_FACTS,
+            "monorepo_tool": "moon",
+            "monorepo_packages": ["packages/api", "packages/web"],
         },
     )
     runner.init(spec, today="2026-07-17")
@@ -544,15 +540,44 @@ def test_external_data_aliases_resolve(bailiff_mod_ci_gitlab: TemplateRepo, tmp_
         "default_branch from _external_data.base must appear in rendered output"
     )
 
-    # monorepo_tool=moon (from moon answers) → moon-ci job, not trigger fan-out
+    # monorepo_tool=moon (agent-fed) → moon-ci job, not trigger fan-out
     parsed = yaml.safe_load(text)
-    assert "moon-ci" in parsed, "_external_data.moon.monorepo_tool=moon must render moon-ci job"
+    assert "moon-ci" in parsed, "monorepo_tool=moon (agent-fed) must render moon-ci job"
     trigger_jobs = [k for k in parsed if str(k).startswith("trigger:")]
-    assert not trigger_jobs, "moon branch must not render trigger jobs when tool=moon from alias"
+    assert not trigger_jobs, "moon branch must not render trigger jobs when tool=moon"
+
+
+def test_no_moon_external_data_non_monorepo(
+    bailiff_mod_ci_gitlab: TemplateRepo, tmp_path: Path
+) -> None:
+    """ci-gitlab inits cleanly without any moon answers file (R13 GENERALIZED).
+
+    Verifies the dangling-edge OrderingError is gone: moon _external_data removed,
+    so a plain base+ci-gitlab stack (no moon) must render without error.
+    """
+    dest = tmp_path / "proj"
+    _seed_base_answers(dest)
+
+    trust.add_trust(bailiff_mod_ci_gitlab.url)
+    spec = runner.RunSpec(
+        source=bailiff_mod_ci_gitlab.url,
+        dest=str(dest),
+        answers={
+            "ci_model": "standard",
+            "ci_languages": _TWO_LANG_LANGUAGES,
+            "ci_lang_facts": _TWO_LANG_FACTS,
+            # monorepo_tool and monorepo_packages absent → must default to none/[]
+        },
+    )
+    runner.init(spec, today="2026-07-17")
+
+    assert (dest / ".gitlab-ci.yml").is_file(), ".gitlab-ci.yml must render without moon"
+    # No moon answers file present — confirm it was not required
+    assert not (dest / ".copier-answers.bailiff-mod-moon.yml").is_file()
 
 
 def test_external_data_alias_declared() -> None:
-    """copier.yml declares _external_data with literal paths for base and moon."""
+    """copier.yml declares _external_data with base alias; moon alias is absent (R13 GENERALIZED)."""
     copier_yml = (
         Path(__file__).resolve().parent.parent.parent
         / "templates"
@@ -562,4 +587,6 @@ def test_external_data_alias_declared() -> None:
     text = copier_yml.read_text()
     assert "_external_data:" in text, "copier.yml must declare _external_data block"
     assert ".copier-answers.bailiff-mod-base.yml" in text, "base alias must use literal path"
-    assert ".copier-answers.bailiff-mod-moon.yml" in text, "moon alias must use literal path"
+    assert ".copier-answers.bailiff-mod-moon.yml" not in text, (
+        "moon alias must be absent (monorepo facts are agent-fed, not a hard _external_data edge)"
+    )
