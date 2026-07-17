@@ -22,7 +22,6 @@
 
 _external_data:
   base: .copier-answers.bailiff-mod-base.yml
-  precommit: .copier-answers.bailiff-mod-precommit.yml
 
 # --- Facts read from base (project_name, description) -------------------------
 
@@ -36,20 +35,12 @@ description:
   default: "{{ _external_data.base.description }}"
   help: "One-line description (from bailiff-mod-base; OpenAPI info.description)."
 
-# --- Fact read from precommit (hook_manager) ----------------------------------
-
-hook_manager:
-  type: str
-  default: "{{ _external_data.precommit.hook_manager }}"
-  help: "Hook manager (from bailiff-mod-precommit). none = hook fragment inert."
-
 # --- Dependency edges (when:false hidden answers — FR-004) -------------------
 
 depends_on:
   type: yaml
   default:
     - bailiff-mod-base
-    - bailiff-mod-precommit
   when: false
 
 phase:
