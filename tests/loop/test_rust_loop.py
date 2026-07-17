@@ -1,8 +1,11 @@
-"""spec 011 (T009): bailiff-mod-rust loop tests.
+"""spec 014 (T023/T035/T045/T049): bailiff-mod-rust loop tests.
 
 Covers:
-- Init [base, rust] applies base first, threads project_name, produces managed
-  rust-toolchain.toml and rustfmt.toml.
+- Init [base, rust] (no precommit required) reads project_name via _external_data
+  alias, produces managed rust-toolchain.toml, rustfmt.toml, and drop-in fragments.
+- .mise/conf.d/bailiff-mod-rust.toml rendered with rust channel + optional nextest.
+- .pre-commit.d/bailiff-mod-rust.yaml fragment renders unconditionally (R13).
+- .gitignore.d/bailiff-mod-rust static fragment present.
 - crate_kind=lib renders the --lib flag expression in the task (verified via the
   copier.yml task body — actual cargo is stubbed offline).
 - test_runner=cargo-test vs nextest: answers recorded correctly.
@@ -58,7 +61,6 @@ def _init_base_rust(
                 "org": "acme",
                 "license": "mit",
                 "layout": "single",
-                "gitignore_stack": ["ghg:macOS", "Rust"],
             },
         ),
         (
@@ -81,7 +83,7 @@ def _init_base_rust(
 def test_base_rust_defaults(
     bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
-    """Init [base, rust] with defaults: managed files present, answers recorded."""
+    """Init [base, rust] (no precommit) with defaults: managed files and fragments present."""
     dest = tmp_path / "proj"
     _init_base_rust(bailiff_mod_base, bailiff_mod_rust, dest)
 
@@ -100,13 +102,60 @@ def test_base_rust_defaults(
     # Preflight stub ran (offline marker).
     assert (dest / ".bailiff-rust-preflight").is_file(), "cargo preflight stub marker missing"
 
-    # Answers recorded: project_name threaded from base.
+    # Fragment: mise conf.d drop-in (T023 / FR-008).
+    mise_frag = dest / ".mise" / "conf.d" / "bailiff-mod-rust.toml"
+    assert mise_frag.is_file(), ".mise/conf.d/bailiff-mod-rust.toml fragment missing"
+    mise_text = mise_frag.read_text()
+    assert 'rust = "stable"' in mise_text, "rust_channel not in mise conf.d fragment"
+    assert "cargo-nextest" in mise_text, "nextest entry missing from mise conf.d (default=nextest)"
+
+    # Fragment: gitignore drop-in (T049).
+    gi_frag = dest / ".gitignore.d" / "bailiff-mod-rust"
+    assert gi_frag.is_file(), ".gitignore.d/bailiff-mod-rust fragment missing"
+    assert "/target" in gi_frag.read_text(), "/target not in gitignore fragment"
+
+    # Fragment: pre-commit drop-in renders unconditionally without precommit (R13).
+    pc_frag = dest / ".pre-commit.d" / "bailiff-mod-rust.yaml"
+    assert pc_frag.is_file(), ".pre-commit.d/bailiff-mod-rust.yaml fragment missing"
+    pc_text = pc_frag.read_text()
+    assert "pre-commit-hooks-rust" in pc_text, "clippy repo missing from pre-commit fragment"
+    assert "clippy" in pc_text, "clippy hook id missing from pre-commit fragment"
+
+    # Answers recorded: rust-specific answers present; no union keys.
     af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-rust.yml").read_text())
     assert bailiff_mod_rust.url in af["_src_path"]
-    assert af["project_name"] == "mycrate", "project_name not threaded base→rust"
     assert af["rust_channel"] == "stable"
     assert af["crate_kind"] == "bin"
     assert af["test_runner"] == "nextest"
+    # union keys removed in spec 014 — none must survive into the answers file
+    assert "hook_blocks" not in af, "hook_blocks must not appear in rust answers (spec 014)"
+    assert "mise_tools" not in af, "mise_tools must not appear in rust answers (spec 014)"
+    assert "gitignore_stack" not in af, "gitignore_stack must not appear in rust answers (spec 014)"
+
+
+# ---------------------------------------------------------------------------
+# Rust does not depend on precommit (R13)
+# ---------------------------------------------------------------------------
+
+
+def test_rust_no_precommit_dependency() -> None:
+    """copier.yml must not declare bailiff-mod-precommit in depends_on (R13)."""
+    copier_yml = (
+        Path(__file__).resolve().parent.parent.parent
+        / "templates"
+        / "bailiff-mod-rust"
+        / "copier.yml"
+    )
+    import yaml as _yaml
+
+    data = _yaml.safe_load(copier_yml.read_text())
+    deps = data.get("depends_on", {}).get("default", [])
+    assert "bailiff-mod-precommit" not in deps, (
+        "bailiff-mod-precommit must not be in rust depends_on (R13 — hook_manager is not a fact)"
+    )
+    # _external_data must not reference precommit
+    ext = data.get("_external_data", {})
+    assert "precommit" not in ext, "_external_data must not alias precommit (R13)"
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +175,6 @@ def test_crate_kind_lib_recorded(
 
     # Verify the copier.yml task body contains the --lib conditional expression
     # (the actual cargo new is stubbed, so we inspect the template source).
-
     copier_yml_path = (
         Path(__file__).resolve().parent.parent.parent
         / "templates"
@@ -146,7 +194,7 @@ def test_crate_kind_lib_recorded(
 def test_test_runner_cargo_test(
     bailiff_mod_base: TemplateRepo, bailiff_mod_rust: TemplateRepo, tmp_path: Path
 ) -> None:
-    """test_runner=cargo-test is recorded; nextest entry omitted from answers."""
+    """test_runner=cargo-test: recorded; cargo-nextest omitted from mise conf.d fragment."""
     dest = tmp_path / "proj"
     _init_base_rust(
         bailiff_mod_base, bailiff_mod_rust, dest, rust_answers={"test_runner": "cargo-test"}
@@ -154,6 +202,13 @@ def test_test_runner_cargo_test(
 
     af = yaml.safe_load((dest / ".copier-answers.bailiff-mod-rust.yml").read_text())
     assert af["test_runner"] == "cargo-test"
+
+    # nextest must be absent from the mise conf.d fragment when test_runner=cargo-test.
+    mise_frag = dest / ".mise" / "conf.d" / "bailiff-mod-rust.toml"
+    assert mise_frag.is_file(), ".mise/conf.d/bailiff-mod-rust.toml fragment missing"
+    assert "cargo-nextest" not in mise_frag.read_text(), (
+        "cargo-nextest must not appear in mise conf.d when test_runner=cargo-test"
+    )
 
 
 # ---------------------------------------------------------------------------
