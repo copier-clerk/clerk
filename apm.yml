@@ -1,5 +1,5 @@
 name: bailiff
-version: 0.3.0
+version: 0.3.1
 description: >-
   An agentic conductor for copier. The bailiff fills in the paperwork
   (per-module answer files); copier makes the copies. Reproduce is agent-free.
@@ -27,7 +27,7 @@ marketplace:
         Inspects templates, authors run-specs, drives init and faithful
         reproduce.
       source: ./packages/bailiff
-      version: 0.3.0
+      version: 0.3.1
       category: Productivity
       license: Apache-2.0
 dependencies:

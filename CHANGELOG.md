@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/bailiff-io/bailiff/compare/v0.3.0...v0.3.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* owner/repo template shorthand resolves, and init works under symlinked dest ([#46](https://github.com/bailiff-io/bailiff/issues/46)) ([7ba5156](https://github.com/bailiff-io/bailiff/commit/7ba515654158a0ee2adae2772c2c5139d0f8bd1f))
+* tree is clean after multi-layer init (initial commit is engine-owned) ([#44](https://github.com/bailiff-io/bailiff/issues/44)) ([b9e309d](https://github.com/bailiff-io/bailiff/commit/b9e309df9c90ea45977e98f8ecbfcc4ff21b37cc))
+
 ## [0.3.0](https://github.com/bailiff-io/bailiff/compare/v0.2.0...v0.3.0) (2026-07-17)
 
 
