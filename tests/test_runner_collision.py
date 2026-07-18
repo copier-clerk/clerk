@@ -214,3 +214,19 @@ def test_answers_files_excluded_from_overlap(tmp_path: Path) -> None:
     )
     answers = sorted(p.name for p in dest.glob(".copier-answers*.yml"))
     assert len(answers) == 2
+
+
+def test_canonical_dest_resolves_symlinked_prefix(tmp_path: Path) -> None:
+    """A dest under a symlinked prefix must resolve so copier's _external_data
+    path check agrees (macOS /tmp → /private/tmp otherwise → ForbiddenPathError).
+    """
+    import os
+
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    got = runner._canonical_dest(str(link / "proj"))
+    # The symlink component is resolved; the not-yet-created leaf stays literal.
+    assert got == os.path.realpath(str(link / "proj"))
+    assert "/link/" not in got and got.endswith("/proj")

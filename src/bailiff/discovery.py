@@ -129,6 +129,38 @@ class Discovery:
         }
 
 
+# A bare ``owner/repo`` GitHub shorthand: one slash, no scheme, no leading path
+# marker. copier expands this itself, but bailiff clones with plain ``git`` for
+# static discovery, and ``git`` treats ``owner/repo`` as a local path / scp-like
+# ref and fails. We expand it to a full HTTPS URL so the documented shorthand
+# (SKILL step 0/1: "``gituser/gitrepo``") actually resolves.
+_OWNER_REPO_RE = re.compile(r"^[A-Za-z0-9][\w.-]*/[A-Za-z0-9][\w.-]*$")
+
+
+def resolve_locator(source: str) -> str:
+    """Expand a bare ``owner/repo`` GitHub shorthand to a clonable HTTPS URL.
+
+    Leaves everything else untouched: full URLs (``https://``, ``git@``,
+    ``ssh://``, ``file://``), copier host shorthands (``gh:``/``gl:``), and local
+    paths (absolute, ``./``/``../``, ``~``, Windows drive, or an existing path).
+    Idempotent — a value that is already a URL or path passes through unchanged.
+    """
+    s = source.strip()
+    # Already a URL / scheme (``https://``, ``ssh://``, ``git@host:...``,
+    # ``gh:owner/repo``) — leave it to git / copier's own resolution.
+    if "://" in s or s.startswith(("git@", "gh:", "gl:")):
+        return s
+    # Local path forms — never a GitHub shorthand.
+    if s.startswith(("/", "./", "../", "~")) or (len(s) > 1 and s[1] == ":"):
+        return s
+    if Path(s).exists():
+        return s
+    # Bare ``owner/repo`` (exactly one slash, no path segments) → GitHub HTTPS.
+    if _OWNER_REPO_RE.match(s):
+        return f"https://github.com/{s}.git"
+    return s
+
+
 def _git(*args: str) -> str:
     """Run git and return stdout; raise DiscoveryError on failure."""
     proc = subprocess.run(["git", *args], capture_output=True, text=True)
@@ -143,7 +175,7 @@ def list_versions(source: str) -> list[str]:
     copier silently discards non-PEP-440 tags, so a source with none is unusable
     (FR-016a). We mirror that filter here and expose the usable set.
     """
-    out = _git("ls-remote", "--tags", source)
+    out = _git("ls-remote", "--tags", resolve_locator(source))
     tags: list[str] = []
     for line in out.splitlines():
         if "refs/tags/" not in line or line.rstrip().endswith("^{}"):
@@ -177,7 +209,16 @@ def discover(source: str, ref: str | None = None) -> Discovery:
     tmp = Path(tempfile.mkdtemp(prefix="bailiff-discover-"))
     try:
         # Shallow clone at the exact ref — no code runs, this is git only.
-        _git("clone", "--quiet", "--depth", "1", "--branch", resolved, source, str(tmp))
+        _git(
+            "clone",
+            "--quiet",
+            "--depth",
+            "1",
+            "--branch",
+            resolved,
+            resolve_locator(source),
+            str(tmp),
+        )
         return _describe(source, resolved, versions, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

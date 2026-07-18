@@ -4,9 +4,62 @@ from __future__ import annotations
 
 import pytest
 
-from bailiff.discovery import discover, list_versions
+from bailiff.discovery import discover, list_versions, resolve_locator
 from bailiff.errors import DiscoveryError
 from tests.conftest import TemplateRepo, build_template_repo
+
+
+class TestResolveLocator:
+    """A bare ``owner/repo`` GitHub shorthand must expand to a clonable HTTPS URL;
+    every other locator form passes through untouched (the documented SKILL
+    shorthand ``gituser/gitrepo`` otherwise fails: plain git treats it as a local
+    path)."""
+
+    def test_bare_owner_repo_expands_to_github_https(self) -> None:
+        assert (
+            resolve_locator("bailiff-io/bailiff-mod-base")
+            == "https://github.com/bailiff-io/bailiff-mod-base.git"
+        )
+
+    def test_owner_repo_with_dots_and_dashes(self) -> None:
+        assert resolve_locator("acme/x-y_z.t") == "https://github.com/acme/x-y_z.t.git"
+
+    @pytest.mark.parametrize(
+        "locator",
+        [
+            "https://github.com/bailiff-io/bailiff-mod-base.git",
+            "git@github.com:bailiff-io/bailiff-mod-base.git",
+            "ssh://git@example.com/x/y.git",
+            "file:///srv/templates/x",
+            "gh:bailiff-io/bailiff-mod-base",
+            "gl:group/project",
+        ],
+    )
+    def test_urls_and_host_shorthands_pass_through(self, locator: str) -> None:
+        assert resolve_locator(locator) == locator
+
+    @pytest.mark.parametrize(
+        "locator",
+        ["/abs/path/mod", "./rel/mod", "../up/mod", "~/mod", "C:/win/mod"],
+    )
+    def test_path_forms_pass_through(self, locator: str) -> None:
+        assert resolve_locator(locator) == locator
+
+    def test_existing_local_path_passes_through(self, tmp_path) -> None:
+        # A single-slash string that is actually an existing path is NOT a shorthand.
+        import os
+
+        (tmp_path / "owner" / "repo").mkdir(parents=True)
+        cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            assert resolve_locator("owner/repo") == "owner/repo"
+        finally:
+            os.chdir(cwd)
+
+    def test_deep_path_is_not_shorthand(self) -> None:
+        # More than one slash → never a GitHub owner/repo shorthand.
+        assert resolve_locator("a/b/c") == "a/b/c"
 
 
 def test_discovery_reports_questions_with_all_fields(base_template: TemplateRepo) -> None:
