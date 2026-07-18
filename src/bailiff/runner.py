@@ -194,10 +194,14 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     ``check=True`` uses copier's own ``pretend`` dry run to validate inputs without
     writing anything (FR-006, FR-008).
     """
-    _require_reproducible(spec.source, spec.ref)
-    _require_trust_if_action_taking(spec.source, spec.ref)
+    # Expand a bare ``owner/repo`` GitHub shorthand to a clonable URL once, up
+    # front, so trust, discovery, copier, and the recorded _src_path all agree
+    # (copier treats bare owner/repo as a local path and would fail otherwise).
+    source = discovery.resolve_locator(spec.source)
+    _require_reproducible(source, spec.ref)
+    _require_trust_if_action_taking(source, spec.ref)
     # Discover once; reuse for both secret checks and error redaction below.
-    desc = discovery.discover(spec.source, spec.ref)
+    desc = discovery.discover(source, spec.ref)
     # Mechanical enforcement (FR-003a): reject secret keys in the run-spec before
     # any copier call, regardless of SKILL behavior.
     _check_no_secrets(spec.answers, desc)
@@ -210,10 +214,16 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     _raw_defaults = _defaults.load(_defaults.defaults_path())
     _merged_defaults = _defaults.fold_settings_defaults(_raw_defaults)
     user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
+    # Canonicalize the destination: copier's _external_data loader compares a
+    # resolve()-d answers-file path against the (unresolved) subproject root, so a
+    # dest under a symlinked prefix (macOS /tmp → /private/tmp) raises
+    # ForbiddenPathError. realpath the parent up front so the two agree. Single
+    # init has no _external_data today, but this keeps init and init_many uniform.
+    dest = _canonical_dest(spec.dest)
     try:
         run_copy(
-            spec.source,
-            spec.dest,
+            source,
+            dest,
             data=data,
             vcs_ref=spec.ref,
             defaults=True,
@@ -223,7 +233,7 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
             user_defaults=user_defaults or None,
         )
     except UnsafeTemplateError as exc:
-        raise UntrustedSourceError(suggest_prefix(spec.source), source=spec.source) from exc
+        raise UntrustedSourceError(suggest_prefix(source), source=source) from exc
     except ValueError as exc:
         # copier raises a bare ValueError for a missing required answer (verified).
         msg = _redact_secrets(str(exc), _secret_keys, data)
@@ -235,11 +245,11 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     # can gate on it.  Single-template init writes `.copier-answers.yml` (the default
     # copier name when no custom answers_file is supplied).
     if not check:
-        _write_schema_marker(spec.dest, ".copier-answers.yml")
+        _write_schema_marker(dest, ".copier-answers.yml")
         # Whole-project initial commit as the last engine step (see
         # _finalize_initial_commit) so the tree is clean after init.
-        _finalize_initial_commit(spec.answers, spec.dest)
-    return RunResult(dest=spec.dest, src=spec.source, ref=spec.ref, pretend=check)
+        _finalize_initial_commit(spec.answers, dest)
+    return RunResult(dest=dest, src=source, ref=spec.ref, pretend=check)
 
 
 def enumerate_answers_files(dest: str) -> list[Path]:
@@ -476,6 +486,19 @@ def _write_schema_marker(dest: str, af_name: str) -> None:
     af_path.write_text(existing + f"{_BAILIFF_SCHEMA_KEY}: '{_BAILIFF_SCHEMA_VERSION}'\n")
 
 
+def _canonical_dest(dest: str) -> str:
+    """Resolve symlinks in the destination path so copier's path checks agree.
+
+    copier's ``_external_data`` loader compares a ``resolve()``-d answers-file path
+    against the subproject root it holds unresolved; when the dest sits under a
+    symlinked prefix (macOS ``/tmp`` → ``/private/tmp``) the two never match and
+    it raises ``ForbiddenPathError`` for every cross-module read. ``realpath``
+    resolves symlinks in the existing ancestors and leaves the not-yet-created
+    leaf literal, so it is safe before the dir exists. Idempotent.
+    """
+    return os.path.realpath(dest)
+
+
 def _initial_commit_requested(all_answers: dict[str, Any]) -> bool:
     """True when the scaffold should be committed by the engine after the full run.
 
@@ -585,6 +608,18 @@ def init_many(
     N=1 behaves identically to single-template ``init`` (uniform loop, spec 010).
     """
     from bailiff import ordering  # local import avoids circular at module load
+
+    # Expand any bare ``owner/repo`` shorthand to a clonable URL up front, so
+    # trust/discovery/copier/recorded _src_path all agree (copier treats bare
+    # owner/repo as a local path and would fail). TemplateRecord.source is the
+    # "normalized/expanded source used for discovery" — normalize it here.
+    for record, _a in selection:
+        record.source = discovery.resolve_locator(record.source)
+    # Canonicalize the destination so copier's _external_data path check (a
+    # resolve()-d answers-file path vs the unresolved subproject root) agrees —
+    # a symlinked prefix (macOS /tmp → /private/tmp) otherwise raises
+    # ForbiddenPathError for every cross-module read.
+    dest = _canonical_dest(dest)
 
     records = [r for r, _ in selection]
     answers_map: dict[str, dict[str, Any]] = {r.full_id: a for r, a in selection}
