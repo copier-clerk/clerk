@@ -22,6 +22,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 - No `_migrations` / update path (M2 clean break to v1.0.0).
 
 - - -
+## bailiff-mod-base-v0.2.1 - 2026-07-17
+#### Bug Fixes
+- tree is clean after multi-layer init (initial commit is engine-owned) (#44) - (b9e309d) - Sjors Robroek
+
+- - -
+
 ## bailiff-mod-base-v0.1.0 - 2026-07-16
 #### Features
 - rename project clerk → bailiff (PyPI: bailiff, org: bailiff-io) - (52ac605) - Sjors Robroek
