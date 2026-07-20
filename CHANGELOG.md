@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/bailiff-io/bailiff/compare/v0.4.1...v0.4.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* fail with install guidance when a module's required tool is missing ([#52](https://github.com/bailiff-io/bailiff/issues/52)) ([adcf599](https://github.com/bailiff-io/bailiff/commit/adcf5994cecdf604790dfb9144713ebee54ec60a))
+* **release:** uv sync --frozen so a lockfile drift never dirties the cog-bump tree ([#54](https://github.com/bailiff-io/bailiff/issues/54)) ([cb114f2](https://github.com/bailiff-io/bailiff/commit/cb114f2d2376f2a6078ef6f7aa86400d751297a0))
+
 ## [0.4.1](https://github.com/bailiff-io/bailiff/compare/v0.4.0...v0.4.1) (2026-07-20)
 
 

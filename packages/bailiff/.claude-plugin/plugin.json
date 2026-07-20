@@ -1,6 +1,6 @@
 {
   "name": "bailiff",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Agentic conductor for copier — a skill + bundled deterministic scripts.",
   "author": "Sjors Robroek",
   "license": "Apache-2.0",

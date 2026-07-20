@@ -8,7 +8,7 @@
     {
       "name": "bailiff",
       "description": "Agentic conductor for copier — a skill + bundled deterministic scripts. Inspects templates, authors run-specs, drives init and faithful reproduce.",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "license": "Apache-2.0",
       "source": "./packages/bailiff"
     }
