@@ -483,6 +483,7 @@ absent from the selection, bailiff raises a preflight `OrderingError`.
 | 6. Deferred work | If work must run after all modules rendered, declare it in `_post_tasks`. |
 | 7. Mark lifecycle | Comment each output with its lifecycle (MANAGED / SEED-ONCE / TASK-OUTPUT / POST-TASK OUTPUT). |
 | 8. Ship the reproducibility marker | Include `template/{{ _copier_conf.answers_file }}.jinja`. |
+| 9. Declare required tools (spec 016) | Add `_bailiff_requires: [<tool>, {tool: <t>, when: <answer-key>}]` for every binary a `_task` invokes directly (a mise-provisioned tool → declare `mise`). bailiff `which()`-checks these before any render and fails fast; keep the `command -v` `_task` guard as the backstop. |
 
 **Agent-projected capabilities (spec 015).** Some capabilities cannot be composed
 by a mechanical merge because the target format depends on which backend the stack
