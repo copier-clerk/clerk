@@ -840,7 +840,12 @@ def init_many(
             _secret_keys = desc.secret_questions
             user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
 
-            def _agent_slot(field_name: str, slot: str, _desc=desc, _bn=basename) -> None:
+            def _agent_slot(
+                field_name: str,
+                slot: str,
+                _desc: discovery.Discovery = desc,
+                _bn: str = basename,
+            ) -> None:
                 _run_agent_slot(
                     _desc,
                     field_name,
