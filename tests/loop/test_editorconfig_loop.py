@@ -1,187 +1,97 @@
-"""spec 012 T004 / spec 014 T040: bailiff-mod-editorconfig loop tests (FR-006).
+"""spec 015 (FR-016): bailiff-mod-editorconfig is AGENT-PROJECTED.
 
-Pure MANAGED render — zero _tasks. Assertions:
-- init alone (no language facts) → universal defaults only, no language sections;
-- ts_linter=biome frozen → TS section with the linter's 2-space indent convention;
-- python facts + ruff_line_length=88 → Python section max_line_length=88, indent 4
-  (indentation from the linter convention, NEVER from line width);
-- spec 014: no _external_data alias; ts_linter default is the bare frozen key;
-  depends_on does NOT include bailiff-mod-ts (standalone contract);
-- no secret: questions.
+The 014 managed-render + linter-question model is gone; `.editorconfig` is now
+written by the phase-1 agent from the actual selection (universal defaults + a
+section per selected language) via `_post_agent_tasks.post`, and frozen by the
+engine so reproduce replays it agent-free.
+
+The agent is a deterministic STUB emulating the projection. Assertions:
+- multi-language stack → per-language sections written + frozen;
+- no phase-1 agent (no-op) → no `.editorconfig` (agent-projected, inert);
+- the module ships no linter questions and no managed `.editorconfig.jinja`.
 """
 
 from __future__ import annotations
 
-import re
-import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 
-from bailiff import runner, trust
-from tests.conftest import (
-    _MODULES_DIR,
-    TemplateRepo,
-    _git,
+from bailiff import agent as _agent
+from tests.conftest import _MODULES_DIR
+from tests.integration.conftest import init_stack
+
+_BASE = (
+    "bailiff-mod-base",
+    {"project_name": "ec-demo", "org": "acme", "license": "mit", "layout": "single"},
 )
-
-_EC_FILE = Path(".editorconfig")
-
-_UNIVERSAL_LINES = [
-    "charset = utf-8",
-    "end_of_line = lf",
-    "insert_final_newline = true",
-    "trim_trailing_whitespace = true",
-]
+_PY = ("bailiff-mod-python", {"python_version": "3.13", "python_pkg_manager": "uv"})
+_TS = ("bailiff-mod-ts", {"ts_linter": "biome", "js_pkg_manager": "bun"})
 
 
-def _copy_editorconfig_module(tmp_path: Path) -> TemplateRepo:
-    """Clone the real bailiff-mod-editorconfig tree (pure render — no tasks to stub)."""
-    src = _MODULES_DIR / "bailiff-mod-editorconfig"
-    dest_root = tmp_path / "bailiff-mod-editorconfig"
-    dest_root.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(src, dest_root, dirs_exist_ok=True)
-    _git(dest_root, "init", "-q")
-    _git(dest_root, "add", "-A")
-    _git(dest_root, "commit", "-qm", "module")
-    _git(dest_root, "tag", "v1.0.0")
-    return TemplateRepo(path=dest_root, tag="v1.0.0")
+def _editorconfig_stub(instruction: str, ctx: _agent.AgentContext) -> _agent.AgentResult:
+    """Project .editorconfig from the selection (emulates the phase-1 agent)."""
+    if ctx.slot != "post_agent_tasks.post" or ctx.module != "bailiff-mod-editorconfig":
+        return {}
+    lines = [
+        "root = true",
+        "",
+        "[*]",
+        "charset = utf-8",
+        "end_of_line = lf",
+        "insert_final_newline = true",
+        "trim_trailing_whitespace = true",
+    ]
+    if "bailiff-mod-python" in ctx.selection:
+        lines += ["", "[*.py]", "indent_style = space", "indent_size = 4", "max_line_length = 88"]
+    if "bailiff-mod-ts" in ctx.selection:
+        lines += ["", "[*.{js,jsx,ts,tsx,mjs,cjs}]", "indent_style = space", "indent_size = 2"]
+    return {".editorconfig": "\n".join(lines) + "\n"}
 
 
-@pytest.fixture
-def bailiff_mod_editorconfig(tmp_path: Path) -> TemplateRepo:
-    return _copy_editorconfig_module(tmp_path)
+def _init(root: Path, layers: list[tuple[str, dict[str, Any]]], *, agent: Any = None) -> Path:
+    mp = pytest.MonkeyPatch()
+    mp.setenv("COPIER_SETTINGS_PATH", str(root / "settings.yml"))
+    try:
+        return init_stack(root, layers, agent=agent)
+    finally:
+        mp.undo()
 
 
-@pytest.fixture(autouse=True)
-def _isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("COPIER_SETTINGS_PATH", str(tmp_path / "settings.yml"))
-
-
-def _init(repo: TemplateRepo, dest: Path, answers: dict) -> str:
-    trust.add_trust(repo.url)
-    spec = runner.RunSpec(source=repo.url, dest=str(dest), answers=answers)
-    runner.init(spec, today="2026-07-14")
-    ec = dest / _EC_FILE
-    assert ec.is_file(), ".editorconfig not rendered"
-    return ec.read_text()
-
-
-# ---------------------------------------------------------------------------
-# Universal defaults only (US9 AS1, edge case: no language modules)
-# ---------------------------------------------------------------------------
-
-
-def test_universal_defaults_only(bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path) -> None:
-    """No frozen language facts → universal section only, no language sections invented."""
-    text = _init(bailiff_mod_editorconfig, tmp_path / "proj", {"ts_linter": ""})
-
+def test_per_language_sections_projected(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """A two-language stack → a section per selected language, frozen for reproduce."""
+    root = tmp_path_factory.mktemp("ec_multi")
+    dest = _init(
+        root,
+        [_BASE, _PY, _TS, ("bailiff-mod-editorconfig", {})],
+        agent=_editorconfig_stub,
+    )
+    text = (dest / ".editorconfig").read_text()
     assert "root = true" in text
-    for line in _UNIVERSAL_LINES:
-        assert line in text, f"universal default missing: {line}"
-    assert "[*.py]" not in text, "Python section invented without frozen facts"
-    assert "[*.{js" not in text, "TS section invented without frozen facts"
+    assert "[*.py]" in text and "indent_size = 4" in text
+    assert "[*.{js,jsx,ts,tsx,mjs,cjs}]" in text
+    # frozen into the editorconfig layer's answers file.
+    af = (dest / ".copier-answers.bailiff-mod-editorconfig.yml").read_text()
+    assert "_agent_frozen:" in af and ".editorconfig" in af
 
 
-# ---------------------------------------------------------------------------
-# TS section from ts_linter convention (US9 AS1)
-# ---------------------------------------------------------------------------
+def test_no_agent_leaves_no_editorconfig(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """No phase-1 agent (no-op) → agent-projected .editorconfig is simply absent."""
+    root = tmp_path_factory.mktemp("ec_noagent")
+    dest = _init(root, [_BASE, _PY, ("bailiff-mod-editorconfig", {})])  # no agent
+    assert not (dest / ".editorconfig").exists()
 
 
-@pytest.mark.parametrize("linter", ["biome", "eslint-prettier"])
-def test_ts_section_from_linter_convention(
-    bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path, linter: str
-) -> None:
-    """ts_linter frozen → TS section uses the linter's 2-space indent convention."""
-    text = _init(bailiff_mod_editorconfig, tmp_path / "proj", {"ts_linter": linter})
-
-    ts_section = text.split("[*.{js")[1]
-    assert "indent_style = space" in ts_section
-    assert "indent_size = 2" in ts_section, f"{linter} convention is 2-space indent"
-    # Line width facts never leak into indentation decisions.
-    assert "max_line_length" not in ts_section
-
-
-# ---------------------------------------------------------------------------
-# Python section: indent from convention, max_line_length from ruff (US9 AS2)
-# ---------------------------------------------------------------------------
-
-
-def test_python_section_indent_and_line_length(
-    bailiff_mod_editorconfig: TemplateRepo, tmp_path: Path
-) -> None:
-    """python facts frozen → indent 4 (ruff/PEP8 convention) + max_line_length=ruff_line_length."""
-    text = _init(
-        bailiff_mod_editorconfig,
-        tmp_path / "proj",
-        {"ts_linter": "", "python_linter": "ruff", "ruff_line_length": "88"},
+def test_module_ships_no_linter_questions_or_managed_render() -> None:
+    """The 014 managed model is gone: no linter questions, no .editorconfig.jinja."""
+    mod = _MODULES_DIR / "bailiff-mod-editorconfig"
+    data = yaml.safe_load((mod / "copier.yml").read_text())
+    for dropped in ("ts_linter", "python_linter", "ruff_line_length"):
+        assert dropped not in data, f"{dropped} question must be dropped (agent-projected now)"
+    assert "_post_agent_tasks" in data
+    assert not (mod / "template" / ".editorconfig.jinja").exists(), (
+        "managed .editorconfig.jinja must be removed — the agent owns the file"
     )
-
-    assert "[*.py]" in text
-    py_section = text.split("[*.py]")[1]
-    assert "indent_size = 4" in py_section, "Python indent is the linter convention (4)"
-    assert "max_line_length = 88" in py_section
-
-    # Different line length changes ONLY max_line_length, never the indent.
-    text_120 = _init(
-        bailiff_mod_editorconfig,
-        tmp_path / "proj120",
-        {"ts_linter": "", "python_linter": "ruff", "ruff_line_length": "120"},
-    )
-    py_120 = text_120.split("[*.py]")[1]
-    assert "max_line_length = 120" in py_120
-    assert "indent_size = 4" in py_120, "indentation must never derive from line width"
-
-
-# (reproduce byte-identity test removed — invariant is now config-consistency, spec 014)
-
-
-# ---------------------------------------------------------------------------
-# spec 014: standalone contract — no _external_data, no ts hard-dep (T040)
-# ---------------------------------------------------------------------------
-
-
-def test_no_external_data_alias() -> None:
-    """editorconfig has no _external_data block — ts_linter is agent-fed --data (R13 class)."""
-    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    data = yaml.safe_load(copier_yml.read_text())
-    assert "_external_data" not in data, (
-        "_external_data must NOT be present: ts is sometimes absent; "
-        "ts_linter is agent-fed --data, not a cross-module read"
-    )
-
-
-def test_ts_linter_default_is_bare_frozen_key() -> None:
-    """ts_linter default is the bare frozen key '{{ ts_linter }}', not an _external_data path."""
-    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    text = copier_yml.read_text()
-    assert 'default: "{{ ts_linter }}"' in text, (
-        "ts_linter default must be the bare frozen key (agent-fed --data)"
-    )
-    assert "_external_data.ts.ts_linter" not in text, (
-        "_external_data path must not appear for ts_linter"
-    )
-
-
-def test_depends_on_excludes_ts() -> None:
-    """depends_on must NOT include bailiff-mod-ts — editorconfig is standalone (R13 class)."""
-    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    data = yaml.safe_load(copier_yml.read_text())
-    deps = data.get("depends_on", {}).get("default", [])
-    assert "bailiff-mod-ts" not in deps, (
-        "bailiff-mod-ts must not be in depends_on: ts is sometimes absent"
-    )
-    assert "run_after" not in data, "run_after must be absent (spec 014 R7)"
-    assert "run_before" not in data, "run_before must be absent (spec 014 R7)"
-
-
-# ---------------------------------------------------------------------------
-# Contract: no secret: questions
-# ---------------------------------------------------------------------------
-
-
-def test_no_secret_questions() -> None:
-    copier_yml = _MODULES_DIR / "bailiff-mod-editorconfig" / "copier.yml"
-    text = copier_yml.read_text()
-    assert not re.search(r"^\s+secret\s*:", text, re.MULTILINE), "secret: question found"
+    assert "_external_data" not in data
