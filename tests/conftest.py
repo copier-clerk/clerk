@@ -996,6 +996,15 @@ _PRECOMMIT_STUB_TASKS = dedent(
     """
 )
 
+# spec 015: bailiff-mod-lefthook's real `lefthook install` task swapped for an
+# offline marker (the _post_agent_tasks projection above it is preserved).
+_LEFTHOOK_STUB_TASKS = dedent(
+    """\
+    _tasks:
+      - "printf 'lefthook-preflight-ok\\n' > .bailiff-lefthook-preflight"
+    """
+)
+
 
 def _copy_module_with_stub_tasks(
     module_name: str,

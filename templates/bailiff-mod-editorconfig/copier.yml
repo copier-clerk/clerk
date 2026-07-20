@@ -1,44 +1,23 @@
 # copier.yml — bailiff-mod-editorconfig
 #
-# Editor whitespace defaults micro-module (spec 012 / FR-006, spec 014 rewrite).
-# Deliberately NOT part of base (keeps base thin — ratified). Pure MANAGED
-# render — ZERO _tasks.
+# Editor whitespace defaults micro-module (spec 012 / FR-006; spec 015 agentic
+# rewrite). Deliberately NOT part of base (keeps base thin — ratified).
 #
-# `.editorconfig` sections are sized from FROZEN language facts that the
-# phase-1 agent injects via --data: `ts_linter`, `python_linter`, and
-# `ruff_line_length`. This is the same agent-fed model as hook_manager (R13):
-# ts is sometimes absent, so ts_linter is NOT read via _external_data — the
-# agent passes it as a --data freeze when ts is in the stack, empty otherwise.
-# INVARIANT: indentation derives from the linter's convention ONLY, never from
-# line-width facts.
+# spec 015 (FR-016): `.editorconfig` is AGENT-PROJECTED, not a managed render.
+# The phase-1 agent writes the whole file at init from the ACTUAL module
+# selection (universal defaults + a section per selected language, indentation
+# from each linter's convention), and the ENGINE freezes it; `bailiff reproduce`
+# replays it with no agent (Constitution III). This drops the 014 model's
+# `ts_linter`/`python_linter`/`ruff_line_length` --data questions AND the managed
+# `.editorconfig.jinja` render (a managed render would clobber the agent output on
+# reproduce — the reproduce-safety lint forbids that overlap).
 #
-# When no language facts are frozen (standalone init), only the universal
-# defaults section renders — no language sections are invented.
+# Under the no-op agent (plain CLI, no phase-1 agent wired), no `.editorconfig`
+# is written — the same inert outcome as any agent-projected capability with no
+# agent. A real phase-1 agent (the skill/host) produces the file.
 #
 # Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret:
 # questions; no jinja2_time; ordering edge is depends_on (when:false).
-
-# ts_linter — agent-injected --data fact. Empty when ts is absent from the
-# stack → no TS/JS section rendered. biome and eslint-prettier both follow
-# the 2-space indent convention.
-ts_linter:
-  type: str
-  default: "{{ ts_linter }}"
-  help: "TS linter identity (agent-frozen --data fact; empty = no TS section). biome or eslint-prettier."
-
-# python_linter — frozen Python linter identity (agent injects 'ruff' when a
-# Python module is selected). Empty = no Python section.
-python_linter:
-  type: str
-  default: ""
-  help: "Python linter identity (frozen fact; e.g. ruff; empty = no Python section). bailiff injects this."
-
-# ruff_line_length — frozen linter line-length setting (FR-002 axis key).
-# Feeds max_line_length in the Python section ONLY — never indentation.
-ruff_line_length:
-  type: str
-  default: "88"
-  help: "Python max line length from the frozen ruff setting (used when python_linter is set)."
 
 # --- Dependency edge (spec 014 FR-019/R7: depends_on is the only ordering edge) ---
 # No cross-module _external_data reads → no hard producer dep.
@@ -52,3 +31,18 @@ _bailiff_phase: normal
 
 # Template body lives under template/ — copier renders only that subtree.
 _subdirectory: template
+
+# --- Agent-projected: write .editorconfig from the selection (spec 015 FR-016) --
+# Post-loop `post` so the whole stack (every selected language module) is visible.
+# The engine freezes the written .editorconfig; reproduce replays it agent-free.
+_post_agent_tasks:
+  post: >-
+    Write a complete .editorconfig at the project root. Always include a `root = true`
+    line and a universal `[*]` section (charset=utf-8, end_of_line=lf,
+    insert_final_newline=true, trim_trailing_whitespace=true). Then, for EACH language
+    module present in the selection, append a section whose indentation follows that
+    language's linter convention — e.g. Python (bailiff-mod-python) → `[*.py]`
+    indent_style=space, indent_size=4, max_line_length from the frozen ruff setting;
+    TypeScript/JavaScript (bailiff-mod-ts) → `[*.{js,jsx,ts,tsx,mjs,cjs}]`
+    indent_style=space, indent_size=2. Invent NO section for a language whose module
+    is not selected. Output the complete .editorconfig content.

@@ -60,8 +60,24 @@ depends_on:
 # Template body lives under template/ — copier renders only that subtree.
 _subdirectory: template
 
+# --- Agent-projected: neutral .hooks.d/ -> .pre-commit.d/ fragment (spec 015) -
+# Runs at post-loop `pre` — BEFORE the mechanical bundler below — so any neutral
+# .hooks.d/ hooks are translated into a pre-commit fragment the bundler then merges
+# alongside native .pre-commit.d/ fragments. The engine freezes the projected
+# fragment; reproduce replays it agent-free. Inert when no .hooks.d/ entries exist.
+_post_agent_tasks:
+  pre: >-
+    Read every .hooks.d/*.yaml fragment (each a mapping with a `hooks:` list of
+    {id, language, entry, files, stages}). Translate them into a single pre-commit
+    `repos:` fragment written to .pre-commit.d/bailiff-hooks-projected.yaml: emit a
+    `- repo: local` block whose `hooks:` entries map each neutral hook's `id` to id,
+    `entry` to entry, `files` to files, `stages` to stages, with language: system.
+    Skip any hook whose id is already provided by a native .pre-commit.d/ fragment.
+    If no .hooks.d/ entry exists, write nothing.
+
 # --- Post-tasks: fragment bundler (spec 014 FR-021/R11) ----------------------
-# Runs AFTER the full render loop so all .pre-commit.d/*.yaml fragments exist.
+# Runs AFTER the full render loop so all .pre-commit.d/*.yaml fragments exist
+# (including any projected from .hooks.d/ by _post_agent_tasks.pre above).
 # The script is inert when no .pre-commit.d/*.yaml fragments exist.
 _post_tasks:
   - "python3 scripts/_merge_precommit.py"

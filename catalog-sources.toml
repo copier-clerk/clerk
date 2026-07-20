@@ -30,6 +30,9 @@ url = "https://github.com/bailiff-io/bailiff-mod-go.git"
 url = "https://github.com/bailiff-io/bailiff-mod-justfile.git"
 
 [[sources]]
+url = "https://github.com/bailiff-io/bailiff-mod-lefthook.git"
+
+[[sources]]
 url = "https://github.com/bailiff-io/bailiff-mod-package-add.git"
 
 [[sources]]

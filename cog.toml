@@ -47,6 +47,9 @@ path = "templates/bailiff-mod-go"
 [monorepo.packages.bailiff-mod-justfile]
 path = "templates/bailiff-mod-justfile"
 
+[monorepo.packages.bailiff-mod-lefthook]
+path = "templates/bailiff-mod-lefthook"
+
 [monorepo.packages.bailiff-mod-package-add]
 path = "templates/bailiff-mod-package-add"
 

@@ -239,14 +239,27 @@ Loop test requirements:
 - Presence/structure-assert TASK-OUTPUT files.
 - `_skip_if_exists`-assert SEED-ONCE files.
 
-## 9. Forward pointer — spec 015 cross-format capability translation
+## 9. Agent-projected capabilities — spec 015
 
-Spec 015 adds `_agent_tasks` and `_post_agent_tasks` fields to `copier.yml`.
-These let any module (first- or third-party) declare agent-projected work in a
-structured, machine-readable form. The execution model: init-only, agent runs
-once, output frozen as recorded answers, reproduce replays without agent.
+Spec 015 adds `_agent_tasks` and `_post_agent_tasks` fields to `copier.yml` — each
+a map with optional `pre`/`post` NL instructions. Any module (first- or third-party)
+declares agent-projected work in this structured, machine-readable form. Execution:
+init-only, the phase-1 agent runs once, its `{path: content}` output is frozen into
+the producer's answers file (`_agent_frozen`), and reproduce replays it with no agent
+(Constitution III). The engine's reproduce-safety lint fails init if an agent-written
+path is a managed render that was not frozen.
 
-The concrete 015 deliverables include: neutral drop-dir generalization of the
-`.mise/conf.d/` inversion, cross-format hook translation (pre-commit → lefthook),
-and editorconfig full-agentic capability. Do not implement `_agent_tasks` /
-`_post_agent_tasks` in 014 modules.
+Use agent projection ONLY for the tier mechanical merge cannot express — cross-format
+translation where the target depends on the selected backend. Prefer, in order:
+native drop-in merge (`.mise/conf.d/`) > single-format mechanical merge
+(`.pre-commit.d/` bundler, `.gitignore.d/` concat) > agent projection.
+
+Shipped 015 instances (the canonical patterns to copy):
+- **Neutral hooks:** hook-contributing modules drop `.hooks.d/<module>.yaml` (neutral
+  intent); the selected hook manager projects it — `bailiff-mod-precommit`
+  (`_post_agent_tasks.pre` → `.pre-commit.d/` fragment before the bundler),
+  `bailiff-mod-lefthook` (`_post_agent_tasks.post` → `lefthook.yml`).
+- **editorconfig:** `bailiff-mod-editorconfig` writes `.editorconfig` from the selected
+  languages via `_post_agent_tasks.post` (no managed `.jinja`, no linter questions).
+
+Full schema + timeline: `specs/015-agent-projected-capabilities/contracts/`.

@@ -35,6 +35,7 @@ from copier import run_copy, run_recopy, run_update
 from copier._types import VcsRef
 from copier.errors import CopierError, UnsafeTemplateError
 
+from bailiff import agent as _agent
 from bailiff import defaults as _defaults
 from bailiff import discovery, trust
 from bailiff.catalog import TemplateRecord
@@ -56,6 +57,11 @@ from bailiff.trust import suggest_prefix
 # reproduce_many refuses when this marker is absent or carries a different version.
 _BAILIFF_SCHEMA_KEY = "_bailiff_schema"
 _BAILIFF_SCHEMA_VERSION = "014"
+
+# spec 015: reserved answers-file key holding frozen agent-task output, replayed
+# (agent-free) on reproduce. Shape: {slot: {relative_path: content}} per producer
+# module (contracts/agent-tasks.md §4).
+_AGENT_FROZEN_KEY = "_agent_frozen"
 
 
 @dataclass(frozen=True)
@@ -486,6 +492,168 @@ def _write_schema_marker(dest: str, af_name: str) -> None:
     af_path.write_text(existing + f"{_BAILIFF_SCHEMA_KEY}: '{_BAILIFF_SCHEMA_VERSION}'\n")
 
 
+def _run_agent_slot(
+    desc: discovery.Discovery,
+    field_name: str,
+    slot: str,
+    *,
+    basename: str,
+    dest: str,
+    selection: list[str],
+    answers_files: dict[str, str],
+    agent: _agent.AgentTask,
+    written: dict[str, str],
+) -> None:
+    """Invoke one agent-task slot at INIT, write its files, and freeze them (FR-006/009).
+
+    ``field_name`` is ``agent_tasks`` or ``post_agent_tasks``; ``slot`` is ``pre`` or
+    ``post``. No-op when the module did not declare that slot. Records every written
+    path in ``written`` (path → producing module basename) so the reproduce-safety
+    lint can check managed-owned overlaps (FR-012).
+    """
+    block = getattr(desc, field_name)
+    instruction = block.get(slot)
+    if not instruction:
+        return
+    slot_id = f"{field_name}.{slot}"
+    context = _agent.AgentContext(
+        dest=dest,
+        module=basename,
+        slot=slot_id,
+        selection=selection,
+        answers_files=answers_files,
+    )
+    result = agent(instruction, context) or {}
+    if not isinstance(result, dict):
+        raise BailiffError(
+            f"agent task {slot_id!r} from {basename!r} returned "
+            f"{type(result).__name__}, expected a {{path: content}} mapping"
+        )
+    dest_path = Path(dest)
+    for rel, content in result.items():
+        target = dest_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+        written[str(rel)] = basename
+    _freeze_agent_output(dest, _answers_file_for(basename), slot_id, result)
+
+
+def _answers_file_for(basename: str) -> str:
+    """The per-layer answers-file name for a module basename (spec 014 convention)."""
+    return f".copier-answers.{basename}.yml"
+
+
+def _freeze_agent_output(dest: str, af_name: str, slot_id: str, result: dict[str, str]) -> None:
+    """Append the agent slot's output to the producer's answers file (FR-009).
+
+    Frozen shape (opaque to bailiff, replayed verbatim on reproduce):
+
+        _agent_frozen:
+          <slot_id>:
+            <relative_path>: <content>
+
+    Merges into any existing ``_agent_frozen`` block (multiple slots per module).
+    Uses PyYAML only for THIS block appended after copier's own serialization, so
+    copier's answer lines stay byte-stable (like ``_write_schema_marker``).
+    """
+    af_path = Path(dest) / af_name
+    if not af_path.is_file() or not result:
+        return
+    existing = af_path.read_text()
+    parsed = yaml.safe_load(existing) or {}
+    frozen = parsed.get(_AGENT_FROZEN_KEY) or {}
+    frozen[slot_id] = dict(result)
+    # Rewrite the file: copier answers first (dropping any prior _agent_frozen
+    # block, always appended last), then the merged block as a single YAML tail.
+    body = _strip_frozen_block(existing)
+    if body and not body.endswith("\n"):
+        body += "\n"
+    tail = yaml.safe_dump({_AGENT_FROZEN_KEY: frozen}, sort_keys=True, default_flow_style=False)
+    af_path.write_text(body + tail)
+
+
+def _strip_frozen_block(text: str) -> str:
+    """Return ``text`` without a trailing top-level ``_agent_frozen:`` block.
+
+    The block is always appended last (this function is its only writer), so we cut
+    from the ``_agent_frozen:`` line to EOF. Absent → returned unchanged.
+    """
+    marker = f"{_AGENT_FROZEN_KEY}:"
+    idx = text.find(f"\n{marker}")
+    if text.startswith(marker):
+        return ""
+    if idx == -1:
+        return text
+    return text[: idx + 1]
+
+
+def _replay_frozen_block(dest: str, block: dict[str, Any]) -> None:
+    """Replay a producer's frozen agent output at REPRODUCE — no agent (FR-010/011).
+
+    ``block`` is the module's ``_agent_frozen`` mapping ({slot: {path: content}}),
+    captured before the reproduce loop. Re-writes every recorded ``{path: content}``.
+    Deterministic; the phase-1 agent is never invoked.
+    """
+    dest_path = Path(dest)
+    for _slot_id, files in block.items():
+        if not isinstance(files, dict):
+            continue
+        for rel, content in files.items():
+            target = dest_path / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content if isinstance(content, str) else str(content))
+
+
+def _rewrite_frozen_block(dest: str, af_name: str, block: dict[str, Any]) -> None:
+    """Re-append an ``_agent_frozen`` block to an answers file after reproduce.
+
+    copier's run_recopy re-renders the answers file without the appended block, so
+    reproduce must restore it (keeping the reproduced tree reproducible again). Same
+    append-after-copier-serialization discipline as ``_freeze_agent_output``.
+    """
+    af_path = Path(dest) / af_name
+    if not af_path.is_file() or not block:
+        return
+    body = _strip_frozen_block(af_path.read_text())
+    if body and not body.endswith("\n"):
+        body += "\n"
+    tail = yaml.safe_dump({_AGENT_FROZEN_KEY: block}, sort_keys=True, default_flow_style=False)
+    af_path.write_text(body + tail)
+
+
+def _lint_agent_managed_overlap(
+    plan: list[tuple[TemplateRecord, str]],
+    descs: dict[str, discovery.Discovery],
+    dest: str,
+    agent_written: dict[str, str],
+) -> None:
+    """Fail loud if an agent task wrote a MANAGED-render path without freezing it (FR-012).
+
+    A managed path re-renders byte-identically on reproduce and would clobber the
+    agent output. Since every agent write is frozen by ``_run_agent_slot``, the only
+    way to violate this is an agent that writes a path also emitted by a template's
+    managed render AND that we could not freeze (no producer answers file). We detect
+    the overlap: agent-written paths that also exist as committed managed renders must
+    be present in some ``_agent_frozen`` block.
+    """
+    frozen_paths: set[str] = set()
+    for _record, af_name in plan:
+        af_path = Path(dest) / af_name
+        if not af_path.is_file():
+            continue
+        parsed = yaml.safe_load(af_path.read_text()) or {}
+        frozen = parsed.get(_AGENT_FROZEN_KEY) or {}
+        for files in frozen.values():
+            if isinstance(files, dict):
+                frozen_paths.update(str(p) for p in files)
+    unfrozen = sorted(p for p in agent_written if p not in frozen_paths)
+    if unfrozen:
+        raise BailiffError(
+            "reproduce-safety: agent task wrote path(s) not captured in _agent_frozen, "
+            f"so a managed re-render would clobber them on reproduce: {unfrozen}"
+        )
+
+
 def _canonical_dest(dest: str) -> str:
     """Resolve symlinks in the destination path so copier's path checks agree.
 
@@ -583,6 +751,7 @@ def init_many(
     today: str | None = None,
     check: bool = False,
     exclusive_capabilities: frozenset[str] = frozenset(),
+    agent: _agent.AgentTask = _agent.noop_agent,
 ) -> list[RunResult]:
     """Apply (or preflight-check) a multi-template selection in dependency order.
 
@@ -655,8 +824,14 @@ def init_many(
         # Init-only collision hard-stop (FR-013): renders to isolated temp dirs,
         # raises CollisionError before any write into dest.
         _scan_init_collisions(plan, dest, accumulated, answers_map)
+        # spec 015 agent-task context: basenames in render (sort) order + each
+        # layer's answers-file path. The agent projects from the actual selection.
+        _basenames = [record.full_id.rsplit("/", 1)[-1] for record, _ in plan]
+        _answers_files = {b: _answers_file_for(b) for b in _basenames}
+        _agent_written: dict[str, str] = {}
         results: list[RunResult] = []
         for record, af_name in plan:
+            basename = record.full_id.rsplit("/", 1)[-1]
             layer_answers = answers_map.get(record.full_id, {})
             desc = descs[record.full_id]
             # spec 014 FR-001/002: data= is {today} + per-layer answers only.
@@ -664,6 +839,29 @@ def init_many(
             data = {**accumulated, **layer_answers}
             _secret_keys = desc.secret_questions
             user_defaults = _defaults.select_keys(_merged_defaults, desc.questions)
+
+            def _agent_slot(
+                field_name: str,
+                slot: str,
+                _desc: discovery.Discovery = desc,
+                _bn: str = basename,
+            ) -> None:
+                _run_agent_slot(
+                    _desc,
+                    field_name,
+                    slot,
+                    basename=_bn,
+                    dest=dest,
+                    selection=_basenames,
+                    answers_files=_answers_files,
+                    agent=agent,
+                    written=_agent_written,
+                )
+
+            # spec 015 FR-006: render → _agent_tasks.pre → _tasks → _agent_tasks.post.
+            # copier runs render + inline _tasks atomically, so pre wraps the copier
+            # call and post follows it.
+            _agent_slot("agent_tasks", "pre")
             try:
                 run_copy(
                     record.source,
@@ -690,8 +888,38 @@ def init_many(
             results.append(RunResult(dest=dest, src=record.source, ref=record.ref, pretend=False))
             # spec 014 FR-014/R10: write schema marker post-render (not a copier answer).
             _write_schema_marker(dest, af_name)
+            _agent_slot("agent_tasks", "post")
+        # spec 015 FR-007: post-loop — every _post_agent_tasks.pre → _post_tasks →
+        # every _post_agent_tasks.post, in module sort order within each stage.
+        for record, _af in plan:
+            _run_agent_slot(
+                descs[record.full_id],
+                "post_agent_tasks",
+                "pre",
+                basename=record.full_id.rsplit("/", 1)[-1],
+                dest=dest,
+                selection=_basenames,
+                answers_files=_answers_files,
+                agent=agent,
+                written=_agent_written,
+            )
         # spec 014 FR-021/R11: run _post_tasks after the full render loop.
         _run_post_tasks(plan, descs, dest)
+        for record, _af in plan:
+            _run_agent_slot(
+                descs[record.full_id],
+                "post_agent_tasks",
+                "post",
+                basename=record.full_id.rsplit("/", 1)[-1],
+                dest=dest,
+                selection=_basenames,
+                answers_files=_answers_files,
+                agent=agent,
+                written=_agent_written,
+            )
+        # spec 015 FR-012: reproduce-safety lint — every agent-written path must be
+        # frozen so a managed re-render can't clobber it on reproduce.
+        _lint_agent_managed_overlap(plan, descs, dest, _agent_written)
         # Whole-project initial commit AFTER post-tasks + schema markers, so the
         # tree is clean after init (not a per-module task — see
         # _finalize_initial_commit). Reads base's initial_commit/run_git_init.
@@ -892,6 +1120,17 @@ def reproduce_many(dest: str) -> list[RunResult]:
         if basename in descs_by_basename:
             descs_by_full_id[record.full_id] = descs_by_basename[basename]
 
+    # spec 015: capture each layer's frozen agent block BEFORE the reproduce loop —
+    # copier's run_recopy re-renders the answers file from `_copier_answers` (which
+    # does NOT carry the appended `_agent_frozen`), so it would be lost otherwise.
+    frozen_by_basename: dict[str, dict[str, Any]] = {}
+    for record, _af_name in plan:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        parsed = yaml.safe_load(file_by_basename[basename].read_text()) or {}
+        block = parsed.get(_AGENT_FROZEN_KEY)
+        if isinstance(block, dict):
+            frozen_by_basename[basename] = block
+
     results: list[RunResult] = []
     for record, _af_name in plan:
         basename = record.full_id.rsplit("/", 1)[-1]
@@ -900,6 +1139,14 @@ def reproduce_many(dest: str) -> list[RunResult]:
         results.append(result)
         # Re-write schema marker after reproduce (copier recopy may overwrite the file).
         _write_schema_marker(dest, _af_name)
+        # Re-append the frozen block so the reproduced tree stays reproducible again.
+        if basename in frozen_by_basename:
+            _rewrite_frozen_block(dest, _af_name, frozen_by_basename[basename])
+    # spec 015 FR-010/011: replay each layer's frozen agent output (agent-free)
+    # BEFORE _post_tasks, so mechanical post-tasks (e.g. the pre-commit bundler)
+    # consume the projected files. The phase-1 agent is NEVER invoked on reproduce.
+    for block in frozen_by_basename.values():
+        _replay_frozen_block(dest, block)
     # spec 014 FR-021/R11: run _post_tasks after the full reproduce loop.
     _run_post_tasks(plan, descs_by_full_id, dest)
     return results

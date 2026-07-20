@@ -470,6 +470,32 @@ absent from the selection, bailiff raises a preflight `OrderingError`.
 | 7. Mark lifecycle | Comment each output with its lifecycle (MANAGED / SEED-ONCE / TASK-OUTPUT / POST-TASK OUTPUT). |
 | 8. Ship the reproducibility marker | Include `template/{{ _copier_conf.answers_file }}.jinja`. |
 
+**Agent-projected capabilities (spec 015).** Some capabilities cannot be composed
+by a mechanical merge because the target format depends on which backend the stack
+selected (hooks → pre-commit vs lefthook; `.editorconfig` sized from the selected
+languages). These use two manifest fields — `_agent_tasks` and `_post_agent_tasks`,
+each a map with optional `pre`/`post` NL instructions. As the phase-1 agent you:
+
+- **Run the projection from the ACTUAL selection.** When bailiff reaches an agent-task
+  slot it hands you the instruction plus the selected module basenames and their
+  answers files. Read the neutral inputs (e.g. every `.hooks.d/*.yaml` fragment) and
+  produce the target file(s) for the selected backend. Invent nothing for a backend or
+  language whose module is absent.
+- **Return files, not prose.** Your output is a `{path: content}` mapping bailiff
+  writes and FREEZES into the producing module's answers file. On `reproduce` bailiff
+  replays the frozen files with NO agent — so your projection must be a pure function
+  of the selection (deterministic, Constitution III).
+- **Never write a MANAGED-render-owned path unless you own it.** bailiff's
+  reproduce-safety lint fails init if an agent-written path is also a managed render
+  and unfrozen. An agent-projected file (e.g. `.editorconfig`, `lefthook.yml`) must be
+  the agent's alone — the module ships no competing `.jinja` for it.
+- **Slot timing:** `_agent_tasks.{pre,post}` wrap a module's own render/`_tasks` (own
+  context); `_post_agent_tasks.{pre,post}` run around the post-loop mechanical merges
+  (full-stack context — use these for cross-module projection like hooks/editorconfig).
+
+Canonical pattern + schema: `specs/015-agent-projected-capabilities/contracts/`
+(`agent-tasks.md`, `hooks-neutral-dir.md`).
+
 ## Reproduce / Update as portable skills
 
 `reproduce` and `update` are **portable skills** (semantic auto-trigger) — not

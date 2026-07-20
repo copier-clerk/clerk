@@ -15,9 +15,31 @@ from pathlib import Path
 import pytest
 import yaml
 
+from bailiff import agent as _agent
 from tests.integration.conftest import (
     init_stack,
 )
+
+
+def _editorconfig_stub(instruction: str, ctx: _agent.AgentContext) -> _agent.AgentResult:
+    """spec 015: emulate the phase-1 agent projecting .editorconfig from the selection."""
+    if ctx.slot != "post_agent_tasks.post" or ctx.module != "bailiff-mod-editorconfig":
+        return {}
+    lines = [
+        "root = true",
+        "",
+        "[*]",
+        "charset = utf-8",
+        "end_of_line = lf",
+        "insert_final_newline = true",
+        "trim_trailing_whitespace = true",
+    ]
+    if "bailiff-mod-ts" in ctx.selection:
+        lines += ["", "[*.{js,jsx,ts,tsx,mjs,cjs}]", "indent_style = space", "indent_size = 2"]
+    if "bailiff-mod-python" in ctx.selection:
+        lines += ["", "[*.py]", "indent_style = space", "indent_size = 4"]
+    return {".editorconfig": "\n".join(lines) + "\n"}
+
 
 _LAYERS = [
     (
@@ -46,7 +68,7 @@ _LAYERS = [
         "bailiff-mod-precommit",
         {"hook_manager": "pre-commit", "hook_blocks": []},
     ),
-    ("bailiff-mod-editorconfig", {"ts_linter": "biome"}),
+    ("bailiff-mod-editorconfig", {}),
     (
         "bailiff-mod-readme",
         {"readme_style": "static-skeleton", "stack": "TypeScript/bun"},
@@ -77,7 +99,7 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
     mp = pytest.MonkeyPatch()
     mp.setenv("COPIER_SETTINGS_PATH", str(root / "settings.yml"))
     try:
-        yield init_stack(root, _LAYERS)
+        yield init_stack(root, _LAYERS, agent=_editorconfig_stub)
     finally:
         mp.undo()
 
