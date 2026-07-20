@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/bailiff-io/bailiff/compare/v0.4.2...v0.5.0) (2026-07-20)
+
+
+### Features
+
+* fail fast (before writing) when a module's required tool is missing ([#58](https://github.com/bailiff-io/bailiff/issues/58)) ([d02a12d](https://github.com/bailiff-io/bailiff/commit/d02a12df13e8e8e78192014bfec606bdc970234a))
+
+
+### Bug Fixes
+
+* **release:** sync uv.lock to the version release-please bumps ([#55](https://github.com/bailiff-io/bailiff/issues/55)) ([f12af97](https://github.com/bailiff-io/bailiff/commit/f12af974d516865a698001bbce7ea89424eb5627))
+* trust --from-source resolves shorthand; SKILL documents catalog refresh ([#57](https://github.com/bailiff-io/bailiff/issues/57)) ([36fb635](https://github.com/bailiff-io/bailiff/commit/36fb63521081e24772942fe66c4ec8bde7da78d3))
+
 ## [0.4.2](https://github.com/bailiff-io/bailiff/compare/v0.4.1...v0.4.2) (2026-07-20)
 
 
