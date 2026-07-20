@@ -101,14 +101,20 @@ def _read_raw(path: Path) -> dict[str, Any]:
 def suggest_prefix(source: str) -> str:
     """Suggest an org-level trailing-slash prefix to trust for ``source``.
 
-    For https URLs, proposes the owner path (``…/<owner>/``) so one entry covers
-    a whole org's ``bailiff-mod-*`` repos; falls back to the exact source otherwise.
+    Proposes the owner path (``…/<owner>/``) so one entry covers a whole org's
+    ``bailiff-mod-*`` repos. A bare ``owner/repo`` shorthand is resolved to its
+    expanded ``https://`` URL FIRST (the form copier matches trust against — see the
+    module docstring), so ``trust add --from-source owner/repo`` records the same
+    org prefix as the full URL rather than a non-matching bare string.
     """
-    if "://" in source:
-        head, _, tail = source.rpartition("/")
+    from bailiff.discovery import resolve_locator  # local import: avoid import cycle
+
+    resolved = resolve_locator(source)
+    if "://" in resolved:
+        head, _, tail = resolved.rpartition("/")
         if head and tail:
             return head + "/"
-    return source
+    return resolved
 
 
 def _write_raw(path: Path, data: dict[str, Any]) -> None:

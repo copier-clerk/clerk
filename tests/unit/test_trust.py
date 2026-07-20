@@ -77,3 +77,27 @@ def test_malformed_settings_not_clobbered(settings_file: Path) -> None:
 
     with pytest.raises(ValueError, match="not a mapping"):
         trust.add_trust("https://github.com/bailiff-io/")
+
+
+class TestSuggestPrefix:
+    """suggest_prefix must resolve a bare owner/repo shorthand to the expanded
+    https:// form FIRST, so `trust add --from-source owner/repo` records the same
+    org prefix copier matches against — not a non-matching bare string."""
+
+    def test_bare_shorthand_yields_org_prefix(self) -> None:
+        from bailiff.trust import suggest_prefix
+
+        assert suggest_prefix("bailiff-io/bailiff-mod-base") == "https://github.com/bailiff-io/"
+
+    def test_full_url_yields_same_org_prefix(self) -> None:
+        from bailiff.trust import suggest_prefix
+
+        assert (
+            suggest_prefix("https://github.com/bailiff-io/bailiff-mod-base.git")
+            == "https://github.com/bailiff-io/"
+        )
+
+    def test_local_path_passes_through(self) -> None:
+        from bailiff.trust import suggest_prefix
+
+        assert suggest_prefix("/local/path/mod") == "/local/path/mod"

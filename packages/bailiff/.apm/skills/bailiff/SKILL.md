@@ -88,8 +88,15 @@ You manage this file on behalf of the user — never ask them to hand-edit it.
 
 **0-b. Present the verified listing and collect the user's pick.**
 
+`list` reads a cached listing (`~/.cache/bailiff/listing.json`, or
+`BAILIFF_LISTING_CACHE_PATH`) — which is NOT reset by `--catalog`/
+`BAILIFF_CATALOG_PATH`. After ANY `catalog add`/`remove`, or if the listing looks
+stale (missing a source you just added, or showing a source you removed), run
+`refresh` first so the listing reflects the current catalog:
+
 ```sh
-uvx bailiff catalog [--catalog PATH] list
+uvx bailiff catalog [--catalog PATH] refresh   # re-discover all sources, rebuild the cache
+uvx bailiff catalog [--catalog PATH] list      # then read the fresh listing
 ```
 
 The listing is **deterministic** (same sources at same pins → identical output
@@ -166,7 +173,9 @@ yes. Then, and only then:
 
 ```sh
 uvx bailiff trust add <prefix>
-# or, to record the owner-path prefix covering a whole org:
+# or, to record the owner-path prefix covering a whole org (one entry trusts all
+# of that org's modules). --from-source accepts a full URL OR a bare
+# `owner/repo` shorthand — both resolve to the same `https://…/<owner>/` prefix:
 uvx bailiff trust add --from-source <source>
 ```
 
