@@ -1036,9 +1036,7 @@ def _copy_module_with_stub_tasks(
     # binary, so the hermetic fixture must not make the engine tool-gate demand
     # tools (mise/glab/…) the offline test environment lacks. Remove the block —
     # its `_bailiff_requires:` line plus the indented list entries under it.
-    text = re.sub(
-        r"\n_bailiff_requires:\n(?:[ \t-].*\n?)*", "\n", text
-    )
+    text = re.sub(r"\n_bailiff_requires:\n(?:[ \t-].*\n?)*", "\n", text)
     text = text.rstrip() + "\n\n" + stub_tasks_yaml
     copier_yml.write_text(text)
 
