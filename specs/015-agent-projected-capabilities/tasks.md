@@ -123,3 +123,5 @@ plan.md sequencing: Engine → Neutral hooks + lefthook → editorconfig → doc
 - T015 before T017/T018 (projection needs a `.hooks.d/` producer).
 - T016 before T018; T017 before T020.
 - Phase 5 after the behavior lands; T025 after all module edits.
+
+<!-- re-fire fan-out after pre-creating bailiff-mod-lefthook mirror (spec 015) -->
