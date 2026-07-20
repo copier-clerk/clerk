@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/bailiff-io/bailiff/compare/v0.3.1...v0.4.0) (2026-07-20)
+
+
+### Features
+
+* agent-projected capabilities (cross-format hooks, agentic editorconfig) ([#47](https://github.com/bailiff-io/bailiff/issues/47)) ([453464e](https://github.com/bailiff-io/bailiff/commit/453464eb516023c8d18ab44cd16d71c9f2e544d9))
+
 ## [0.3.1](https://github.com/bailiff-io/bailiff/compare/v0.3.0...v0.3.1) (2026-07-18)
 
 
