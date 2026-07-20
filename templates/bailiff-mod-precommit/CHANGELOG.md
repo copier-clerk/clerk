@@ -13,6 +13,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 <!--
   cocogitto inserts each released version's section ABOVE the `- - -
+## bailiff-mod-precommit-v0.3.0 - 2026-07-20
+#### Features
+- agent-projected capabilities (cross-format hooks, agentic editorconfig) (#47) - (453464e) - Sjors Robroek
+
+- - -
+
 ## bailiff-mod-precommit-v0.2.0 - 2026-07-17
 #### Features
 - (**014**) T032/T044/T043 — precommit fragment/merge model - (e1f75cb) - Sjors Robroek

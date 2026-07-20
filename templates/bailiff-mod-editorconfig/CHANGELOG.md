@@ -14,6 +14,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
 
 <!--
   cocogitto inserts each released version's section ABOVE the `- - -
+## bailiff-mod-editorconfig-v0.3.0 - 2026-07-20
+#### Features
+- agent-projected capabilities (cross-format hooks, agentic editorconfig) (#47) - (453464e) - Sjors Robroek
+
+- - -
+
 ## bailiff-mod-editorconfig-v0.2.0 - 2026-07-17
 #### Features
 - (**014/T040**) wire editorconfig ts_linter via _external_data.ts - (ecd6bae) - Sjors Robroek

@@ -35,6 +35,12 @@ cocogitto fan-out (ADR-0006); do not hand-edit released sections.
   `python_framework`.
 
 - - -
+## bailiff-mod-python-v0.3.0 - 2026-07-20
+#### Features
+- agent-projected capabilities (cross-format hooks, agentic editorconfig) (#47) - (453464e) - Sjors Robroek
+
+- - -
+
 ## bailiff-mod-python-v0.2.0 - 2026-07-17
 #### Features
 - (**python**) migrate to private-by-default threading (spec 014) - (f81e8e3) - Sjors Robroek
