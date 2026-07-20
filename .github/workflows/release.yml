@@ -74,7 +74,13 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Install Python deps
-        run: uv sync --dev
+        # --frozen: never rewrite uv.lock during install. release-please bumps the
+        # version in pyproject.toml; if the committed uv.lock lagged, a plain
+        # `uv sync` would re-resolve and dirty the tree right before `cog bump`,
+        # which refuses a non-clean repo ("Untracked files"). Freeze so the tree
+        # stays clean for the bump; the lockfile is bumped in lockstep by
+        # release-please (extra-files) so --frozen never errors on real drift.
+        run: uv sync --dev --frozen
 
       # Mint a short-lived org App token for cross-repo writes + repo auto-create
       # (T013). Scoped to the bailiff-io org: repo Contents:write pushes to the
