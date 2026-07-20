@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/bailiff-io/bailiff/compare/v0.4.0...v0.4.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* init under symlinked path works on reproduce/update; wire agent projections ([#50](https://github.com/bailiff-io/bailiff/issues/50)) ([c842735](https://github.com/bailiff-io/bailiff/commit/c842735f23da37f9076f9ba51f8c54fcdcfd6e32))
+
 ## [0.4.0](https://github.com/bailiff-io/bailiff/compare/v0.3.1...v0.4.0) (2026-07-20)
 
 
