@@ -58,6 +58,18 @@ _post_agent_tasks:
 # The install task is init-only-guarded via a committed sentinel so reproduce is
 # a no-op (never double-install).
 _tasks:
+  # (1) PREFLIGHT — ordered FIRST (like base/python): fail fast with legible
+  #     install guidance if lefthook is absent, instead of the install task below
+  #     aborting mid-render with copier's raw "command not found" (exit 127).
+  #     Only gates when install_hooks is set (a caller opting out of the install
+  #     needs no binary — the projection + freeze are pure-Python).
+  - command: >-
+      command -v lefthook >/dev/null 2>&1 ||
+      { echo "bailiff-mod-lefthook: required tool 'lefthook' not found on PATH." >&2;
+      echo "  lefthook — https://lefthook.dev  (mise: mise use -g lefthook)" >&2;
+      exit 1; }
+    when: "{{ install_hooks }}"
+  # (2) lefthook install (guarded: only on first init when install_hooks=true).
   - command: >-
       test -f .bailiff-lefthook-installed ||
       { lefthook install && touch .bailiff-lefthook-installed; }

@@ -118,6 +118,15 @@ _tasks:
     > "{{ placement_dir }}/parameters/${env}.json";
     done
 
+  # PREFLIGHT for the opt-in validate below: fail fast with legible install
+  # guidance if the aws CLI is absent, instead of aborting mid-render with the
+  # raw "command not found" (exit 127). Only gates when aws_validate is set.
+  - command: >-
+      command -v aws >/dev/null 2>&1 ||
+      { echo "bailiff-mod-cloudformation: required tool 'aws' not found on PATH." >&2;
+      echo "  aws CLI — https://docs.aws.amazon.com/cli/  (mise: mise use -g awscli)" >&2;
+      exit 1; }
+    when: "{{ aws_validate }}"
   # OPT-IN: aws validate-template (requires credentials + network).
   # The template file path is relative to the project root so the CLI finds it.
   - command: >-
