@@ -64,8 +64,7 @@ def _agent_module(tmp_path: Path, name: str):
                 """
             ),
             "template/{{ _copier_conf.answers_file }}.jinja": (
-                "# Managed by copier — do not edit by hand.\n"
-                "{{ _copier_answers|to_nice_yaml }}\n"
+                "# Managed by copier — do not edit by hand.\n{{ _copier_answers|to_nice_yaml }}\n"
             ),
             "template/out.txt.jinja": "x\n",
         },

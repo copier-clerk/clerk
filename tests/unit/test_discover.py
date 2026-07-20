@@ -157,7 +157,7 @@ class TestAgentTasksDiscovery:
 
     def test_unknown_slot_key_fails_loud(self, tmp_path) -> None:
         with pytest.raises(DiscoveryError, match="unknown key 'during'"):
-            discover(self._repo(tmp_path, "_agent_tasks:\n  during: \"nope\"\n").url)
+            discover(self._repo(tmp_path, '_agent_tasks:\n  during: "nope"\n').url)
 
     def test_non_string_instruction_fails_loud(self, tmp_path) -> None:
         with pytest.raises(DiscoveryError, match="must be a string"):
