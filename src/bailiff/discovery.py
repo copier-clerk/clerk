@@ -55,6 +55,12 @@ _AGENT_TASKS_KEY = "_agent_tasks"
 _POST_AGENT_TASKS_KEY = "_post_agent_tasks"
 _AGENT_SLOT_KEYS = frozenset({"pre", "post"})
 
+# spec 016: declared required tools. A list whose entries are a bare tool name
+# ("lefthook") or a mapping {tool: <name>, when: <answer-key>} — the engine
+# which()-checks each before any render (contracts / spec 016 FR-001/004).
+_REQUIRES_KEY = "_bailiff_requires"
+_REQUIRES_ENTRY_KEYS = frozenset({"tool", "when"})
+
 # Phase values; default when absent is "normal".
 _VALID_PHASES = frozenset({"pre", "normal", "post"})
 
@@ -106,6 +112,9 @@ class Discovery:
     # Empty dict when the field is absent (contracts/agent-tasks.md §1).
     agent_tasks: dict[str, str] = field(default_factory=dict)
     post_agent_tasks: dict[str, str] = field(default_factory=dict)
+    # spec 016: declared required tools, normalized to {tool, when} entries
+    # (when="" = unconditional). Empty list when the field is absent.
+    requires: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """The documented, JSON-serializable shape the agent reads (FR-004)."""
@@ -139,6 +148,7 @@ class Discovery:
             "phase": self.phase,
             "agent_tasks": self.agent_tasks,
             "post_agent_tasks": self.post_agent_tasks,
+            "requires": self.requires,
         }
 
 
@@ -262,6 +272,7 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     # trust-gated exactly like _tasks/_post_tasks.
     agent_tasks = _read_agent_tasks(raw, _AGENT_TASKS_KEY, source)
     post_agent_tasks = _read_agent_tasks(raw, _POST_AGENT_TASKS_KEY, source)
+    requires = _read_requires(raw, source)
     has_tasks = (
         bool(raw.get("_tasks"))
         or bool(raw.get(_POST_TASKS_KEY))
@@ -330,6 +341,7 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
         phase=phase,
         agent_tasks=agent_tasks,
         post_agent_tasks=post_agent_tasks,
+        requires=requires,
     )
 
 
@@ -414,6 +426,56 @@ def _read_agent_tasks(raw: dict[str, Any], key: str, source: str) -> dict[str, s
                 f"got {type(instruction).__name__}"
             )
         result[slot] = instruction
+    return result
+
+
+def _read_requires(raw: dict[str, Any], source: str) -> list[dict[str, str]]:
+    """Parse ``_bailiff_requires`` → normalized ``[{tool, when}]`` entries (spec 016 FR-001/002).
+
+    Each entry is either a bare tool name (``"lefthook"``) or a mapping
+    ``{tool: <name>, when: <answer-key>}``. Both normalize to ``{tool, when}`` with
+    ``when=""`` meaning unconditional. Fails loud (naming the module + entry) on a
+    non-list field, a non-string tool, an unknown mapping key, or a missing ``tool`` —
+    a malformed requires declaration would silently disable the preflight for that tool.
+    """
+    block = raw.get(_REQUIRES_KEY)
+    if block is None:
+        return []
+    if not isinstance(block, list):
+        raise DiscoveryError(
+            f"{source!r}: {_REQUIRES_KEY} must be a list of tool names or "
+            f"{{tool, when}} maps, got {type(block).__name__}"
+        )
+    result: list[dict[str, str]] = []
+    for entry in block:
+        if isinstance(entry, str):
+            if not entry:
+                raise DiscoveryError(f"{source!r}: {_REQUIRES_KEY} has an empty tool name")
+            result.append({"tool": entry, "when": ""})
+            continue
+        if not isinstance(entry, dict):
+            raise DiscoveryError(
+                f"{source!r}: {_REQUIRES_KEY} entry must be a string or a mapping, "
+                f"got {type(entry).__name__}"
+            )
+        unknown = set(entry) - _REQUIRES_ENTRY_KEYS
+        if unknown:
+            raise DiscoveryError(
+                f"{source!r}: {_REQUIRES_KEY} entry has unknown key(s) {sorted(unknown)}; "
+                f"only 'tool' and 'when' are allowed"
+            )
+        tool = entry.get("tool")
+        if not isinstance(tool, str) or not tool:
+            raise DiscoveryError(
+                f"{source!r}: {_REQUIRES_KEY} entry is missing a string 'tool': {entry!r}"
+            )
+        when = entry.get("when", "")
+        if not isinstance(when, str):
+            raise DiscoveryError(
+                f"{source!r}: {_REQUIRES_KEY} entry 'when' must be an answer-key string, "
+                f"got {type(when).__name__}"
+            )
+        result.append({"tool": tool, "when": when})
     return result
 
 

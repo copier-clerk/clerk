@@ -168,6 +168,57 @@ class TestAgentTasksDiscovery:
             discover(self._repo(tmp_path, "_post_agent_tasks: just-a-string\n").url)
 
 
+class TestRequiresDiscovery:
+    """spec 016: _bailiff_requires parses to normalized {tool, when} entries; the
+    engine which()-checks each before render (FR-001/002)."""
+
+    def _repo(self, tmp_path, body: str):
+        return build_template_repo(
+            tmp_path / "tpl",
+            files={
+                "copier.yml": ("x:\n  type: str\n_subdirectory: template\n" + body),
+                "template/x.txt.jinja": "x\n",
+                "template/{{ _copier_conf.answers_file }}.jinja": (
+                    "# {{ _copier_conf.answers_file }}\n"
+                ),
+            },
+        )
+
+    def test_bare_and_conditional_entries_normalize(self, tmp_path) -> None:
+        d = discover(
+            self._repo(
+                tmp_path,
+                "_bailiff_requires:\n  - git\n  - tool: lefthook\n    when: install_hooks\n",
+            ).url
+        )
+        assert d.requires == [
+            {"tool": "git", "when": ""},
+            {"tool": "lefthook", "when": "install_hooks"},
+        ]
+        assert d.to_dict()["requires"] == d.requires
+
+    def test_absent_field_is_empty(self, tmp_path) -> None:
+        assert discover(self._repo(tmp_path, "").url).requires == []
+
+    def test_non_list_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="must be a list"):
+            discover(self._repo(tmp_path, "_bailiff_requires: git\n").url)
+
+    def test_unknown_entry_key_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="unknown key"):
+            discover(self._repo(tmp_path, "_bailiff_requires:\n  - tool: git\n    unless: x\n").url)
+
+    def test_missing_tool_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="missing a string 'tool'"):
+            discover(self._repo(tmp_path, "_bailiff_requires:\n  - when: install_hooks\n").url)
+
+    def test_non_string_when_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="'when' must be an answer-key string"):
+            discover(
+                self._repo(tmp_path, "_bailiff_requires:\n  - tool: git\n    when: true\n").url
+            )
+
+
 def test_versions_filtered_to_pep440(tmp_path) -> None:
     repo = build_template_repo(
         tmp_path / "tpl",
