@@ -79,6 +79,12 @@ _post_agent_tasks:
 # Runs AFTER the full render loop so all .pre-commit.d/*.yaml fragments exist
 # (including any projected from .hooks.d/ by _post_agent_tasks.pre above).
 # The script is inert when no .pre-commit.d/*.yaml fragments exist.
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - tool: pre-commit
+    when: install_hooks
+
 _post_tasks:
   - "python3 scripts/_merge_precommit.py"
 

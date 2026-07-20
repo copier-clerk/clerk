@@ -155,6 +155,15 @@ _bailiff_phase: pre
 _skip_if_exists:
   - AGENTS.md
 
+# --- Required tools (spec 016): engine which()-checks these before any render, so
+# a missing tool fails fast (before writing) rather than aborting mid-_task. The
+# command -v guards in _tasks below remain as the backstop.
+_bailiff_requires:
+  - mise
+  - git
+  - gh
+  - gitnr
+
 # --- Trust-gated tasks (FR-007 / cross-cutting §2/§3) ------------------------
 # Tasks run post-render at BOTH init and reproduce. Init-only guard (FR-012a):
 # a committed sentinel file ensures the heavy mise install + gitnr + gh steps

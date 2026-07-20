@@ -91,6 +91,11 @@ _subdirectory: template
 # Order: preflight → cdk init (guarded) → optional cdk-nag splice → optional synth.
 # Init-only-guarded via cdk.json existence check so reproduce is a no-op over
 # a populated tree (cross-cutting §3 / critique R5). NEVER cdk bootstrap/deploy.
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   # 1. Preflight: verify mise, node, cdk, and the language-specific runtime are on PATH.
   #    Fail fast with install URLs before any consequential step runs.

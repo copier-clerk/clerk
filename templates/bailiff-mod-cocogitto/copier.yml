@@ -58,6 +58,11 @@ phase:
 # Preflight only — cog availability via mise. Init-only-guarded via committed
 # sentinel so reproduce over a populated tree never re-shells (FR-012a).
 # NO cog bump / tag / changelog at scaffold time (FR-007).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   - >-
     test -f .bailiff-cocogitto-preflight || {

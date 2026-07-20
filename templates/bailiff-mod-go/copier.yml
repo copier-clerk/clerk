@@ -104,6 +104,11 @@ _skip_if_exists:
 # go preflight + init-only-guarded `go mod init` (FR-012a sentinel: go.mod).
 # Native `go mod init` runs only on a fresh tree; seed-once ensures a populated
 # tree reproduce is a no-op (the committed go.mod is used verbatim — R5).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   - >-
     command -v go >/dev/null 2>&1 ||

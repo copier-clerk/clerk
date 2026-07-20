@@ -85,6 +85,11 @@ _subdirectory: template
 # Remote-creation tasks are INIT-ONLY and gated on create_remote=true.
 # Tool-missing or creation failure → non-fatal exit 0 (warn-and-continue).
 # public visibility without consent → hard exit 1 (no silent public creation).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - glab
+
 _tasks:
   # All creation tasks gate on create_remote — skip them if adopt-existing-repo.
   - command: >-

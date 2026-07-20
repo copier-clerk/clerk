@@ -139,6 +139,11 @@ _skip_if_exists:
 #
 # Bun 1.2 uses bun.lock (text lockfile), NOT bun.lockb (binary).
 # Cache keys in CI should reference bun.lock (spec 011 bug fix).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   # --- Tool preflight (ordered first) ---
   - >-
