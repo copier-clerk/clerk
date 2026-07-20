@@ -57,6 +57,12 @@ _post_agent_tasks:
 # --- Trust-gated tasks (FR-007b / FR-012a) -----------------------------------
 # The install task is init-only-guarded via a committed sentinel so reproduce is
 # a no-op (never double-install).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - tool: lefthook
+    when: install_hooks
+
 _tasks:
   # (1) PREFLIGHT — ordered FIRST (like base/python): fail fast with legible
   #     install guidance if lefthook is absent, instead of the install task below

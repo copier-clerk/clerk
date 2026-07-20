@@ -148,6 +148,11 @@ _skip_if_exists:
 # Tasks run post-render at BOTH init and reproduce.
 # Init-only guard (FR-012a): sentinel .bailiff-python-mise-installed prevents
 # `mise install` from re-running on reproduce over a populated tree.
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   # (1) Preflight: mise and the selected package manager must be on PATH.
   - >-

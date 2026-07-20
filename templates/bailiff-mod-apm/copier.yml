@@ -107,6 +107,11 @@ _bailiff_phase: normal
 # Because this template runs commands (code execution), bailiff requires the
 # source to be trusted before they run (Constitution V). Tasks run post-render
 # at BOTH init and reproduce.
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - uvx
+
 _tasks:
   # PREFLIGHT — ordered first: verify `uv`/`uvx` is on PATH (the pinned APM CLI
   # is launched via uvx), and fail with install guidance before the install runs.

@@ -106,6 +106,12 @@ _skip_if_exists:
 # --- Trust-gated tasks -------------------------------------------------------
 # 1. Seed per-env parameter files with test -f guards (SEED-ONCE, offline).
 # 2. OPT-IN: aws validate-template (requires credentials + network).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - tool: aws
+    when: aws_validate
+
 _tasks:
   # Seed parameters/<env>.json for every environment in environment_names.
   # test -f guard makes each write SEED-ONCE: existing files are never overwritten.

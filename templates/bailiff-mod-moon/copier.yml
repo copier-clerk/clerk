@@ -64,6 +64,11 @@ _subdirectory: template
 # Preflight only: mise presence + install, init-only-guarded via committed
 # sentinel. On single-package layouts it also prints the ratified warning
 # (warn-and-render, exit 0 — never a refusal).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   - >-
     test -f .bailiff-moon-preflight || {

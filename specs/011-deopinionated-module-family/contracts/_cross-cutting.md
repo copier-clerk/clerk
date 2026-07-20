@@ -220,6 +220,13 @@ copier question.
 - Code/network steps are trust-gated `_tasks` with the preflight ordered first
   (FR-009).
 - Tool versions pinned via `.mise/conf.d/<vendor>-<module>.toml`.
+- **Required tools declared in `_bailiff_requires` (spec 016).** A module lists the
+  binaries its `_tasks` invoke directly (`[<tool>, {tool: <t>, when: <answer-key>}]`);
+  a tool provisioned via the `mise install` chain declares `mise`. bailiff
+  `which()`-checks every declared tool across the whole selection BEFORE any render,
+  failing fast (no partial tree) — copier renders then runs `_tasks`, so the
+  in-`_task` `command -v` guard is the backstop, not the gate. `when` is a truthy
+  answer-key check (e.g. `install_hooks`), not an expression.
 
 ## 8. Contract-lint and test shape (FR-021 / FR-022)
 

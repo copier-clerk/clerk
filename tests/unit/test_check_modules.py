@@ -161,6 +161,34 @@ def test_valid_module_exits_zero(mono: Path) -> None:
     assert result == 0
 
 
+def test_valid_requires_field_exits_zero(mono: Path) -> None:
+    """spec 016: a well-formed _bailiff_requires (bare + {tool, when}) passes."""
+    yml = _MINIMAL_COPIER_YML + dedent(
+        """\
+        _bailiff_requires:
+          - git
+          - tool: lefthook
+            when: install_hooks
+        """
+    )
+    _make_module(mono / "templates", "bailiff-mod-req", copier_yml=yml)
+    _make_cog_toml(mono, ["bailiff-mod-req"])
+    with patch.object(_cm, "_REPO_ROOT", mono):
+        assert _cm.check_modules(mono / "templates") == 0
+
+
+def test_malformed_requires_field_fails(mono: Path, capsys) -> None:
+    """spec 016: a non-list _bailiff_requires fails with the module named."""
+    yml = _MINIMAL_COPIER_YML + "_bailiff_requires: git\n"
+    _make_module(mono / "templates", "bailiff-mod-badreq", copier_yml=yml)
+    _make_cog_toml(mono, ["bailiff-mod-badreq"])
+    with patch.object(_cm, "_REPO_ROOT", mono):
+        result = _cm.check_modules(mono / "templates")
+    assert result == 1
+    err = capsys.readouterr().err
+    assert "bailiff-mod-badreq" in err and "_bailiff_requires must be a list" in err
+
+
 # ---------------------------------------------------------------------------
 # (b) Missing answers-file .jinja → exit 1, names the module
 # ---------------------------------------------------------------------------

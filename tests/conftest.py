@@ -1032,6 +1032,11 @@ def _copy_module_with_stub_tasks(
     # Strip the authored `_tasks:` block (from `_tasks:` to EOF — it is the last
     # block in both authored modules) and append the stub tasks.
     text = re.sub(r"\n_tasks:.*\Z", "\n", text, flags=re.DOTALL)
+    # Strip `_bailiff_requires` too (spec 016): the stubbed tasks invoke no real
+    # binary, so the hermetic fixture must not make the engine tool-gate demand
+    # tools (mise/glab/…) the offline test environment lacks. Remove the block —
+    # its `_bailiff_requires:` line plus the indented list entries under it.
+    text = re.sub(r"\n_bailiff_requires:\n(?:[ \t-].*\n?)*", "\n", text)
     text = text.rstrip() + "\n\n" + stub_tasks_yaml
     copier_yml.write_text(text)
 

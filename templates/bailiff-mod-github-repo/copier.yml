@@ -85,6 +85,13 @@ _subdirectory: template
 # Remote-creation tasks are INIT-ONLY and gated on create_remote=true.
 # Tool-missing or creation failure → non-fatal exit 0 (warn-and-continue).
 # public visibility without consent → hard exit 1 (no silent public creation).
+# --- Required tools (spec 016) -----------------------------------------------
+# INTENTIONALLY no _bailiff_requires: `gh` is NOT a hard requirement. The
+# creation tasks gate on create_remote AND their own preflight is non-fatal
+# (gh absent → skip repo creation, exit 0, print a manual hint). A gate entry
+# would hard-fail a create_remote run without gh, contradicting that
+# graceful-degrade design.
+
 _tasks:
   # All creation tasks gate on create_remote — skip them if adopt-existing-repo.
   - command: >-

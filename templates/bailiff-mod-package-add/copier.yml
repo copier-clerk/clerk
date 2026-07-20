@@ -145,6 +145,11 @@ _skip_if_exists:
 # All tasks are no-ops (via the monorepo guard) when layout != monorepo so the
 # module is safely applied to single-layout projects without side effects.
 # ---------------------------------------------------------------------------
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   # 1. Monorepo gate — no-op when not monorepo (do not abort, just skip).
   #    All remaining tasks are also guarded so this is belt-and-suspenders.

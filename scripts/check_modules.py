@@ -172,6 +172,45 @@ def _check_capability_declarations(name: str, copier_raw: dict[str, object]) -> 
     return violations
 
 
+def _check_requires_declarations(name: str, copier_raw: dict[str, object]) -> list[str]:
+    """First-party well-formedness lint for _bailiff_requires (spec 016 FR-001/008).
+
+    Must be a list; each entry a non-empty tool-name string OR a mapping with a
+    string ``tool`` (non-empty) and an optional string ``when``, no other keys.
+    Absence is never an error. Mirrors the discovery parser's validation so a
+    malformed declaration is caught at author time, not only at init.
+    """
+    violations: list[str] = []
+    raw = copier_raw.get("_bailiff_requires")
+    if raw is None:
+        return violations
+    if not isinstance(raw, list):
+        violations.append(f"{name}: _bailiff_requires must be a list, got {raw!r}")
+        return violations
+    for entry in raw:
+        if isinstance(entry, str):
+            if not entry:
+                violations.append(f"{name}: _bailiff_requires has an empty tool name")
+            continue
+        if not isinstance(entry, dict):
+            violations.append(
+                f"{name}: _bailiff_requires entry must be a string or a mapping, got {entry!r}"
+            )
+            continue
+        unknown = set(entry) - {"tool", "when"}
+        if unknown:
+            violations.append(
+                f"{name}: _bailiff_requires entry has unknown key(s) {sorted(unknown)}"
+            )
+        tool = entry.get("tool")
+        if not isinstance(tool, str) or not tool:
+            violations.append(f"{name}: _bailiff_requires entry needs a string 'tool': {entry!r}")
+        when = entry.get("when")
+        if when is not None and not isinstance(when, str):
+            violations.append(f"{name}: _bailiff_requires 'when' must be a string, got {when!r}")
+    return violations
+
+
 def _check_mixed_exclusivity(module_caps: dict[str, tuple[list[str], bool]]) -> list[str]:
     """Mixed-exclusivity lint (spec 013 FR-010): all siblings of a pick-one
     capability family must declare ``_bailiff_exclusive`` consistently.
@@ -259,6 +298,7 @@ def check_modules(templates_dir: Path | None = None) -> int:
         copier_raw = _read_copier_yml(module_path)
         cap_violations = _check_capability_declarations(name, copier_raw)
         violations.extend(cap_violations)
+        violations.extend(_check_requires_declarations(name, copier_raw))
         if not cap_violations:
             raw_provides = copier_raw.get("_bailiff_provides")
             provides = [str(e) for e in raw_provides] if isinstance(raw_provides, list) else []

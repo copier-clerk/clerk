@@ -125,6 +125,11 @@ _skip_if_exists:
 # populated tree is a no-op — the native tool only runs on a genuinely empty tree.
 # rust-toolchain.toml is MANAGED (byte-identical); Cargo.toml is TASK-OUTPUT then
 # SEED-ONCE (_skip_if_exists above).
+# --- Required tools (spec 016): engine which()-checks these before any render;
+# the command -v guard(s) in _tasks remain as the backstop.
+_bailiff_requires:
+  - mise
+
 _tasks:
   # Preflight: verify cargo is on PATH before any consequential step.
   - >-
