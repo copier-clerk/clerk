@@ -213,6 +213,20 @@ def init(spec: RunSpec, *, today: str | None = None, check: bool = False) -> Run
     _check_no_secrets(spec.answers, desc)
     # Fail loud on required secrets with no value (FR-003c / Constitution V).
     _check_required_secrets_supplied(spec.answers, desc)
+    # spec 016 FR-004/006: whole-plan (here N=1) tool preflight before any render —
+    # runs under check=True too. Synthesize the one-layer plan/descs/answers shape.
+    _basename = source.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+    _fid = f"_/{_basename}"
+    _rec = TemplateRecord(
+        full_id=_fid,
+        source=source,
+        ref=spec.ref or "",
+        versions=[],
+        reproducible=True,
+        has_tasks=desc.has_tasks,
+        questions=[],
+    )
+    _check_required_tools([(_rec, ".copier-answers.yml")], {_fid: desc}, {_fid: spec.answers})
     data = _with_today(spec.answers, today)
     _secret_keys = desc.secret_questions
     # Load user defaults once; select keys relevant to this template (FR-001–003).
@@ -471,6 +485,49 @@ def _check_external_data_deps(
                 )
 
 
+def _check_required_tools(
+    plan: list[tuple[TemplateRecord, str]],
+    descs: dict[str, discovery.Discovery],
+    answers_map: dict[str, dict[str, Any]],
+) -> None:
+    """Whole-plan tool preflight — fail BEFORE any render if a required tool is missing.
+
+    spec 016 FR-004: for each module, for each ``_bailiff_requires`` entry whose ``when``
+    answer-key (if set) is truthy in that layer's answers, ``shutil.which(tool)``. Collect
+    ALL misses across the plan and raise ONE ``BailiffError`` naming every
+    ``tool — needed by <module>``. Runs after trust/reproducibility/external-data/collision
+    (which already ran discovery), before the first ``run_copy`` — so a missing tool never
+    leaves a partial tree. copier renders THEN runs ``_tasks``, so the per-module
+    ``command -v`` guard is only a backstop; this is the true pre-write gate.
+
+    A tool is checked only under a truthy ``when`` (opt-in), so ``install_hooks: false``
+    needs no hook-manager binary (FR-005/D2: modules provisioning via mise declare mise).
+    """
+    misses: list[str] = []
+    seen: set[str] = set()  # dedupe (tool, module) across layers
+    for record, _ in plan:
+        basename = record.full_id.rsplit("/", 1)[-1]
+        desc = descs.get(record.full_id)
+        if not desc or not desc.requires:
+            continue
+        answers = answers_map.get(record.full_id, {})
+        for entry in desc.requires:
+            tool = entry["tool"]
+            when = entry.get("when", "")
+            if when and not _answer_truthy(answers.get(when)):
+                continue
+            key = f"{tool}\0{basename}"
+            if key in seen:
+                continue
+            seen.add(key)
+            if shutil.which(tool) is None:
+                misses.append(f"  {tool} — needed by {basename}")
+    if misses:
+        raise BailiffError(
+            "required tool(s) not found on PATH (install them, then re-run):\n" + "\n".join(misses)
+        )
+
+
 def _write_schema_marker(dest: str, af_name: str) -> None:
     """Append ``_bailiff_schema: '014'`` to the answers file post-render (spec 014 R10).
 
@@ -671,21 +728,22 @@ def _canonical_dest(dest: str) -> str:
     return os.path.realpath(dest)
 
 
+def _answer_truthy(value: Any) -> bool:
+    """Truthiness for an answer value. copier serializes bools as real booleans, but
+    a run-spec may carry strings — accept the common truthy string forms too."""
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "yes", "1", "on"}
+    return bool(value)
+
+
 def _initial_commit_requested(all_answers: dict[str, Any]) -> bool:
     """True when the scaffold should be committed by the engine after the full run.
 
     Reads the ``initial_commit`` and ``run_git_init`` answers (produced by
     ``bailiff-mod-base``). Both must be truthy: a commit needs a repo, and it is
-    opt-in. copier serializes bool answers as real booleans, but a run-spec may
-    carry strings — accept the common truthy string forms too.
+    opt-in.
     """
-
-    def _truthy(v: Any) -> bool:
-        if isinstance(v, str):
-            return v.strip().lower() in {"true", "yes", "1", "on"}
-        return bool(v)
-
-    return _truthy(all_answers.get("initial_commit")) and _truthy(
+    return _answer_truthy(all_answers.get("initial_commit")) and _answer_truthy(
         all_answers.get("run_git_init", True)
     )
 
@@ -825,6 +883,10 @@ def init_many(
         # spec 014 FR-006/R6: enforce _external_data hard data-dependencies.
         # Producer absent → loud OrderingError before any render.
         _check_external_data_deps(plan, descs)
+        # spec 016 FR-004: whole-plan tool preflight — fail before any render if a
+        # required tool is missing (copier renders then runs _tasks, so a _task
+        # guard is only a backstop).
+        _check_required_tools(plan, descs, answers_map)
         # Init-only collision hard-stop (FR-013): renders to isolated temp dirs,
         # raises CollisionError before any write into dest.
         _scan_init_collisions(plan, dest, accumulated, answers_map)
@@ -934,12 +996,14 @@ def init_many(
 
     # check=True: all-gaps preflight — run all layers, collect all errors.
     errors: list[str] = []
+    check_descs: dict[str, discovery.Discovery] = {}
     for record, af_name in plan:
         _require_reproducible(record.source, record.ref)
         _require_trust_if_action_taking(record.source, record.ref)
         layer_answers = answers_map.get(record.full_id, {})
         # Discover once per layer; reuse for both secret checks and redaction.
         desc = discovery.discover(record.source, record.ref)
+        check_descs[record.full_id] = desc
         # FR-003a: reject secrets in per-layer answers even in preflight mode.
         _check_no_secrets(layer_answers, desc)
         # FR-003c: fail loud on required secrets with no value.
@@ -973,6 +1037,9 @@ def init_many(
         raise InvalidRunSpecError(
             "preflight found missing or invalid answers:\n" + "\n".join(f"  - {e}" for e in errors)
         )
+    # spec 016 FR-006: the tool preflight runs under --check too, so a dry run
+    # surfaces missing tools without writing.
+    _check_required_tools(plan, check_descs, answers_map)
     return [RunResult(dest=dest, src=r.source, ref=r.ref, pretend=True) for r, _ in plan]
 
 
