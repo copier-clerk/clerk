@@ -26,6 +26,7 @@ from tests.conftest import (
     _BUN_STUB_TASKS,
     _CFN_STUB_TASKS,
     _COG_STUB_TASKS,
+    _LEFTHOOK_STUB_TASKS,
     _MOON_STUB_TASKS,
     _PRECOMMIT_STUB_TASKS,
     _PYTHON_STUB_TASKS,
@@ -41,6 +42,7 @@ _STUBS: dict[str, str] = {
     "bailiff-mod-python": _PYTHON_STUB_TASKS,
     "bailiff-mod-ts": _BUN_STUB_TASKS,
     "bailiff-mod-precommit": _PRECOMMIT_STUB_TASKS,
+    "bailiff-mod-lefthook": _LEFTHOOK_STUB_TASKS,
     "bailiff-mod-terraform": _TERRAFORM_STUB_TASKS,
     "bailiff-mod-cloudformation": _CFN_STUB_TASKS,
     "bailiff-mod-moon": _MOON_STUB_TASKS,
@@ -120,11 +122,16 @@ def init_stack(
     *,
     dest_name: str = "proj",
     exclusive_capabilities: frozenset[str] = frozenset(),
+    agent: Any = None,
 ) -> Path:
     """Build module repos, trust them, and init the multi-layer stack.
 
     ``layers`` is ``[(module_name, answers), ...]`` — order irrelevant
     (init_many topo-sorts). Returns the project dest path.
+
+    ``agent`` (spec 015): an optional phase-1 agent stub. When None, the engine's
+    no-op agent runs (agent tasks produce nothing). Tests that exercise cross-format
+    projection inject a deterministic stub.
     """
     selection: list[tuple[TemplateRecord, dict[str, Any]]] = []
     for name, answers in layers:
@@ -132,12 +139,13 @@ def init_stack(
         trust.add_trust(repo.url)
         selection.append((make_record(name, repo), answers))
     dest = root / dest_name
-    runner.init_many(
-        selection,
-        str(dest),
-        today="2026-07-15",
-        exclusive_capabilities=exclusive_capabilities,
-    )
+    kwargs: dict[str, Any] = {
+        "today": "2026-07-15",
+        "exclusive_capabilities": exclusive_capabilities,
+    }
+    if agent is not None:
+        kwargs["agent"] = agent
+    runner.init_many(selection, str(dest), **kwargs)
     return dest
 
 

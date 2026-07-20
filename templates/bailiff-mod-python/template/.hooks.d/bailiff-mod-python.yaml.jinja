@@ -1,0 +1,18 @@
+{#-
+  .hooks.d/bailiff-mod-python.yaml — neutral hook intent (spec 015).
+  Manager-agnostic: whichever hook-manager module is selected (bailiff-mod-precommit,
+  bailiff-mod-lefthook, …) projects these entries into its own format via
+  _post_agent_tasks. Inert when no hook manager is selected. Renders unconditionally,
+  like the .pre-commit.d/ fragment (contracts/hooks-neutral-dir.md §2).
+-#}
+hooks:
+  - id: ruff
+    language: python
+    entry: "ruff check --fix"
+    files: "\\.py$"
+    stages: [pre-commit]
+  - id: ruff-format
+    language: python
+    entry: "ruff format"
+    files: "\\.py$"
+    stages: [pre-commit]

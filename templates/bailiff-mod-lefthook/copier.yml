@@ -1,0 +1,64 @@
+# copier.yml — bailiff-mod-lefthook
+#
+# Selecting this module IS choosing lefthook as the hook manager (presence-derived,
+# like bailiff-mod-precommit; spec 014 R13). It consumes the neutral .hooks.d/*.yaml
+# fragments any language/tooling module drops and projects them into lefthook.yml.
+#
+# Projection model (spec 015 / contracts/hooks-neutral-dir.md §3):
+#   - Hook-contributing modules write .hooks.d/<module>.yaml (neutral intent).
+#   - This module declares _post_agent_tasks.post: the phase-1 agent reads every
+#     .hooks.d/ entry and renders lefthook.yml, AFTER the full render loop so all
+#     fragments are present. The engine FREEZES the rendered lefthook.yml as a
+#     recorded answer; reproduce replays it agent-free (Constitution III).
+#   - Inert when no .hooks.d/ fragments exist.
+#
+# Contract: ships template/{{ _copier_conf.answers_file }}.jinja; NO secret: questions;
+# ordering edge is depends_on (spec 014 R7). Phase: normal (base=pre).
+
+_bailiff_phase: normal
+
+# --- Optional feature flags --------------------------------------------------
+
+install_hooks:
+  type: bool
+  default: true
+  help: "Run 'lefthook install' after rendering (init-only-guarded)."
+
+# Threaded from base (FR-010 pattern); standalone fallback is empty string.
+today:
+  type: str
+  default: ""
+  help: "The generation date (YYYY-MM-DD); bailiff injects this — leave blank."
+
+# --- Dependency ordering edges (when:false hidden answers) -------------------
+
+depends_on:
+  type: yaml
+  default:
+    - bailiff-mod-base
+  when: false
+
+# Template body lives under template/ — copier renders only that subtree.
+_subdirectory: template
+
+# --- Agent-projected work: .hooks.d/ -> lefthook.yml (spec 015 FR-015) --------
+# The phase-1 agent runs AFTER the full render loop (all .hooks.d/ fragments
+# present), projecting each neutral hook into a lefthook.yml command. The engine
+# freezes the rendered file; reproduce replays it with no agent.
+_post_agent_tasks:
+  post: >-
+    Read every .hooks.d/*.yaml fragment in the project (each a mapping with a
+    `hooks:` list of {id, language, entry, files, stages}). Project them into a
+    single lefthook.yml: group hooks by stage (pre-commit, commit-msg, pre-push)
+    under lefthook's `<stage>.commands.<id>` shape, mapping each neutral hook's
+    `entry` to `run`, `files` to `glob`, preserving `id`. If no .hooks.d/ fragment
+    exists, write nothing. Output the complete lefthook.yml content.
+
+# --- Trust-gated tasks (FR-007b / FR-012a) -----------------------------------
+# The install task is init-only-guarded via a committed sentinel so reproduce is
+# a no-op (never double-install).
+_tasks:
+  - command: >-
+      test -f .bailiff-lefthook-installed ||
+      { lefthook install && touch .bailiff-lefthook-installed; }
+    when: "{{ install_hooks }}"
