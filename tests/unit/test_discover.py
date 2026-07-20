@@ -117,6 +117,57 @@ def test_has_tasks_flag(base_template: TemplateRepo) -> None:
     assert discover(base_template.url).has_tasks is True
 
 
+class TestAgentTasksDiscovery:
+    """spec 015: _agent_tasks/_post_agent_tasks parse into {pre?,post?} maps; the
+    engine schedules on keys and never parses the instruction (FR-004/005)."""
+
+    def _repo(self, tmp_path, body: str):
+        return build_template_repo(
+            tmp_path / "tpl",
+            files={
+                "copier.yml": ("x:\n  type: str\n_subdirectory: template\n" + body),
+                "template/x.txt.jinja": "x\n",
+                "template/{{ _copier_conf.answers_file }}.jinja": (
+                    "# {{ _copier_conf.answers_file }}\n"
+                ),
+            },
+        )
+
+    def test_pre_and_post_parse(self, tmp_path) -> None:
+        d = discover(
+            self._repo(
+                tmp_path,
+                "_agent_tasks:\n"
+                '  pre: "do X before"\n'
+                '  post: "do Y after"\n'
+                "_post_agent_tasks:\n"
+                '  post: "project fragments"\n',
+            ).url
+        )
+        assert d.agent_tasks == {"pre": "do X before", "post": "do Y after"}
+        assert d.post_agent_tasks == {"post": "project fragments"}
+        # any agent-task field makes the module action-taking (trust-gated).
+        assert d.has_tasks is True
+        assert d.to_dict()["agent_tasks"] == d.agent_tasks
+
+    def test_absent_fields_are_empty(self, tmp_path) -> None:
+        d = discover(self._repo(tmp_path, "").url)
+        assert d.agent_tasks == {}
+        assert d.post_agent_tasks == {}
+
+    def test_unknown_slot_key_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="unknown key 'during'"):
+            discover(self._repo(tmp_path, "_agent_tasks:\n  during: \"nope\"\n").url)
+
+    def test_non_string_instruction_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="must be a string"):
+            discover(self._repo(tmp_path, "_agent_tasks:\n  pre: [1, 2]\n").url)
+
+    def test_non_mapping_field_fails_loud(self, tmp_path) -> None:
+        with pytest.raises(DiscoveryError, match="must be a mapping"):
+            discover(self._repo(tmp_path, "_post_agent_tasks: just-a-string\n").url)
+
+
 def test_versions_filtered_to_pep440(tmp_path) -> None:
     repo = build_template_repo(
         tmp_path / "tpl",

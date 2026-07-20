@@ -48,6 +48,13 @@ _EDGE_KEYS = ("depends_on",)
 # The hidden ``when: false`` key that carries the post-task list.
 _POST_TASKS_KEY = "_post_tasks"
 
+# spec 015: agent-projected task fields. Each is a map with optional pre/post
+# string instructions; the engine schedules on the KEYS and never parses the
+# instruction (contracts/agent-tasks.md §1).
+_AGENT_TASKS_KEY = "_agent_tasks"
+_POST_AGENT_TASKS_KEY = "_post_agent_tasks"
+_AGENT_SLOT_KEYS = frozenset({"pre", "post"})
+
 # Phase values; default when absent is "normal".
 _VALID_PHASES = frozenset({"pre", "normal", "post"})
 
@@ -95,6 +102,10 @@ class Discovery:
     post_tasks: list[Any] = field(default_factory=list)
     # spec 014: module execution phase ("pre" | "normal" | "post"); default "normal".
     phase: str = "normal"
+    # spec 015: agent-projected instructions — {pre?: str, post?: str} maps.
+    # Empty dict when the field is absent (contracts/agent-tasks.md §1).
+    agent_tasks: dict[str, str] = field(default_factory=dict)
+    post_agent_tasks: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """The documented, JSON-serializable shape the agent reads (FR-004)."""
@@ -126,6 +137,8 @@ class Discovery:
             "external_data_aliases": self.external_data_aliases,
             "post_tasks": self.post_tasks,
             "phase": self.phase,
+            "agent_tasks": self.agent_tasks,
+            "post_agent_tasks": self.post_agent_tasks,
         }
 
 
@@ -245,7 +258,16 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
     jinja_extensions = list(raw.get("_jinja_extensions", []) or [])
     # has_tasks covers both inline _tasks AND deferred _post_tasks: either can execute
     # arbitrary commands, so both require the same trust gate (spec 014 FR-021/R11).
-    has_tasks = bool(raw.get("_tasks")) or bool(raw.get(_POST_TASKS_KEY))
+    # spec 015: agent-task fields also execute (via the phase-1 agent) and are
+    # trust-gated exactly like _tasks/_post_tasks.
+    agent_tasks = _read_agent_tasks(raw, _AGENT_TASKS_KEY, source)
+    post_agent_tasks = _read_agent_tasks(raw, _POST_AGENT_TASKS_KEY, source)
+    has_tasks = (
+        bool(raw.get("_tasks"))
+        or bool(raw.get(_POST_TASKS_KEY))
+        or bool(agent_tasks)
+        or bool(post_agent_tasks)
+    )
     has_migrations = bool(raw.get("_migrations"))
     provides, exclusive = _read_capabilities(raw, source)
     external_data_aliases = _read_external_data(raw, source)
@@ -306,6 +328,8 @@ def _describe(source: str, ref: str, versions: list[str], clone: Path) -> Discov
         external_data_aliases=external_data_aliases,
         post_tasks=post_tasks,
         phase=phase,
+        agent_tasks=agent_tasks,
+        post_agent_tasks=post_agent_tasks,
     )
 
 
@@ -358,6 +382,39 @@ def _read_post_tasks(raw: dict[str, Any]) -> list[Any]:
     if isinstance(pt, list):
         return list(pt)
     return []
+
+
+def _read_agent_tasks(raw: dict[str, Any], key: str, source: str) -> dict[str, str]:
+    """Parse ``_agent_tasks``/``_post_agent_tasks`` → ``{pre?: str, post?: str}`` (FR-004).
+
+    The field is a map whose ONLY allowed keys are ``pre`` and ``post``, each a
+    freeform NL instruction string. bailiff schedules on the keys and never parses
+    the instruction (contracts/agent-tasks.md §1). Absent field → empty dict. A
+    non-mapping value, an unknown key, or a non-string value fails loud (naming the
+    module + field + key) — this is a manifest error, not an author-typo fallback,
+    because a mis-scheduled agent task silently drops projected work.
+    """
+    block = raw.get(key)
+    if block is None:
+        return {}
+    if not isinstance(block, dict):
+        raise DiscoveryError(
+            f"{source!r}: {key} must be a mapping with optional 'pre'/'post' keys, "
+            f"got {type(block).__name__}"
+        )
+    result: dict[str, str] = {}
+    for slot, instruction in block.items():
+        if slot not in _AGENT_SLOT_KEYS:
+            raise DiscoveryError(
+                f"{source!r}: {key} has unknown key {slot!r}; only 'pre' and 'post' are allowed"
+            )
+        if not isinstance(instruction, str):
+            raise DiscoveryError(
+                f"{source!r}: {key}.{slot} must be a string instruction, "
+                f"got {type(instruction).__name__}"
+            )
+        result[slot] = instruction
+    return result
 
 
 def _read_phase(raw: dict[str, Any], source: str) -> str:
