@@ -425,6 +425,11 @@ with install guidance if a required tool is missing:
   **gitnr** (pinned 0.3.0). No token is a copier answer; `gh` reads ambient
   credentials.
 - `bailiff-mod-python`: **uv**.
+- `bailiff-mod-precommit`: **pre-commit** (only when `install_hooks=true`).
+- `bailiff-mod-lefthook`: **lefthook** (only when `install_hooks=true`). If a hook
+  manager's binary is absent and you do not intend to install hooks at scaffold
+  time, pass `install_hooks: false` — the projection + freeze are pure and need no
+  binary; the user runs `<manager> install` later.
 
 **File lifecycles (what reproduce does).** Managed files (dir scaffold,
 `.copier-answers*.yml`) re-render config-consistently. Seed-once files (`AGENTS.md`,

@@ -87,7 +87,16 @@ _post_tasks:
 # (.bailiff-precommit-installed) on first run; the `test -f` guard makes reproduce
 # a no-op so we never double-install.
 _tasks:
-  # pre-commit install (guarded: only when install_hooks=true)
+  # (1) PREFLIGHT — ordered FIRST (like base/python): fail fast with legible
+  #     install guidance if pre-commit is absent, instead of the install task
+  #     below aborting mid-render with copier's raw "command not found" (exit 127).
+  - command: >-
+      command -v pre-commit >/dev/null 2>&1 ||
+      { echo "bailiff-mod-precommit: required tool 'pre-commit' not found on PATH." >&2;
+      echo "  pre-commit — https://pre-commit.com  (mise: mise use -g pre-commit)" >&2;
+      exit 1; }
+    when: "{{ install_hooks }}"
+  # (2) pre-commit install (guarded: only when install_hooks=true)
   - command: >-
       test -f .bailiff-precommit-installed ||
       { pre-commit install && touch .bailiff-precommit-installed; }
