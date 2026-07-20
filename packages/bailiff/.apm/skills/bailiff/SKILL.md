@@ -474,16 +474,33 @@ absent from the selection, bailiff raises a preflight `OrderingError`.
 by a mechanical merge because the target format depends on which backend the stack
 selected (hooks → pre-commit vs lefthook; `.editorconfig` sized from the selected
 languages). These use two manifest fields — `_agent_tasks` and `_post_agent_tasks`,
-each a map with optional `pre`/`post` NL instructions. As the phase-1 agent you:
+each a map with optional `pre`/`post` NL instructions. The engine is LLM-free
+(Constitution II), so you do the projection in **phase 1** and hand bailiff the
+result — exactly as you supply `apm_packages` / `architecture_md`. As the phase-1
+agent you:
 
-- **Run the projection from the ACTUAL selection.** When bailiff reaches an agent-task
-  slot it hands you the instruction plus the selected module basenames and their
-  answers files. Read the neutral inputs (e.g. every `.hooks.d/*.yaml` fragment) and
-  produce the target file(s) for the selected backend. Invent nothing for a backend or
-  language whose module is absent.
-- **Return files, not prose.** Your output is a `{path: content}` mapping bailiff
-  writes and FREEZES into the producing module's answers file. On `reproduce` bailiff
-  replays the frozen files with NO agent — so your projection must be a pure function
+- **Precompute the projection from the ACTUAL selection.** Read each module's
+  `_agent_tasks`/`_post_agent_tasks` instruction (via `discover`), read the neutral
+  inputs (e.g. render the stack once and read every `.hooks.d/*.yaml`), and produce the
+  target file(s) for the selected backend. Invent nothing for a backend or language
+  whose module is absent.
+- **Supply them in the run-spec `agent_projections` block**, keyed
+  `{module_basename: {slot_id: {path: content}}}` where `slot_id` is one of
+  `agent_tasks.pre|post` / `post_agent_tasks.pre|post`:
+
+  ```yaml
+  agent_projections:
+    bailiff-mod-lefthook:
+      post_agent_tasks.post:
+        lefthook.yml: |
+          pre-commit:
+            commands:
+              ruff: {run: "ruff check --fix", glob: "*.py"}
+  ```
+
+  bailiff writes each file and FREEZES it into that module's answers file. On
+  `reproduce` bailiff replays the frozen files with NO agent — so your projection must
+  be a pure function
   of the selection (deterministic, Constitution III).
 - **Never write a MANAGED-render-owned path unless you own it.** bailiff's
   reproduce-safety lint fails init if an agent-written path is also a managed render

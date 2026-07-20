@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 # The agent's output: a mapping of destination-relative path → file content the
 # agent wants written. Empty when the projection produced nothing (e.g. no hook
@@ -58,3 +59,27 @@ def noop_agent(instruction: str, context: AgentContext) -> AgentResult:  # noqa:
     capability with no consumer. Real projection is supplied by the skill/host.
     """
     return {}
+
+
+def prefrozen_agent(projections: dict[str, Any]) -> AgentTask:
+    """Build an agent that serves projections the phase-1 agent PRECOMPUTED.
+
+    This is the real binding for the two-phase boundary (Constitution II): the
+    engine never calls an LLM. Instead the phase-1 agent (the skill, driven by
+    Claude) computes each projection during phase 1 and hands it to bailiff in the
+    run-spec — exactly as ``apm_packages`` and ``architecture_md`` are agent-decided
+    and frozen (the dep-updates precedent, spec 015 direction principle 3). bailiff
+    writes and freezes the supplied output; reproduce replays the frozen record with
+    no agent at all.
+
+    ``projections`` is keyed ``{module_basename: {slot_id: {path: content}}}`` where
+    ``slot_id`` is one of ``agent_tasks.pre|post`` / ``post_agent_tasks.pre|post``.
+    A module/slot absent from the map projects nothing (inert), so a partial map is
+    valid. The returned callable is pure — no I/O, no LLM — so the engine stays
+    deterministic.
+    """
+
+    def _serve(instruction: str, context: AgentContext) -> AgentResult:  # noqa: ARG001
+        return dict(projections.get(context.module, {}).get(context.slot, {}))
+
+    return _serve

@@ -279,6 +279,10 @@ def reproduce(dest: str, *, answers_file: Path | None = None) -> RunResult:
     that specific file drives the recopy (multi-layer loop); otherwise the default
     ``.copier-answers.yml`` is expected.
     """
+    # Canonicalize (idempotent) so copier's _external_data path check agrees on a
+    # symlinked prefix (macOS /tmp → /private/tmp). reproduce_many already passes a
+    # canonical dest; a direct single-layer reproduce needs it too.
+    dest = _canonical_dest(dest)
     dst = Path(dest)
     target = answers_file if answers_file is not None else dst / ".copier-answers.yml"
     if not target.is_file():
@@ -1045,6 +1049,10 @@ def reproduce_many(dest: str) -> list[RunResult]:
     """
     from bailiff import ordering  # local import avoids circular at module load
 
+    # Canonicalize so copier's _external_data path check agrees on a symlinked
+    # prefix (macOS /tmp → /private/tmp), same as init_many (else a cross-module
+    # consumer raises ForbiddenPathError on reproduce).
+    dest = _canonical_dest(dest)
     answers_files = enumerate_answers_files(dest)
     if not answers_files:
         raise BailiffError(f"no .copier-answers*.yml at {dest!r}; nothing to reproduce")
@@ -1231,6 +1239,9 @@ def update(
     A separate ``--skip-migrations`` flag would require copier API support that does
     not exist; we document this constraint rather than silently misrepresent it.
     """
+    # Canonicalize (idempotent) so copier's _external_data path check agrees on a
+    # symlinked prefix (macOS /tmp → /private/tmp), same as init/reproduce.
+    dest = _canonical_dest(dest)
     dst = Path(dest)
     if not answers_file.is_file():
         raise BailiffError(f"no answers file at {answers_file!r}; nothing to update")
@@ -1348,6 +1359,10 @@ def update_many(
     N=1 behaves identically to single-layer update (uniform loop, spec 010).
     """
     from bailiff import ordering  # local import avoids circular at module load
+
+    # Canonicalize so copier's _external_data path check agrees on a symlinked
+    # prefix (macOS /tmp → /private/tmp), same as init_many/reproduce_many.
+    dest = _canonical_dest(dest)
 
     # Prerequisite: the tree must be clean before an upgrade. Two reasons, both point
     # to "commit or stash first": (1) a real upgrade commits each layer between layers

@@ -245,6 +245,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
 
     import yaml
 
+    from bailiff import agent as agent_mod
     from bailiff import catalog, discovery, runner, trust
     from bailiff.catalog import TemplateRecord
     from bailiff.errors import BailiffError, InvalidRunSpecError, UntrustedSourceError
@@ -261,7 +262,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
 
     def _load_multi_run_spec(
         path: str,
-    ) -> tuple[str, list[tuple[TemplateRecord, dict[str, object]]]]:
+    ) -> tuple[str, list[tuple[TemplateRecord, dict[str, object]]], dict[str, object]]:
         raw = Path(path).read_text()
         data = yaml.safe_load(raw)
         if not isinstance(data, dict):
@@ -269,6 +270,12 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
         dest = data.get("dest")
         if not dest:
             raise InvalidRunSpecError("multi run-spec missing required field: dest")
+        # spec 015: optional agent-projected output the phase-1 agent precomputed,
+        # keyed {module_basename: {slot_id: {path: content}}}. bailiff serves + freezes
+        # it (the engine calls no LLM — Constitution II). Absent → no projection.
+        projections = data.get("agent_projections") or {}
+        if not isinstance(projections, dict):
+            raise InvalidRunSpecError("multi run-spec 'agent_projections' must be a mapping")
         selection_raw = data.get("selection")
         if not isinstance(selection_raw, list) or not selection_raw:
             raise InvalidRunSpecError("multi run-spec 'selection' must be a non-empty list")
@@ -296,7 +303,7 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
                 questions=[],
             )
             result.append((record, dict(answers)))
-        return str(dest), result
+        return str(dest), result, projections
 
     def _is_multi_run_spec(path: str) -> bool:
         try:
@@ -315,8 +322,11 @@ def _real_dispatch(args: argparse.Namespace) -> int:  # noqa: PLR0911
 
     def _cmd_init(a: argparse.Namespace) -> int:
         if _is_multi_run_spec(a.run_spec):
-            dest, selection = _load_multi_run_spec(a.run_spec)
-            results = runner.init_many(selection, dest, today=_today(), check=a.check)
+            dest, selection, projections = _load_multi_run_spec(a.run_spec)
+            # spec 015: serve the phase-1 agent's precomputed projections (if any);
+            # bailiff writes + freezes them. No projections → the no-op agent default.
+            agent = agent_mod.prefrozen_agent(projections) if projections else agent_mod.noop_agent
+            results = runner.init_many(selection, dest, today=_today(), check=a.check, agent=agent)
             if results and results[0].pretend:
                 layer_ids = ", ".join(r.src for r in results)
                 print(

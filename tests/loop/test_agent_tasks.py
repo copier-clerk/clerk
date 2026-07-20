@@ -71,6 +71,34 @@ def _agent_module(tmp_path: Path, name: str):
     )
 
 
+class TestPrefrozenAgent:
+    """The real binding (spec 015 principle 3): the phase-1 agent PRECOMPUTES each
+    projection and hands it to bailiff via the run-spec; bailiff serves it with no
+    LLM. prefrozen_agent is that pure server."""
+
+    def _ctx(self, module: str, slot: str) -> _agent.AgentContext:
+        return _agent.AgentContext(dest="/x", module=module, slot=slot)
+
+    def test_serves_matching_module_slot(self) -> None:
+        agent = _agent.prefrozen_agent(
+            {"bailiff-mod-lefthook": {"post_agent_tasks.post": {"lefthook.yml": "x\n"}}}
+        )
+        got = agent("instr", self._ctx("bailiff-mod-lefthook", "post_agent_tasks.post"))
+        assert got == {"lefthook.yml": "x\n"}
+
+    def test_absent_module_or_slot_projects_nothing(self) -> None:
+        agent = _agent.prefrozen_agent(
+            {"bailiff-mod-lefthook": {"post_agent_tasks.post": {"lefthook.yml": "x\n"}}}
+        )
+        # wrong slot → {}; wrong module → {}
+        assert agent("i", self._ctx("bailiff-mod-lefthook", "agent_tasks.pre")) == {}
+        assert agent("i", self._ctx("bailiff-mod-other", "post_agent_tasks.post")) == {}
+
+    def test_empty_projections_is_inert(self) -> None:
+        agent = _agent.prefrozen_agent({})
+        assert agent("i", self._ctx("bailiff-mod-lefthook", "post_agent_tasks.post")) == {}
+
+
 def test_timeline_order(tmp_path: Path) -> None:
     """A recording stub agent + an inline _tasks marker prove slot ordering."""
     repo = _agent_module(tmp_path, "mod")

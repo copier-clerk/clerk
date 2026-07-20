@@ -230,3 +230,49 @@ def test_canonical_dest_resolves_symlinked_prefix(tmp_path: Path) -> None:
     # The symlink component is resolved; the not-yet-created leaf stays literal.
     assert got == os.path.realpath(str(link / "proj"))
     assert "/link/" not in got and got.endswith("/proj")
+
+
+def test_reproduce_under_symlinked_dest_no_forbidden_path(tmp_path: Path) -> None:
+    """reproduce() of an _external_data consumer under a symlinked prefix must not
+    raise copier's ForbiddenPathError — every dest entry point canonicalizes (FR-013
+    class, extended to reproduce/update)."""
+    producer = build_template_repo(
+        tmp_path / "producer",
+        files={
+            "copier.yml": _PRODUCER_YML,
+            "template/{{ _copier_conf.answers_file }}.jinja": (
+                "# {{ _copier_conf.answers_file }}\n{{ _copier_answers|to_nice_yaml }}\n"
+            ),
+        },
+    )
+    consumer = build_template_repo(
+        tmp_path / "consumer",
+        files={
+            "copier.yml": _CONSUMER_YML,
+            "template/{{ _copier_conf.answers_file }}.jinja": (
+                "# {{ _copier_conf.answers_file }}\n{{ _copier_answers|to_nice_yaml }}\n"
+            ),
+            "template/who.txt.jinja": "name={{ _external_data.base.project_name }}\n",
+        },
+    )
+    for repo in (producer, consumer):
+        trust.add_trust(repo.url)
+
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    dest = link / "proj"  # dest reached THROUGH the symlink
+
+    runner.init_many(
+        [
+            (_record("producer", producer), {"project_name": "p"}),
+            (_record("consumer", consumer), {}),
+        ],
+        str(dest),
+        today="2026-07-20",
+    )
+    # Reproduce through the symlinked path: must succeed (canonicalized internally),
+    # not raise copier's ForbiddenPathError on the consumer's _external_data read.
+    results = runner.reproduce_many(str(dest))
+    assert len(results) == 2
